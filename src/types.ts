@@ -9,6 +9,7 @@ export interface Profile {
   name: string;
   realname?: string;
   host?: string;
+  account?: string;
   imageUrl: string;
   email: string;
   createdAt?: string;
@@ -231,6 +232,10 @@ export interface Server {
   motdPolicy?: ServerMotdDisplayPolicy;
   displayNameMode?: ServerUserDisplayNameMode;
   parseLegacyZncTimestamps?: boolean;
+  /** Own chat avatar URL announced on this server. */
+  avatarUrl?: string | null;
+  /** Last few avatar URLs used on this server. */
+  recentAvatarUrls?: string[];
 }
 
 export type ServerWithMembersWithProfiles = Server;

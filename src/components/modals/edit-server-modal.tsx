@@ -36,6 +36,7 @@ import {
 } from "@/types";
 import { NotificationSettingsFields } from "@/components/notifications/notification-settings-fields";
 import { CustomCommandsFields, normalizeCustomCommandsFromForm } from "@/components/server/custom-commands-fields";
+import { AvatarSettings } from "@/components/settings/avatar-settings";
 
 const formSchema = z.object({
   name: z.string().min(1, { message: "Server name is required." }),
@@ -405,6 +406,8 @@ export const EditServerModal = () => {
                   </FormItem>
                 )}
               />
+
+              {server?.id && <AvatarSettings serverId={server.id} />}
 
               <div className="flex flex-col gap-2">
                 <FormLabel className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider flex items-center justify-between">

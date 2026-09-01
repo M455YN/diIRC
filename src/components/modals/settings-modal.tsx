@@ -48,6 +48,7 @@ import { MotdDisplayPolicy, UserDisplayNameMode } from "@/types";
 import { playNotificationSound, SoundPreset } from "@/lib/notification-sound";
 import { requestDesktopNotificationPermission } from "@/lib/notification-service";
 import { NotificationSettingsFields } from "@/components/notifications/notification-settings-fields";
+import { AvatarSettings } from "@/components/settings/avatar-settings";
 import { checkForAppUpdate } from "@/lib/update-service";
 import { Update } from "@tauri-apps/plugin-updater";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
@@ -920,6 +921,8 @@ export const SettingsModal = () => {
               </div>
             )}
           </div>
+
+          <AvatarSettings />
 
           {/* SECTION: READING AUTHORIZATION (URL RULES) */}
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">

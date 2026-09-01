@@ -32,6 +32,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { ImageUploadConfig, UrlAuthRule } from "./upload/types";
 import { MESSAGE_DEDUPLICATION_MODE } from "./config";
+import { AVATAR_RECENT_LIMIT, isValidAvatarUrl } from "./avatar";
 
 type IncomingMessageMeta = {
   createdAt?: string;
@@ -461,11 +462,15 @@ interface MockState {
   enableWebPagePreviews: boolean;
   linkPreviewApiUrl: string;
   uploadConfig: ImageUploadConfig;
+  setOwnAvatar: (serverId: string, url: string | null) => void;
+  applyMemberAvatar: (serverId: string, nick: string, url: string, account?: string | null) => void;
   urlAuthRules: UrlAuthRule[];
   ircConnectedServers: Record<string, boolean>;
   ircConnectingServers: Record<string, boolean>;
   ircConnectionErrors: Record<string, string | null>;
   manuallyDisconnectedServers: Record<string, boolean>;
+  serverCaps: Record<string, string[]>;
+  setServerCaps: (serverId: string, caps: string[]) => void;
   statusDisplayMode: StatusDisplayMode;
   dateFormatPreset: string;
   customDateFormat: string;
@@ -558,7 +563,7 @@ interface MockState {
 
   // Member Actions
   removeMember: (serverId: string, memberId: string) => void;
-  addServerMember: (serverId: string, name: string, realname?: string, host?: string) => Member | undefined;
+  addServerMember: (serverId: string, name: string, realname?: string, host?: string, account?: string | null) => Member | undefined;
   removeServerMember: (serverId: string, name: string) => void;
   channelMembers: Record<string, string[]>;
   channelOps: Record<string, string[]>;
@@ -704,6 +709,7 @@ export const useMockStore = create<MockState>()(
       ircConnectingServers: {},
       ircConnectionErrors: {},
       manuallyDisconnectedServers: {},
+      serverCaps: {},
       statusDisplayMode: "always",
       dateFormatPreset: "d MMM yyyy, HH:mm",
       customDateFormat: "yyyy/MM/dd HH:mm",
@@ -800,6 +806,17 @@ export const useMockStore = create<MockState>()(
           ircConnectionErrors: {
             ...state.ircConnectionErrors,
             [serverId]: isConnected ? null : (error ?? state.ircConnectionErrors[serverId] ?? null),
+          },
+          serverCaps: isConnected
+            ? state.serverCaps
+            : Object.fromEntries(Object.entries(state.serverCaps).filter(([id]) => id !== serverId)),
+        })),
+
+      setServerCaps: (serverId, caps) =>
+        set((state) => ({
+          serverCaps: {
+            ...state.serverCaps,
+            [serverId]: caps,
           },
         })),
 
@@ -1075,6 +1092,117 @@ export const useMockStore = create<MockState>()(
       setEnableWebPagePreviews: (enabled: boolean) => set({ enableWebPagePreviews: enabled }),
       setLinkPreviewApiUrl: (url: string) => set({ linkPreviewApiUrl: url }),
       setUploadConfig: (config: ImageUploadConfig) => set({ uploadConfig: config }),
+      setOwnAvatar: (serverId, url) => {
+        if (!serverId) return;
+        const nextUrl = url && isValidAvatarUrl(url) ? url.trim() : null;
+        set((state) => ({
+          servers: state.servers.map((server) => {
+            if (server.id !== serverId) return server;
+            const recent = nextUrl
+              ? [nextUrl, ...(server.recentAvatarUrls || []).filter((item) => item !== nextUrl)].slice(
+                  0,
+                  AVATAR_RECENT_LIMIT
+                )
+              : server.recentAvatarUrls || [];
+            const imageUrl = nextUrl || "";
+            return {
+              ...server,
+              avatarUrl: nextUrl,
+              recentAvatarUrls: recent,
+              members: server.members.map((member) => {
+                const isSelf =
+                  member.profileId === state.currentProfile.id ||
+                  member.id.startsWith("member-") ||
+                  member.id === `${server.id}:self`;
+                if (!isSelf) return member;
+                return {
+                  ...member,
+                  profile: {
+                    ...member.profile,
+                    imageUrl,
+                  },
+                };
+              }),
+            };
+          }),
+        }));
+        invoke("set_own_avatar", { serverId, url: nextUrl }).catch(() => {});
+      },
+      applyMemberAvatar: (serverId, nick, url, account) => {
+        if (!serverId || !nick) return;
+        const nickLower = nick.toLowerCase();
+        const acc = account && account !== "*" ? account.trim() : "";
+        const accLower = acc.toLowerCase();
+        const imageUrl = isValidAvatarUrl(url) ? url.trim() : "";
+        set((state) => {
+          const server = state.servers.find((item) => item.id === serverId);
+          if (!server) return state;
+          const matches = (member: (typeof server.members)[number]) => {
+            if (member.profile.name.toLowerCase() === nickLower) return true;
+            return !!(accLower && member.profile.account?.toLowerCase() === accLower);
+          };
+          const exists = server.members.some(matches);
+          if (!exists) {
+            return state;
+          }
+          let changed = false;
+          const members = server.members.map((member) => {
+            if (!matches(member)) return member;
+            const nextAccount = member.profile.name.toLowerCase() === nickLower && acc
+              ? acc
+              : member.profile.account;
+            if (member.profile.imageUrl === imageUrl && member.profile.account === nextAccount) {
+              return member;
+            }
+            changed = true;
+            return {
+              ...member,
+              profile: {
+                ...member.profile,
+                imageUrl,
+                account: nextAccount,
+              },
+            };
+          });
+          if (!changed) return state;
+          return {
+            servers: state.servers.map((item) =>
+              item.id === serverId ? { ...item, members } : item
+            ),
+          };
+        });
+        if (!imageUrl) return;
+        const after = get().servers.find((item) => item.id === serverId);
+        const hasMember = after?.members.some(
+          (member) =>
+            member.profile.name.toLowerCase() === nickLower ||
+            !!(accLower && member.profile.account?.toLowerCase() === accLower)
+        );
+        if (!hasMember) {
+          get().addServerMember(serverId, nick, undefined, undefined, acc || undefined);
+          set((state) => ({
+            servers: state.servers.map((item) =>
+              item.id === serverId
+                ? {
+                    ...item,
+                    members: item.members.map((member) =>
+                      member.profile.name.toLowerCase() === nickLower
+                        ? {
+                            ...member,
+                            profile: {
+                              ...member.profile,
+                              imageUrl,
+                              account: acc || member.profile.account,
+                            },
+                          }
+                        : member
+                    ),
+                  }
+                : item
+            ),
+          }));
+        }
+      },
       addUrlAuthRule: (rule) =>
         set((state) => ({
           urlAuthRules: [
@@ -1142,6 +1270,8 @@ export const useMockStore = create<MockState>()(
           parseLegacyZncTimestamps: typeof optionsOrName === "object" ? (optionsOrName.parseLegacyZncTimestamps ?? false) : false,
           customCommands,
           imageUrl,
+          avatarUrl: null,
+          recentAvatarUrls: [],
           inviteCode: `invite-${uuidv4().slice(0, 8)}`,
           profileId: get().currentProfile.id,
           channels: [],
@@ -1152,6 +1282,7 @@ export const useMockStore = create<MockState>()(
               profile: {
                 ...get().currentProfile,
                 name: primaryNick,
+                imageUrl: "",
               },
               serverId: newServerId,
             }
@@ -1523,14 +1654,22 @@ export const useMockStore = create<MockState>()(
         }));
       },
 
-      addServerMember: (serverId, name, realname, host) => {
+      addServerMember: (serverId, name, realname, host, account) => {
         if (!name || !name.trim() || name === "***") return undefined;
+        const acc = account && account !== "*" ? account.trim() : "";
         let resultMember: Member | undefined;
         set((state) => {
           const s = state.servers.find((s) => s.id === serverId);
           if (!s) return state;
 
           const exists = s.members.find((m) => m.profile.name.toLowerCase() === name.toLowerCase());
+          const sibling = acc
+            ? s.members.find(
+                (m) =>
+                  m.profile.account?.toLowerCase() === acc.toLowerCase() &&
+                  m.profile.imageUrl
+              )
+            : undefined;
           if (exists) {
             let changed = false;
             const updatedProfile = { ...exists.profile };
@@ -1540,6 +1679,14 @@ export const useMockStore = create<MockState>()(
             }
             if (host && exists.profile.host !== host) {
               updatedProfile.host = host;
+              changed = true;
+            }
+            if (acc && exists.profile.account !== acc) {
+              updatedProfile.account = acc;
+              changed = true;
+            }
+            if (!updatedProfile.imageUrl && sibling?.profile.imageUrl) {
+              updatedProfile.imageUrl = sibling.profile.imageUrl;
               changed = true;
             }
             if (changed) {
@@ -1578,6 +1725,7 @@ export const useMockStore = create<MockState>()(
                     name,
                     realname: realname || s.realname || m.profile.realname,
                     host: host || m.profile.host,
+                    account: acc || m.profile.account,
                   },
                 };
                 if (!updatedSelf) updatedSelf = updated;
@@ -1607,7 +1755,8 @@ export const useMockStore = create<MockState>()(
               name: name,
               realname: realname || "",
               host: host,
-              imageUrl: "",
+              account: acc || undefined,
+              imageUrl: sibling?.profile.imageUrl || "",
               email: `${name}@irc.local`,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -2986,6 +3135,7 @@ export const useMockStore = create<MockState>()(
         ircConnectedServers: {},
         ircConnectingServers: {},
         ircConnectionErrors: {},
+        serverCaps: {},
         historyLoadToken: 0,
         historyWindow: EMPTY_HISTORY_WINDOW,
         servers: state.servers.map((s) => ({
@@ -3007,10 +3157,17 @@ export const useMockStore = create<MockState>()(
           };
         }
         const currentProfileId = persistedState.currentProfile?.id || MOCK_PROFILE.id;
+        const legacyAvatarUrl = isValidAvatarUrl(persistedState?.ownAvatarUrl)
+          ? String(persistedState.ownAvatarUrl).trim()
+          : null;
+        const legacyRecentAvatars = Array.isArray(persistedState?.recentAvatarUrls)
+          ? persistedState.recentAvatarUrls.filter((url: string) => isValidAvatarUrl(url)).slice(0, AVATAR_RECENT_LIMIT)
+          : [];
 
         const sanitizedServers = persistedState.servers.map((s: any) => {
           const nicks = s.nicknames || (s.nickname ? [s.nickname] : ["ReactUser"]);
           const primaryNick = nicks[0] || "ReactUser";
+          const avatarUrl = isValidAvatarUrl(s.avatarUrl) ? s.avatarUrl : legacyAvatarUrl;
 
           const members = (Array.isArray(s.members) ? s.members : []).map((m: any) => {
             if (m.profileId === currentProfileId || m.id?.startsWith("member-")) {
@@ -3019,6 +3176,7 @@ export const useMockStore = create<MockState>()(
                 profile: {
                   ...m.profile,
                   name: primaryNick,
+                  imageUrl: avatarUrl || m.profile?.imageUrl || "",
                 },
               };
             }
@@ -3050,6 +3208,10 @@ export const useMockStore = create<MockState>()(
                 }))
                 .filter((c: CustomCommand) => c.trigger && c.message)
               : [],
+            avatarUrl: avatarUrl || null,
+            recentAvatarUrls: Array.isArray(s.recentAvatarUrls) && s.recentAvatarUrls.length > 0
+              ? s.recentAvatarUrls.filter((url: string) => isValidAvatarUrl(url)).slice(0, AVATAR_RECENT_LIMIT)
+              : legacyRecentAvatars,
           };
         });
 
@@ -3065,11 +3227,17 @@ export const useMockStore = create<MockState>()(
           }
         });
 
+        const {
+          ownAvatarUrl: _legacyOwnAvatarUrl,
+          recentAvatarUrls: _legacyRecentAvatarUrls,
+          ...restPersisted
+        } = persistedState;
+
         return {
           userDisplayNameMode: "nickname",
           nickCompletionFormat: "plain",
           customNickCompletionFormat: "{nick}: ",
-          ...persistedState,
+          ...restPersisted,
           jumbojiSize: typeof persistedState?.jumbojiSize === "number" ? persistedState.jumbojiSize : 42,
           servers: sanitizedServers,
           messages: {},
