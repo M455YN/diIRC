@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { MessageSquare } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMockStore, getServerActiveNick } from "@/lib/mock-store";
+import { requestAvatarIfMissing } from "@/lib/avatar-ctcp";
 import { UserRoleIcon, getHighestChannelRole } from "@/components/user-role-icon";
 import { UserContextMenu } from "@/components/user-context-menu";
 
@@ -80,7 +81,15 @@ export const UserHoverCard = ({
   };
 
   return (
-    <HoverCard openDelay={150} closeDelay={300}>
+    <HoverCard
+      openDelay={150}
+      closeDelay={300}
+      onOpenChange={(open) => {
+        if (open && !isSelf && activeServer && !freshMember.profile.imageUrl) {
+          requestAvatarIfMissing(activeServer.id, nickname);
+        }
+      }}
+    >
       <UserContextMenu member={freshMember} server={activeServer} channel={activeChannel}>
         <HoverCardTrigger asChild>
           {children}
@@ -96,7 +105,7 @@ export const UserHoverCard = ({
           {/* Top Row: Avatar & Action Button */}
           <div className="flex items-center justify-between">
             <UserAvatar
-              src={freshMember.profile.imageUrl}
+              src={(isSelf ? activeServer?.avatarUrl : undefined) || freshMember.profile.imageUrl}
               name={displayName}
               className="h-14 w-14 md:h-14 md:w-14 shadow-sm"
             />

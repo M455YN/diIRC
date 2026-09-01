@@ -15,6 +15,7 @@ import {
   checkIsMention,
 } from "@/lib/notification-service";
 import { IrcMultilineAccumulator } from "@/lib/irc-multiline-accumulator";
+import { discoverAvatars, noteAvatarReconnect, requestAvatarIfMissing } from "@/lib/avatar-ctcp";
 
 interface IrcMessagePayload {
   serverId?: string;
@@ -46,6 +47,7 @@ interface IrcUserHostEventPayload {
   nick: string;
   host: string;
   realname?: string;
+  account?: string | null;
 }
 
 export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
@@ -797,6 +799,36 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }, 100);
 
           if (event_type === "JOIN" || event_type === "NAMES") {
+            const avatarNicks = users
+              .map((u) => u.trim().replace(/^[~&@%+]+/, ""))
+              .filter(Boolean);
+            if (event_type === "NAMES") {
+              discoverAvatars(server_id, avatarNicks, "names");
+              const viewed = useMockStore.getState();
+              const viewedServer = viewed.servers.find((s) => s.id === server_id);
+              const viewedChan = viewedServer?.channels.find(
+                (c) =>
+                  c.name.toLowerCase().replace(/^#/, "") ===
+                  (channel || "").replace(/^#/, "").toLowerCase()
+              );
+              if (
+                viewedChan &&
+                window.location.pathname.includes(`/channels/${viewedChan.id}`)
+              ) {
+                discoverAvatars(server_id, avatarNicks, "revalidate");
+              }
+            } else {
+              const latest = useMockStore.getState();
+              const joinedServer = latest.servers.find((s) => s.id === server_id);
+              const selfNick = joinedServer
+                ? getServerActiveNick(joinedServer).toLowerCase()
+                : "";
+              for (const nick of avatarNicks) {
+                if (nick.toLowerCase() === selfNick) continue;
+                requestAvatarIfMissing(server_id, nick);
+              }
+            }
+
             const store = useMockStore.getState();
             const pending = store.pendingJoin;
             const cleanChan = channel ? channel.replace(/^#/, "") : "";
@@ -864,9 +896,9 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
     const setupHostListener = async () => {
       try {
         const unlistenHost = await listen<IrcUserHostEventPayload>("irc_user_host_event", (event) => {
-          const { server_id, nick, host, realname } = event.payload;
+          const { server_id, nick, host, realname, account } = event.payload;
           if (server_id && nick && host) {
-            useMockStore.getState().addServerMember(server_id, nick, realname, host);
+            useMockStore.getState().addServerMember(server_id, nick, realname, host, account);
           }
         });
 
@@ -882,6 +914,61 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
 
     setupHostListener();
 
+    let unlistenAvatarFn: (() => void) | null = null;
+    const setupAvatarListener = async () => {
+      try {
+        const unlistenAvatar = await listen<{
+          server_id: string;
+          nick: string;
+          url: string;
+          account?: string | null;
+        }>(
+          "irc_avatar",
+          (event) => {
+            const { server_id, nick, url, account } = event.payload;
+            if (server_id && nick) {
+              useMockStore.getState().applyMemberAvatar(server_id, nick, url || "", account);
+            }
+          }
+        );
+
+        if (isCancelled) {
+          unlistenAvatar();
+        } else {
+          unlistenAvatarFn = unlistenAvatar;
+        }
+      } catch (error) {
+        console.error("Failed to setup IRC avatar listener:", error);
+      }
+    };
+
+    setupAvatarListener();
+
+    let unlistenCapsFn: (() => void) | null = null;
+    const setupCapsListener = async () => {
+      try {
+        const unlistenCaps = await listen<{ server_id: string; caps: string[] }>(
+          "irc_caps",
+          (event) => {
+            const { server_id, caps } = event.payload;
+            if (server_id) {
+              useMockStore.getState().setServerCaps(server_id, caps || []);
+            }
+          }
+        );
+
+        if (isCancelled) {
+          unlistenCaps();
+        } else {
+          unlistenCapsFn = unlistenCaps;
+        }
+      } catch (error) {
+        console.error("Failed to setup IRC caps listener:", error);
+      }
+    };
+
+    setupCapsListener();
+
     let unlistenStatusFn: (() => void) | null = null;
     const setupStatusListener = async () => {
       try {
@@ -893,6 +980,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             if (connected) {
               attemptsRef.current.delete(server_id);
               nextReconnectTimeRef.current.delete(server_id);
+              noteAvatarReconnect(server_id);
             } else {
               connectedConfigsRef.current.delete(server_id);
             }
@@ -1263,6 +1351,8 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
       if (unlistenFn) unlistenFn();
       if (unlistenUsersFn) unlistenUsersFn();
       if (unlistenHostFn) unlistenHostFn();
+      if (unlistenAvatarFn) unlistenAvatarFn();
+      if (unlistenCapsFn) unlistenCapsFn();
       if (unlistenStatusFn) unlistenStatusFn();
       if (unlistenWelcomeNickFn) unlistenWelcomeNickFn();
       if (unlistenNickChangeFn) unlistenNickChangeFn();
@@ -1278,6 +1368,18 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
       if (unlistenAwayFn) unlistenAwayFn();
     };
   }, [addMessage, addServerMember, removeServerMember, setIrcConnected]);
+
+  const ownAvatarSyncKey = servers
+    .map((server) => `${server.id}:${server.avatarUrl || ""}`)
+    .join("|");
+  useEffect(() => {
+    for (const server of useMockStore.getState().servers) {
+      invoke("set_own_avatar", {
+        serverId: server.id,
+        url: server.avatarUrl || null,
+      }).catch(() => {});
+    }
+  }, [ownAvatarSyncKey]);
 
   return <>{children}</>;
 };

@@ -2,7 +2,9 @@ import { Channel, Member, Server } from "@/types";
 import { UserAvatar } from "@/components/user-avatar";
 import { UserHoverCard, getMemberDisplayName } from "@/components/user-hover-card";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import { useMockStore, getServerActiveNick } from "@/lib/mock-store";
+import { discoverAvatars } from "@/lib/avatar-ctcp";
 import { cn } from "@/lib/utils";
 import { UserRoleIcon, getHighestChannelRole } from "@/components/user-role-icon";
 import { useUIStore } from "@/hooks/use-ui-store";
@@ -121,6 +123,15 @@ export const ChatMembersSidebar = ({
   }
 
   const totalCount = 1 + otherMembers.length;
+  const nickKey = otherMembers.map((member) => member.profile.name).join("\n");
+
+  useEffect(() => {
+    if (!isConnected || !channel) return;
+    discoverAvatars(
+      server.id,
+      otherMembers.map((member) => member.profile.name)
+    );
+  }, [isConnected, server.id, channel?.id, nickKey]);
 
   const onMemberClick = (memberId: string) => {
     if (selfMember?.id === memberId) return;
@@ -149,7 +160,7 @@ export const ChatMembersSidebar = ({
         >
           <div className="relative shrink-0">
             <UserAvatar 
-              src={member.profile.imageUrl}
+              src={isSelf ? (server.avatarUrl || member.profile.imageUrl) : member.profile.imageUrl}
               name={displayName}
               className="h-8 w-8 md:h-8 md:w-8"
             />

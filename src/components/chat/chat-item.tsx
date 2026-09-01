@@ -141,6 +141,16 @@ const ChatItemInner = ({
   const servers = useMockStore((state) => state.servers);
   const currentProfile = useMockStore((state) => state.currentProfile);
   const activeServer = servers.find((s) => s.id === params?.serverId) || servers[0];
+  const liveMember =
+    activeServer?.members.find(
+      (item) =>
+        item.id === member.id ||
+        item.profile.name.toLowerCase() === member.profile.name.toLowerCase()
+    ) || member;
+  const isSelfMember =
+    liveMember.profileId === currentProfile.id ||
+    liveMember.profile.name.toLowerCase() === currentMember?.profile?.name?.toLowerCase();
+  const avatarUrl = (isSelfMember ? activeServer?.avatarUrl : undefined) || liveMember.profile.imageUrl || member.profile.imageUrl;
   const displayName = getMemberDisplayName(member, activeServer);
 
   const myNicks = useMemo(() => {
@@ -353,7 +363,7 @@ const ChatItemInner = ({
         {!compactMode && !compact ? (
           <UserHoverCard member={member} server={activeServer} side="right">
             <div onClick={onMemberClick} className="cursor-pointer hover:drop-shadow-md transition shrink-0">
-              <UserAvatar src={member.profile.imageUrl} name={displayName} className="h-10 w-10 md:h-10 md:w-10" />
+              <UserAvatar src={avatarUrl} name={displayName} className="h-10 w-10 md:h-10 md:w-10" />
             </div>
           </UserHoverCard>
         ) : !compactMode && compact ? (
