@@ -5,8 +5,10 @@ use irc::client::prelude::*;
 use irc::proto::message::Tag;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, SeekFrom};
@@ -108,6 +110,284 @@ struct IrcUserHostEvent {
     nick: String,
     host: String,
     realname: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    account: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+struct IrcAvatarEvent {
+    server_id: String,
+    nick: String,
+    url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    account: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+struct IrcCapsEvent {
+    server_id: String,
+    caps: Vec<String>,
+}
+
+const AVATAR_TAG_KEY: &str = "+diirc/avatar";
+const AVATAR_MAX_URL_BYTES: usize = 200;
+
+fn sanitize_avatar_url(url: &str) -> Option<String> {
+    let trimmed = url.trim();
+    if trimmed.len() < 12 || trimmed.len() > AVATAR_MAX_URL_BYTES {
+        return None;
+    }
+    if !(trimmed.starts_with("https://") || trimmed.starts_with("http://")) {
+        return None;
+    }
+    if trimmed
+        .bytes()
+        .any(|b| b <= 32 || b == b';' || b == 0x7f)
+    {
+        return None;
+    }
+    Some(trimmed.to_string())
+}
+
+fn extract_avatar_tag(tags: &Option<Vec<Tag>>) -> Option<String> {
+    let value = irc_tag_value(tags, &["diirc/avatar", "+diirc/avatar"])?;
+    sanitize_avatar_url(&value)
+}
+
+fn outgoing_client_tags(
+    has_message_tags: bool,
+    reply_msgid: Option<&str>,
+    avatar_url: Option<&str>,
+) -> Option<Vec<Tag>> {
+    if !has_message_tags {
+        return None;
+    }
+    let mut tags = Vec::new();
+    if let Some(msgid) = reply_msgid {
+        tags.push(Tag("+draft/reply".to_string(), Some(msgid.to_string())));
+    }
+    if let Some(url) = avatar_url.and_then(sanitize_avatar_url) {
+        tags.push(Tag(AVATAR_TAG_KEY.to_string(), Some(url)));
+    }
+    if tags.is_empty() {
+        None
+    } else {
+        Some(tags)
+    }
+}
+
+const WANTED_STANDARD_CAPS: &[&str] = &[
+    "server-time",
+    "away-notify",
+    "batch",
+    "echo-message",
+    "message-tags",
+    "account-tag",
+    "extended-join",
+    "znc.in/server-time-iso",
+    "znc.in/self-message",
+];
+const METADATA_JOIN_WAIT: Duration = Duration::from_millis(1500);
+const METADATA_SYNC_DELAY_DEFAULT: u64 = 2;
+const METADATA_SYNC_DELAY_MAX: u64 = 30;
+const AVATAR_CACHE_LIMIT: usize = 200;
+const AVATAR_FETCH_MAX_BYTES: usize = 256 * 1024;
+
+fn cap_token_name(token: &str) -> &str {
+    token.split('=').next().unwrap_or(token)
+}
+
+fn offered_caps_contain(offered: &str, wanted: &str) -> bool {
+    offered
+        .split_whitespace()
+        .any(|token| cap_token_name(token).eq_ignore_ascii_case(wanted))
+}
+
+fn select_requested_caps(offered: &str) -> Vec<&'static str> {
+    let mut requested: Vec<&'static str> = WANTED_STANDARD_CAPS
+        .iter()
+        .copied()
+        .filter(|cap| offered_caps_contain(offered, cap))
+        .collect();
+    if offered_caps_contain(offered, "draft/metadata-2") {
+        requested.push("draft/metadata-2");
+    } else if offered_caps_contain(offered, "draft/metadata") {
+        requested.push("draft/metadata");
+    } else if offered_caps_contain(offered, "metadata") {
+        requested.push("metadata");
+    }
+    requested
+}
+
+fn has_metadata_cap(caps: &HashSet<String>) -> bool {
+    caps.iter().any(|cap| {
+        let name = cap_token_name(cap);
+        name.eq_ignore_ascii_case("draft/metadata-2")
+            || name.eq_ignore_ascii_case("draft/metadata")
+            || name.eq_ignore_ascii_case("metadata")
+    })
+}
+
+fn parse_ctcp_payload(content: &str) -> Option<&str> {
+    let rest = content.strip_prefix('\u{0001}')?;
+    Some(rest.strip_suffix('\u{0001}').unwrap_or(rest))
+}
+
+fn parse_ctcp_avatar_url(payload: &str) -> Option<String> {
+    let payload = payload.trim();
+    let (cmd, rest) = match payload.split_once(char::is_whitespace) {
+        Some((cmd, rest)) => (cmd, rest.trim()),
+        None => return None,
+    };
+    if !cmd.eq_ignore_ascii_case("AVATAR") {
+        return None;
+    }
+    let url = rest.split_whitespace().next()?;
+    sanitize_avatar_url(url)
+}
+
+fn is_ctcp_avatar_query(payload: &str) -> bool {
+    payload.trim().eq_ignore_ascii_case("AVATAR")
+}
+
+fn metadata_target_nick(args: &[String]) -> Option<&str> {
+    let avatar_idx = args
+        .iter()
+        .position(|arg| arg.eq_ignore_ascii_case("avatar"))?;
+    if avatar_idx == 0 {
+        return None;
+    }
+    let target = args.get(avatar_idx - 1)?;
+    if target == "*" || target.starts_with('#') || target.starts_with('&') || !is_irc_nick(target)
+    {
+        return None;
+    }
+    Some(target.as_str())
+}
+
+fn extract_metadata_avatar(args: &[String]) -> Option<(String, String)> {
+    let target = metadata_target_nick(args)?;
+    let value = args.last()?;
+    if value.eq_ignore_ascii_case("avatar") || value == target {
+        return None;
+    }
+    let url = sanitize_avatar_url(value)?;
+    Some((target.to_string(), url))
+}
+
+fn extract_metadata_avatar_clear(args: &[String]) -> Option<String> {
+    if extract_metadata_avatar(args).is_some() {
+        return None;
+    }
+    let target = metadata_target_nick(args)?;
+    let value = args.last().map(String::as_str).unwrap_or("");
+    if value.eq_ignore_ascii_case("avatar") || value == target {
+        return None;
+    }
+    if value.is_empty() || value.eq_ignore_ascii_case("key not set") {
+        return Some(target.to_string());
+    }
+    None
+}
+
+fn parse_metadata_sync_later(args: &[String]) -> Option<(String, u64)> {
+    let target = args.get(1)?.trim();
+    if target.is_empty() || target == "*" {
+        return None;
+    }
+    let delay = args
+        .get(2)
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(METADATA_SYNC_DELAY_DEFAULT)
+        .clamp(1, METADATA_SYNC_DELAY_MAX);
+    Some((target.to_string(), delay))
+}
+
+fn offered_metadata_before_connect(offered: &str) -> bool {
+    offered.split_whitespace().any(|token| {
+        let (name, rest) = token.split_once('=').unwrap_or((token, ""));
+        if !name.eq_ignore_ascii_case("draft/metadata-2")
+            && !name.eq_ignore_ascii_case("draft/metadata")
+            && !name.eq_ignore_ascii_case("metadata")
+        {
+            return false;
+        }
+        rest.split(',').any(|part| {
+            cap_token_name(part).eq_ignore_ascii_case("before-connect")
+        })
+    })
+}
+
+fn metadata_sub_args() -> Vec<String> {
+    vec![
+        "*".to_string(),
+        "SUB".to_string(),
+        "avatar".to_string(),
+    ]
+}
+
+fn metadata_get_args(nick: &str) -> Vec<String> {
+    vec![
+        nick.to_string(),
+        "GET".to_string(),
+        "avatar".to_string(),
+    ]
+}
+
+fn logged_account(value: Option<&str>) -> Option<String> {
+    let trimmed = value?.trim();
+    if trimmed.is_empty() || trimmed == "*" {
+        return None;
+    }
+    Some(trimmed.to_string())
+}
+
+fn send_channel_joins(sender: &Sender, channels: &[ChannelConfig]) {
+    for chan in channels {
+        let mut formatted = chan.name.clone();
+        if !formatted.starts_with('#') && !formatted.starts_with('&') {
+            formatted = format!("#{formatted}");
+        }
+        let key = chan.password.clone().filter(|p| !p.trim().is_empty());
+        if let Some(k) = key {
+            let _ = sender.send(Command::JOIN(formatted, Some(k), None));
+        } else {
+            let _ = sender.send_join(&formatted);
+        }
+    }
+}
+
+fn emit_avatar(app: &AppHandle, server_id: &str, nick: &str, url: &str, account: Option<String>) {
+    let _ = app.emit(
+        "irc_avatar",
+        IrcAvatarEvent {
+            server_id: server_id.to_string(),
+            nick: nick.to_string(),
+            url: url.to_string(),
+            account,
+        },
+    );
+}
+
+fn avatar_cache_key(url: &str) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in url.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x1000_0000_01b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn metadata_set_args(url: Option<&str>) -> Vec<String> {
+    let mut args = vec![
+        "*".to_string(),
+        "SET".to_string(),
+        "avatar".to_string(),
+    ];
+    if let Some(value) = url {
+        args.push(value.to_string());
+    }
+    args
 }
 
 fn emit_user_host(
@@ -117,6 +397,7 @@ fn emit_user_host(
     user: &str,
     host: &str,
     realname: Option<String>,
+    account: Option<String>,
 ) {
     if nick.is_empty() || host.is_empty() {
         return;
@@ -133,6 +414,7 @@ fn emit_user_host(
             nick: nick.to_string(),
             host: hostmask,
             realname,
+            account,
         },
     );
 }
@@ -526,6 +808,8 @@ struct IrcState {
     recent_sent_messages: Arc<Mutex<Vec<RecentSentMessage>>>,
     /// IRCv3 capabilities acknowledged per server_id
     server_caps: Arc<Mutex<HashMap<String, HashSet<String>>>>,
+    /// Per-server avatar URL attached as `+diirc/avatar` on PRIVMSG.
+    own_avatars: Arc<Mutex<HashMap<String, String>>>,
 }
 
 #[derive(Clone)]
@@ -1484,6 +1768,7 @@ async fn connect_irc(
     let channel_members_clone = state.channel_members.clone();
     let recent_sent_clone = state.recent_sent_messages.clone();
     let server_caps_clone = state.server_caps.clone();
+    let own_avatars_clone = state.own_avatars.clone();
     let app_clone = app.clone();
     let log_state_clone = LogState {
         writers: log_state.writers.clone(),
@@ -1519,6 +1804,10 @@ async fn connect_irc(
 
         let mut last_error: Option<String> = None;
         let mut motd_buffer: Vec<String> = Vec::new();
+        let mut metadata_before_connect = false;
+        let mut metadata_sub_sent = false;
+        let mut welcome_received = false;
+        let joins_sent = Arc::new(AtomicBool::new(false));
 
         while let Some(message_res) = stream.next().await {
             match message_res {
@@ -1529,12 +1818,10 @@ async fn connect_irc(
                             let sub_str = format!("{:?}", subcmd);
                             if sub_str == "LS" {
                                 let cap_str = cap_name.as_deref().unwrap_or("");
-                                let wanted = ["server-time", "away-notify", "batch", "echo-message", "message-tags", "znc.in/server-time-iso", "znc.in/self-message"];
-                                let requested = wanted
-                                    .iter()
-                                    .filter(|&&c| cap_str.split_whitespace().any(|s| s == c))
-                                    .copied()
-                                    .collect::<Vec<_>>();
+                                if offered_metadata_before_connect(cap_str) {
+                                    metadata_before_connect = true;
+                                }
+                                let requested = select_requested_caps(cap_str);
                                 if !requested.is_empty() {
                                     if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
                                         let _ = sender.send(Command::Raw(
@@ -1566,9 +1853,42 @@ async fn connect_irc(
                                             entry.insert(cap.to_ascii_lowercase());
                                         }
                                         log::info!("IRC [{}] CAP ACK: {}", stream_server_id, caps);
+                                        let cap_list: Vec<String> = {
+                                            let map = server_caps_clone.lock().await;
+                                            map.get(&stream_server_id)
+                                                .map(|set| set.iter().cloned().collect())
+                                                .unwrap_or_default()
+                                        };
+                                        let _ = app_clone.emit(
+                                            "irc_caps",
+                                            IrcCapsEvent {
+                                                server_id: stream_server_id.clone(),
+                                                caps: cap_list,
+                                            },
+                                        );
                                     }
                                 }
-                                if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
+                                if let Some(sender) =
+                                    senders_clone.lock().await.get(&stream_server_id).cloned()
+                                {
+                                    if sub_str == "ACK"
+                                        && metadata_before_connect
+                                        && !metadata_sub_sent
+                                    {
+                                        let has_meta = {
+                                            let caps = server_caps_clone.lock().await;
+                                            caps.get(&stream_server_id)
+                                                .map(has_metadata_cap)
+                                                .unwrap_or(false)
+                                        };
+                                        if has_meta {
+                                            let _ = sender.send(Command::Raw(
+                                                "METADATA".to_string(),
+                                                metadata_sub_args(),
+                                            ));
+                                            metadata_sub_sent = true;
+                                        }
+                                    }
                                     let _ = sender.send(Command::Raw(
                                         "CAP".to_string(),
                                         vec!["END".to_string()],
@@ -1576,12 +1896,7 @@ async fn connect_irc(
                                 }
                             } else if sub_str == "NEW" {
                                 let cap_str = cap_name.as_deref().unwrap_or("");
-                                let wanted = ["server-time", "away-notify", "batch", "echo-message", "message-tags", "znc.in/server-time-iso", "znc.in/self-message"];
-                                let requested = wanted
-                                    .iter()
-                                    .filter(|&&c| cap_str.split_whitespace().any(|s| s == c))
-                                    .copied()
-                                    .collect::<Vec<_>>();
+                                let requested = select_requested_caps(cap_str);
                                 if !requested.is_empty() {
                                     if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
                                         log::info!("IRC [{}] CAP NEW received, requesting: {:?}", stream_server_id, requested);
@@ -1596,10 +1911,22 @@ async fn connect_irc(
                         Command::PRIVMSG(ref channel, ref raw_content) | Command::NOTICE(ref channel, ref raw_content) => {
                             let mut content = raw_content.clone();
                             let (msgid, reply_to_msgid) = extract_reply_tags(&message.tags);
+                            let avatar_url = extract_avatar_tag(&message.tags);
+                            let account = logged_account(
+                                irc_tag_value(&message.tags, &["account"]).as_deref(),
+                            );
                             if let Some(source) = message.prefix {
                                 let sender_name = match source.clone() {
                                     Prefix::Nickname(nick, user, host) => {
-                                        emit_user_host(&app_clone, &stream_server_id, &nick, &user, &host, None);
+                                        emit_user_host(
+                                            &app_clone,
+                                            &stream_server_id,
+                                            &nick,
+                                            &user,
+                                            &host,
+                                            None,
+                                            account.clone(),
+                                        );
                                         nick
                                     }
                                     Prefix::ServerName(name) => name,
@@ -1611,6 +1938,39 @@ async fn connect_irc(
                                 });
 
                                 let timestamp = extract_message_timestamp(&message.tags, &mut content, parse_legacy_znc_timestamps);
+
+                                if let Some(ctcp) = parse_ctcp_payload(&content) {
+                                    if is_ctcp_avatar_query(ctcp) {
+                                        let is_privmsg = matches!(message.command, Command::PRIVMSG(..));
+                                        let is_direct = !channel.starts_with('#') && !channel.starts_with('&');
+                                        if is_privmsg && is_direct && !is_self_sender {
+                                            if let Some(url) = own_avatars_clone
+                                                .lock()
+                                                .await
+                                                .get(&stream_server_id)
+                                                .cloned()
+                                            {
+                                                if let Some(sender) =
+                                                    senders_clone.lock().await.get(&stream_server_id)
+                                                {
+                                                    let reply = format!("\u{0001}AVATAR {url}\u{0001}");
+                                                    let _ = sender.send_notice(&sender_name, &reply);
+                                                }
+                                            }
+                                        }
+                                        continue;
+                                    }
+                                    if let Some(url) = parse_ctcp_avatar_url(ctcp) {
+                                        emit_avatar(
+                                            &app_clone,
+                                            &stream_server_id,
+                                            &sender_name,
+                                            &url,
+                                            account.clone(),
+                                        );
+                                        continue;
+                                    }
+                                }
 
                                 if is_self_sender {
                                     let mut recent = recent_sent_clone.lock().await;
@@ -1664,6 +2024,15 @@ async fn connect_irc(
                                     }
                                 }
 
+                                if let Some(url) = avatar_url {
+                                    emit_avatar(
+                                        &app_clone,
+                                        &stream_server_id,
+                                        &sender_name,
+                                        &url,
+                                        account.clone(),
+                                    );
+                                }
                                 let payload = IrcMessage {
                                     server_id: stream_server_id.clone(),
                                     sender: sender_name.clone(),
@@ -1689,11 +2058,25 @@ async fn connect_irc(
                                 }
                             }
                         }
-                        Command::JOIN(channel, _, _) => {
+                        Command::JOIN(channel, ref join_account, ref join_realname) => {
+                            let account = logged_account(join_account.as_deref());
+                            let realname = join_realname
+                                .as_deref()
+                                .map(str::trim)
+                                .filter(|value| !value.is_empty())
+                                .map(str::to_string);
                             if let Some(source) = message.prefix {
                                 let sender_name = match source.clone() {
                                     Prefix::Nickname(nick, user, host) => {
-                                        emit_user_host(&app_clone, &stream_server_id, &nick, &user, &host, None);
+                                        emit_user_host(
+                                            &app_clone,
+                                            &stream_server_id,
+                                            &nick,
+                                            &user,
+                                            &host,
+                                            realname,
+                                            account,
+                                        );
                                         nick
                                     }
                                     Prefix::ServerName(name) => name,
@@ -1970,18 +2353,57 @@ async fn connect_irc(
                                     error: None,
                                 },
                             );
-                            if let Some(s) = senders_clone.lock().await.get(&stream_server_id) {
-                                for chan in &initial_channels {
-                                    let mut formatted = chan.name.clone();
-                                    if !formatted.starts_with('#') {
-                                        formatted = format!("#{}", formatted);
+                            welcome_received = true;
+                            if let Some(s) =
+                                senders_clone.lock().await.get(&stream_server_id).cloned()
+                            {
+                                let metadata_ok = {
+                                    let caps = server_caps_clone.lock().await;
+                                    caps.get(&stream_server_id)
+                                        .map(has_metadata_cap)
+                                        .unwrap_or(false)
+                                };
+                                if metadata_ok {
+                                    if !metadata_sub_sent {
+                                        let _ = s.send(Command::Raw(
+                                            "METADATA".to_string(),
+                                            metadata_sub_args(),
+                                        ));
+                                        metadata_sub_sent = true;
                                     }
-                                    let key = chan.password.clone().filter(|p| !p.trim().is_empty());
-                                    if let Some(k) = key {
-                                        let _ = s.send(Command::JOIN(formatted, Some(k), None));
-                                    } else {
-                                        let _ = s.send_join(&formatted);
+                                    if let Some(url) = own_avatars_clone
+                                        .lock()
+                                        .await
+                                        .get(&stream_server_id)
+                                        .cloned()
+                                    {
+                                        let _ = s.send(Command::Raw(
+                                            "METADATA".to_string(),
+                                            metadata_set_args(Some(&url)),
+                                        ));
                                     }
+                                }
+                                let join_now = !metadata_ok || metadata_before_connect;
+                                if join_now {
+                                    if !joins_sent.swap(true, Ordering::SeqCst) {
+                                        send_channel_joins(&s, &initial_channels);
+                                    }
+                                } else {
+                                    let timeout_senders = senders_clone.clone();
+                                    let timeout_id = stream_server_id.clone();
+                                    let timeout_channels = initial_channels.clone();
+                                    let timeout_flag = joins_sent.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        tokio::time::sleep(METADATA_JOIN_WAIT).await;
+                                        if timeout_flag.swap(true, Ordering::SeqCst) {
+                                            return;
+                                        }
+                                        if let Some(sender) =
+                                            timeout_senders.lock().await.get(&timeout_id)
+                                        {
+                                            send_channel_joins(sender, &timeout_channels);
+                                        }
+                                    });
                                 }
                             }
                         }
@@ -2078,6 +2500,45 @@ async fn connect_irc(
                                 error: err_msg,
                             };
                             let _ = app_clone.emit("irc_mode_error", err_payload);
+                        }
+                        Command::Raw(ref cmd, ref args)
+                            if cmd.eq_ignore_ascii_case("METADATA")
+                                || cmd == "761"
+                                || cmd == "760"
+                                || cmd == "766" =>
+                        {
+                            if let Some((nick, url)) = extract_metadata_avatar(args) {
+                                emit_avatar(&app_clone, &stream_server_id, &nick, &url, None);
+                            } else if let Some(nick) = extract_metadata_avatar_clear(args) {
+                                emit_avatar(&app_clone, &stream_server_id, &nick, "", None);
+                            }
+                        }
+                        Command::Raw(ref cmd, _args) if cmd == "770" => {
+                            if welcome_received && !joins_sent.swap(true, Ordering::SeqCst) {
+                                if let Some(sender) = senders_clone
+                                    .lock()
+                                    .await
+                                    .get(&stream_server_id)
+                                    .cloned()
+                                {
+                                    send_channel_joins(&sender, &initial_channels);
+                                }
+                            }
+                        }
+                        Command::Raw(ref cmd, ref args) if cmd == "774" => {
+                            if let Some((target, delay)) = parse_metadata_sync_later(args) {
+                                let sync_senders = senders_clone.clone();
+                                let sync_id = stream_server_id.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    tokio::time::sleep(Duration::from_secs(delay)).await;
+                                    if let Some(sender) = sync_senders.lock().await.get(&sync_id) {
+                                        let _ = sender.send(Command::Raw(
+                                            "METADATA".to_string(),
+                                            vec![target, "SYNC".to_string()],
+                                        ));
+                                    }
+                                });
+                            }
                         }
                         Command::Raw(ref cmd, ref args) if cmd == "472" => {
                             let mode_flag = args.get(1).cloned().unwrap_or_default();
@@ -2858,7 +3319,7 @@ async fn connect_irc(
                                 let user = args.get(2).map(|s| s.as_str()).unwrap_or("");
                                 let host = args.get(3).map(|s| s.as_str()).unwrap_or("");
                                 let realname = args.get(7).map(|r| r.trim_start_matches("0 ").trim().to_string()).filter(|r| !r.is_empty());
-                                emit_user_host(&app_clone, &stream_server_id, nick, user, host, realname);
+                                emit_user_host(&app_clone, &stream_server_id, nick, user, host, realname, None);
                             }
                             if args.len() >= 7 {
                                 let nick = args[5].clone();
@@ -2881,7 +3342,7 @@ async fn connect_irc(
                                 let user = args.get(2).map(|s| s.as_str()).unwrap_or("");
                                 let host = args.get(3).map(|s| s.as_str()).unwrap_or("");
                                 let realname = args.get(7).map(|r| r.trim_start_matches("0 ").trim().to_string()).filter(|r| !r.is_empty());
-                                emit_user_host(&app_clone, &stream_server_id, nick, user, host, realname);
+                                emit_user_host(&app_clone, &stream_server_id, nick, user, host, realname, None);
                             }
                             if args.len() >= 7 {
                                 let nick = args[5].clone();
@@ -3134,6 +3595,168 @@ async fn connect_irc(
 }
 
 #[tauri::command]
+async fn set_own_avatar(
+    state: State<'_, IrcState>,
+    server_id: String,
+    url: Option<String>,
+) -> Result<(), String> {
+    if server_id.trim().is_empty() {
+        return Err("Missing server id for avatar.".to_string());
+    }
+    let sanitized = url.as_deref().and_then(sanitize_avatar_url);
+    {
+        let mut avatars = state.own_avatars.lock().await;
+        match &sanitized {
+            Some(value) => {
+                avatars.insert(server_id.clone(), value.clone());
+            }
+            None => {
+                avatars.remove(&server_id);
+            }
+        }
+    }
+    let has_meta = {
+        let caps = state.server_caps.lock().await;
+        caps.get(&server_id).map(has_metadata_cap).unwrap_or(false)
+    };
+    if has_meta {
+        if let Some(sender) = state.senders.lock().await.get(&server_id) {
+            let _ = sender.send(Command::Raw(
+                "METADATA".to_string(),
+                metadata_set_args(sanitized.as_deref()),
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn request_nick_avatar(
+    state: State<'_, IrcState>,
+    server_id: String,
+    nick: String,
+) -> Result<(), String> {
+    let nick = nick.trim();
+    if nick.is_empty() || !is_irc_nick(nick) {
+        return Err("Invalid nickname for avatar request.".to_string());
+    }
+    let own = state.nicknames.lock().await.get(&server_id).cloned();
+    if own
+        .as_deref()
+        .is_some_and(|value| value.eq_ignore_ascii_case(nick))
+    {
+        return Ok(());
+    }
+    let has_meta = {
+        let caps = state.server_caps.lock().await;
+        caps.get(&server_id).map(has_metadata_cap).unwrap_or(false)
+    };
+    let senders = state.senders.lock().await;
+    let sender = senders
+        .get(&server_id)
+        .ok_or_else(|| format!("Not connected to server {server_id}"))?;
+    if has_meta {
+        sender
+            .send(Command::Raw(
+                "METADATA".to_string(),
+                metadata_get_args(nick),
+            ))
+            .map_err(|error| error.to_string())
+    } else {
+        sender
+            .send_privmsg(nick, "\u{0001}AVATAR\u{0001}")
+            .map_err(|error| error.to_string())
+    }
+}
+
+#[tauri::command]
+async fn request_ctcp_avatar(
+    state: State<'_, IrcState>,
+    server_id: String,
+    nick: String,
+) -> Result<(), String> {
+    request_nick_avatar(state, server_id, nick).await
+}
+
+fn avatar_cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Failed to resolve application data directory: {error}"))?
+        .join("avatars"))
+}
+
+async fn prune_avatar_cache(dir: &Path) {
+    let mut reader = match fs::read_dir(dir).await {
+        Ok(reader) => reader,
+        Err(_) => return,
+    };
+    let mut files: Vec<(PathBuf, Option<std::time::SystemTime>)> = Vec::new();
+    while let Ok(Some(entry)) = reader.next_entry().await {
+        if let Ok(meta) = entry.metadata().await {
+            if meta.is_file() {
+                files.push((entry.path(), meta.modified().ok()));
+            }
+        }
+    }
+    if files.len() < AVATAR_CACHE_LIMIT {
+        return;
+    }
+    files.sort_by_key(|(_, modified)| modified.clone());
+    let extra = files.len().saturating_sub(AVATAR_CACHE_LIMIT.saturating_sub(1));
+    for (path, _) in files.into_iter().take(extra) {
+        let _ = fs::remove_file(path).await;
+    }
+}
+
+#[tauri::command]
+async fn load_cached_avatar(app: AppHandle, url: String) -> Result<Option<String>, String> {
+    let Some(url) = sanitize_avatar_url(&url) else {
+        return Ok(None);
+    };
+    let path = avatar_cache_dir(&app)?.join(format!("{}.jpg", avatar_cache_key(&url)));
+    match fs::read(&path).await {
+        Ok(bytes)
+            if !bytes.is_empty() && bytes.len() <= AVATAR_FETCH_MAX_BYTES =>
+        {
+            let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+            Ok(Some(format!("data:image/jpeg;base64,{encoded}")))
+        }
+        _ => Ok(None),
+    }
+}
+
+#[tauri::command]
+async fn store_cached_avatar(
+    app: AppHandle,
+    url: String,
+    data_url: String,
+) -> Result<(), String> {
+    let Some(url) = sanitize_avatar_url(&url) else {
+        return Err("Invalid avatar URL.".to_string());
+    };
+    let encoded = data_url
+        .strip_prefix("data:image/jpeg;base64,")
+        .or_else(|| data_url.strip_prefix("data:image/jpg;base64,"))
+        .ok_or_else(|| "Expected a JPEG data URL.".to_string())?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .map_err(|error| error.to_string())?;
+    if bytes.is_empty() || bytes.len() > AVATAR_FETCH_MAX_BYTES {
+        return Err("Avatar image is empty or too large.".to_string());
+    }
+    let dir = avatar_cache_dir(&app)?;
+    fs::create_dir_all(&dir)
+        .await
+        .map_err(|error| error.to_string())?;
+    prune_avatar_cache(&dir).await;
+    let path = dir.join(format!("{}.jpg", avatar_cache_key(&url)));
+    fs::write(path, bytes)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 async fn send_message(
     app: AppHandle,
     state: State<'_, IrcState>,
@@ -3180,29 +3803,33 @@ async fn send_message(
             &message,
             budget,
         );
+        let own_avatar = state
+            .own_avatars
+            .lock()
+            .await
+            .get(&server_id)
+            .cloned();
+        let outgoing_tags = outgoing_client_tags(
+            has_message_tags,
+            reply_msgid,
+            own_avatar.as_deref(),
+        );
 
-        let send_result = if has_message_tags {
-            if let Some(msgid) = reply_msgid {
-                match Message::with_tags(
-                    Some(vec![Tag(
-                        "+draft/reply".to_string(),
-                        Some(msgid.to_string()),
-                    )]),
-                    None,
-                    "PRIVMSG",
-                    vec![&channel, &wire_message],
-                ) {
-                    Ok(tagged) => sender.send(tagged),
-                    Err(error) => {
-                        log::warn!(
-                            "Failed to build tagged reply PRIVMSG, falling back: {}",
-                            error
-                        );
-                        sender.send_privmsg(&channel, &wire_message)
-                    }
+        let send_result = if let Some(tags) = outgoing_tags {
+            match Message::with_tags(
+                Some(tags),
+                None,
+                "PRIVMSG",
+                vec![&channel, &wire_message],
+            ) {
+                Ok(tagged) => sender.send(tagged),
+                Err(error) => {
+                    log::warn!(
+                        "Failed to build tagged PRIVMSG, falling back: {}",
+                        error
+                    );
+                    sender.send_privmsg(&channel, &wire_message)
                 }
-            } else {
-                sender.send_privmsg(&channel, &wire_message)
             }
         } else {
             sender.send_privmsg(&channel, &wire_message)
@@ -3942,6 +4569,7 @@ pub fn run() {
             channel_members: Arc::new(Mutex::new(HashMap::new())),
             recent_sent_messages: Arc::new(Mutex::new(Vec::new())),
             server_caps: Arc::new(Mutex::new(HashMap::new())),
+            own_avatars: Arc::new(Mutex::new(HashMap::new())),
         })
         .manage(LogState {
             writers: Arc::new(Mutex::new(HashMap::new())),
@@ -3956,6 +4584,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             connect_irc,
             send_message,
+            set_own_avatar,
+            request_nick_avatar,
+            request_ctcp_avatar,
+            load_cached_avatar,
+            store_cached_avatar,
             load_log_tail,
             load_log_page,
             list_logged_conversations,
@@ -4103,6 +4736,146 @@ mod reply_compat_tests {
         assert_eq!(
             format_compat_reply(Some("n"), Some("p"), "\u{0001}ACTION hi\u{0001}", 400),
             "\u{0001}ACTION hi\u{0001}"
+        );
+    }
+
+    #[test]
+    fn sanitize_avatar_url_accepts_http_hosts() {
+        assert_eq!(
+            sanitize_avatar_url("https://a.pomf.cat/abc.png").as_deref(),
+            Some("https://a.pomf.cat/abc.png")
+        );
+        assert_eq!(
+            sanitize_avatar_url("http://127.0.0.1:8080/avatar.jpg").as_deref(),
+            Some("http://127.0.0.1:8080/avatar.jpg")
+        );
+    }
+
+    #[test]
+    fn sanitize_avatar_url_rejects_junk() {
+        assert!(sanitize_avatar_url("javascript:alert(1)").is_none());
+        assert!(sanitize_avatar_url("https://evil.example/a.png;foo").is_none());
+        assert!(sanitize_avatar_url("https://evil.example/a png").is_none());
+        assert!(sanitize_avatar_url("ftp://files.example/a.png").is_none());
+        assert!(sanitize_avatar_url(&format!("https://a.pomf.cat/{}", "x".repeat(200))).is_none());
+    }
+
+    #[test]
+    fn outgoing_avatar_tag_does_not_require_reply() {
+        let tags = outgoing_client_tags(
+            true,
+            None,
+            Some("https://a.pomf.cat/abc.png"),
+        )
+        .expect("tags");
+        assert_eq!(tags.len(), 1);
+        assert_eq!(tags[0].0, AVATAR_TAG_KEY);
+        assert_eq!(tags[0].1.as_deref(), Some("https://a.pomf.cat/abc.png"));
+    }
+
+    #[test]
+    fn outgoing_tags_skip_when_server_lacks_message_tags() {
+        assert!(outgoing_client_tags(
+            false,
+            Some("mid"),
+            Some("https://a.pomf.cat/abc.png"),
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn metadata_cap_prefers_draft_metadata_2() {
+        let requested = select_requested_caps(
+            "message-tags draft/metadata-2=before-connect,max-subs=20 draft/metadata account-tag",
+        );
+        assert!(requested.contains(&"message-tags"));
+        assert!(requested.contains(&"draft/metadata-2"));
+        assert!(requested.contains(&"account-tag"));
+        assert!(!requested.contains(&"draft/metadata"));
+    }
+
+    #[test]
+    fn metadata_before_connect_token_from_ls() {
+        assert!(offered_metadata_before_connect(
+            "draft/metadata-2=before-connect,max-subs=20"
+        ));
+        assert!(!offered_metadata_before_connect(
+            "draft/metadata-2=max-subs=20"
+        ));
+    }
+
+    #[test]
+    fn metadata_sync_later_reads_target_and_delay() {
+        assert_eq!(
+            parse_metadata_sync_later(&[
+                "me".to_string(),
+                "#bigchan".to_string(),
+                "4".to_string()
+            ]),
+            Some(("#bigchan".to_string(), 4))
+        );
+        assert_eq!(
+            parse_metadata_sync_later(&["me".to_string(), "#bigchan".to_string()]),
+            Some(("#bigchan".to_string(), METADATA_SYNC_DELAY_DEFAULT))
+        );
+    }
+
+    #[test]
+    fn ctcp_avatar_query_and_reply_parse() {
+        assert!(is_ctcp_avatar_query("AVATAR"));
+        assert!(is_ctcp_avatar_query("avatar"));
+        assert!(parse_ctcp_avatar_url("AVATAR").is_none());
+        assert_eq!(
+            parse_ctcp_avatar_url("AVATAR https://a.pomf.cat/abc.png 4096").as_deref(),
+            Some("https://a.pomf.cat/abc.png")
+        );
+        assert_eq!(
+            parse_ctcp_payload("\u{0001}AVATAR https://a.pomf.cat/abc.png\u{0001}"),
+            Some("AVATAR https://a.pomf.cat/abc.png")
+        );
+    }
+
+    #[test]
+    fn metadata_avatar_extracts_target_before_key() {
+        let args = vec![
+            "me".to_string(),
+            "alice".to_string(),
+            "avatar".to_string(),
+            "*".to_string(),
+            "https://a.pomf.cat/abc.png".to_string(),
+        ];
+        assert_eq!(
+            extract_metadata_avatar(&args),
+            Some(("alice".to_string(), "https://a.pomf.cat/abc.png".to_string()))
+        );
+    }
+
+    #[test]
+    fn metadata_766_clears_avatar() {
+        let args = vec![
+            "me".to_string(),
+            "alice".to_string(),
+            "avatar".to_string(),
+            "key not set".to_string(),
+        ];
+        assert_eq!(
+            extract_metadata_avatar_clear(&args),
+            Some("alice".to_string())
+        );
+        assert!(extract_metadata_avatar(&args).is_none());
+    }
+
+    #[test]
+    fn metadata_empty_value_clears_avatar() {
+        let args = vec![
+            "alice".to_string(),
+            "avatar".to_string(),
+            "*".to_string(),
+            "".to_string(),
+        ];
+        assert_eq!(
+            extract_metadata_avatar_clear(&args),
+            Some("alice".to_string())
         );
     }
 }
