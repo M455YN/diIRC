@@ -1243,6 +1243,32 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             if (nick.toLowerCase() === ourNick.toLowerCase()) {
               store.setSelfAway(server_id, away);
             }
+
+            // One-shot "Notify when available" (Discord-style)
+            if (!away && store.isAwayWatched(server_id, nick)) {
+              store.unwatchAway(server_id, nick);
+
+              const globalNotif = store.notificationSettings;
+              const serverNotif = server?.notificationSettings;
+              const effectiveSettings = resolveEffectiveNotificationSettings(
+                globalNotif,
+                serverNotif,
+                undefined,
+                true
+              );
+
+              if (effectiveSettings.shouldNotify(true)) {
+                const serverLabel = server?.name || server?.host || "IRC";
+                triggerIncomingNotification({
+                  title: serverLabel,
+                  body: `${nick} is available`,
+                  sender: nick,
+                  tag: `away-watch:${server_id}:${nick.toLowerCase()}`,
+                  hasMention: true,
+                  effectiveSettings,
+                });
+              }
+            }
           }
         );
 

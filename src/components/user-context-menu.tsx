@@ -14,7 +14,7 @@ import { useMockStore } from "@/lib/mock-store";
 import { inviteUserToChannel } from "@/lib/irc-actions";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, ShieldAlert, ShieldOff, Mic, MicOff, UserPlus, Hash, Clock, UserCheck } from "lucide-react";
+import { MessageSquare, ShieldAlert, ShieldOff, Mic, MicOff, UserPlus, Hash, Clock, UserCheck, Bell, BellOff } from "lucide-react";
 
 interface UserContextMenuProps {
   member: Member & { profile: Profile };
@@ -36,6 +36,9 @@ export const UserContextMenu = React.forwardRef<
   const channelModesMap = useMockStore((state) => state.channelModes);
   const selfAwayMap = useMockStore((state) => state.selfAway);
   const awayUsersMap = useMockStore((state) => state.awayUsers);
+  const awayWatchMap = useMockStore((state) => state.awayWatch);
+  const watchAway = useMockStore((state) => state.watchAway);
+  const unwatchAway = useMockStore((state) => state.unwatchAway);
 
   const activeServer = server || servers[0];
   const nickname = member.profile.name;
@@ -63,6 +66,23 @@ export const UserContextMenu = React.forwardRef<
   const isSelfAway = activeServer
     ? !!selfAwayMap[activeServer.id] || !!awayUsersMap[activeServer.id]?.[ourNick.toLowerCase()]
     : false;
+
+  const isTargetAway = activeServer
+    ? !!awayUsersMap[activeServer.id]?.[nickname.toLowerCase()]
+    : false;
+  const isAwayWatched = activeServer
+    ? (awayWatchMap[activeServer.id] || []).includes(nickname.toLowerCase())
+    : false;
+
+  const handleToggleAwayWatch = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!activeServer) return;
+    if (isAwayWatched) {
+      unwatchAway(activeServer.id, nickname);
+    } else {
+      watchAway(activeServer.id, nickname);
+    }
+  };
 
   const handleToggleSelfAway = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -219,6 +239,22 @@ export const UserContextMenu = React.forwardRef<
               <MessageSquare className="w-4 h-4 text-zinc-500" />
               <span>Private message</span>
             </ContextMenuItem>
+
+            {(isTargetAway || isAwayWatched) && (
+              <ContextMenuItem onClick={handleToggleAwayWatch} className="gap-x-2 cursor-pointer">
+                {isAwayWatched ? (
+                  <>
+                    <BellOff className="w-4 h-4 text-zinc-500" />
+                    <span>Cancel notify when available</span>
+                  </>
+                ) : (
+                  <>
+                    <Bell className="w-4 h-4 text-amber-500" />
+                    <span>Notify when available</span>
+                  </>
+                )}
+              </ContextMenuItem>
+            )}
 
             <ContextMenuSub>
               <ContextMenuSubTrigger className="gap-x-2">

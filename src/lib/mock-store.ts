@@ -571,6 +571,12 @@ interface MockState {
   selfAway: Record<string, boolean>;
   setUserAway: (serverId: string, nick: string, isAway: boolean, reason?: string) => void;
   setSelfAway: (serverId: string, isAway: boolean) => void;
+  /** One-shot watches: notify when nick returns from away (Discord-style). */
+  awayWatch: Record<string, string[]>;
+  watchAway: (serverId: string, nick: string) => void;
+  unwatchAway: (serverId: string, nick: string) => void;
+  isAwayWatched: (serverId: string, nick: string) => boolean;
+  remapAwayWatch: (serverId: string, oldNick: string, newNick: string) => void;
   updateChannelMembers: (serverId: string, channelName: string, users: string[], eventType: "NAMES" | "JOIN" | "PART" | "QUIT") => void;
   updateChannelOps: (serverId: string, channelName: string, ops: string[]) => void;
   updateChannelModes: (serverId: string, channelName: string, modeString: string, isFullListing?: boolean) => void;
@@ -1002,6 +1008,15 @@ export const useMockStore = create<MockState>()(
             delete nextAwayReasons[serverId][oldNickLower];
           }
 
+          // 4. Remap one-shot away watches
+          const watched = state.awayWatch[serverId] || [];
+          const nextAwayWatch = { ...state.awayWatch };
+          if (watched.some((n) => n === oldNickLower)) {
+            nextAwayWatch[serverId] = Array.from(
+              new Set(watched.map((n) => (n === oldNickLower ? newNickLower : n)))
+            );
+          }
+
           return {
             servers: updatedServers,
             channelMembers: nextChannelMembers,
@@ -1009,6 +1024,7 @@ export const useMockStore = create<MockState>()(
             channelUserModes: nextChannelUserModes,
             awayUsers: nextAwayUsers,
             awayReasons: nextAwayReasons,
+            awayWatch: nextAwayWatch,
           };
         });
       },
@@ -1651,6 +1667,7 @@ export const useMockStore = create<MockState>()(
       awayUsers: {},
       awayReasons: {},
       selfAway: {},
+      awayWatch: {},
 
       setUserAway: (serverId, nick, isAway, reason) => {
         if (!serverId || !nick) return;
@@ -1690,6 +1707,63 @@ export const useMockStore = create<MockState>()(
             [serverId]: isAway,
           },
         }));
+      },
+
+      watchAway: (serverId, nick) => {
+        if (!serverId || !nick) return;
+        const lowerNick = nick.toLowerCase();
+        set((state) => {
+          const current = state.awayWatch[serverId] || [];
+          if (current.includes(lowerNick)) return state;
+          return {
+            awayWatch: {
+              ...state.awayWatch,
+              [serverId]: [...current, lowerNick],
+            },
+          };
+        });
+      },
+
+      unwatchAway: (serverId, nick) => {
+        if (!serverId || !nick) return;
+        const lowerNick = nick.toLowerCase();
+        set((state) => {
+          const current = state.awayWatch[serverId] || [];
+          if (!current.includes(lowerNick)) return state;
+          const next = current.filter((n) => n !== lowerNick);
+          const nextWatch = { ...state.awayWatch };
+          if (next.length === 0) {
+            delete nextWatch[serverId];
+          } else {
+            nextWatch[serverId] = next;
+          }
+          return { awayWatch: nextWatch };
+        });
+      },
+
+      isAwayWatched: (serverId, nick) => {
+        if (!serverId || !nick) return false;
+        const list = get().awayWatch[serverId] || [];
+        return list.includes(nick.toLowerCase());
+      },
+
+      remapAwayWatch: (serverId, oldNick, newNick) => {
+        if (!serverId || !oldNick || !newNick) return;
+        const oldLower = oldNick.toLowerCase();
+        const newLower = newNick.toLowerCase();
+        if (oldLower === newLower) return;
+        set((state) => {
+          const current = state.awayWatch[serverId] || [];
+          if (!current.includes(oldLower)) return state;
+          return {
+            awayWatch: {
+              ...state.awayWatch,
+              [serverId]: Array.from(
+                new Set(current.map((n) => (n === oldLower ? newLower : n)))
+              ),
+            },
+          };
+        });
       },
 
       updateChannelOps: (serverId, channelName, ops) => {
@@ -3071,6 +3145,9 @@ export const useMockStore = create<MockState>()(
           customNickCompletionFormat: "{nick}: ",
           ...persistedState,
           jumbojiSize: typeof persistedState?.jumbojiSize === "number" ? persistedState.jumbojiSize : 42,
+          awayWatch: persistedState?.awayWatch && typeof persistedState.awayWatch === "object"
+            ? persistedState.awayWatch
+            : {},
           servers: sanitizedServers,
           messages: {},
           directMessages: {},
