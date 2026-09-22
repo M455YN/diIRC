@@ -70,7 +70,7 @@ The generated Xcode project lives in `src-tauri/gen/apple` (committed after firs
 npm run tauri -- ios build --open
 ```
 
-Bundle ID is `com.diirc.app` (`src-tauri/tauri.conf.json` → `identifier`). Register the same App ID in [Apple Developer](https://developer.apple.com/) / App Store Connect when distributing beyond personal devices.
+Bundle ID on iOS is `com.diirc.luna` (`tauri.ios.conf.json` → `identifier`). Desktop keeps `com.diirc.app`. If Xcode says “No profiles for …”, change Bundle Identifier in Signing & Capabilities to a unique value (e.g. `com.yourname.lunairc`) with **Automatically manage signing** + **Personal Team**, then Product → Run on your iPhone so Xcode can create the profile.
 
 ## Project changes for mobile
 
