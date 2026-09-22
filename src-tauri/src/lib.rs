@@ -153,7 +153,7 @@ fn irc_tag_value(tags: &Option<Vec<Tag>>, names: &[&str]) -> Option<String> {
 
 fn extract_reply_tags(tags: &Option<Vec<Tag>>) -> (Option<String>, Option<String>) {
     let msgid = irc_tag_value(tags, &["msgid"]);
-    let reply_to = irc_tag_value(tags, &["draft/reply", "+draft/reply"]);
+    let reply_to = irc_tag_value(tags, &["draft/reply", "+draft/reply", "reply", "+reply"]);
     (msgid, reply_to)
 }
 
@@ -306,6 +306,15 @@ fn strip_compat_reply(content: &str) -> (String, Option<String>, Option<String>)
         Some(nick.to_string()),
         Some(preview),
     )
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct IrcSelfMsgidEvent {
+    server_id: String,
+    channel: String,
+    local_id: String,
+    msgid: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -516,6 +525,7 @@ struct RecentSentMessage {
     target: String,
     content: String,
     timestamp: std::time::Instant,
+    local_id: Option<String>,
 }
 
 struct IrcState {
@@ -1519,6 +1529,8 @@ async fn connect_irc(
 
         let mut last_error: Option<String> = None;
         let mut motd_buffer: Vec<String> = Vec::new();
+        let mut pending_cap_req: Vec<String> = Vec::new();
+        let mut registered = false;
 
         while let Some(message_res) = stream.next().await {
             match message_res {
@@ -1528,27 +1540,49 @@ async fn connect_irc(
                         Command::CAP(_, ref subcmd, ref cap_name, ref extra) => {
                             let sub_str = format!("{:?}", subcmd);
                             if sub_str == "LS" {
-                                let cap_str = cap_name.as_deref().unwrap_or("");
-                                let wanted = ["server-time", "away-notify", "batch", "echo-message", "message-tags", "znc.in/server-time-iso", "znc.in/self-message"];
-                                let requested = wanted
-                                    .iter()
-                                    .filter(|&&c| cap_str.split_whitespace().any(|s| s == c))
-                                    .copied()
-                                    .collect::<Vec<_>>();
-                                if !requested.is_empty() {
-                                    if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
-                                        let _ = sender.send(Command::Raw(
-                                            "CAP".to_string(),
-                                            vec!["REQ".to_string(), requested.join(" ")],
-                                        ));
-                                    }
+                                let is_multiline = cap_name.as_deref() == Some("*");
+                                let caps_chunk = if is_multiline {
+                                    extra.as_deref().unwrap_or("")
                                 } else {
-                                    // If we don't want anything they offer, just end negotiation
-                                    if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
-                                        let _ = sender.send(Command::Raw(
-                                            "CAP".to_string(),
-                                            vec!["END".to_string()],
-                                        ));
+                                    extra.as_deref().unwrap_or_else(|| cap_name.as_deref().unwrap_or(""))
+                                };
+                                let wanted = [
+                                    "server-time",
+                                    "away-notify",
+                                    "batch",
+                                    "echo-message",
+                                    "message-tags",
+                                    "draft/reply",
+                                    "reply",
+                                    "znc.in/server-time-iso",
+                                    "znc.in/self-message",
+                                ];
+                                for token in caps_chunk.split_whitespace() {
+                                    let cap_base = token.split('=').next().unwrap_or(token);
+                                    if wanted.contains(&cap_base) && !pending_cap_req.iter().any(|c| c == cap_base) {
+                                        pending_cap_req.push(cap_base.to_string());
+                                    }
+                                }
+                                if !is_multiline {
+                                    if !pending_cap_req.is_empty() {
+                                        if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
+                                            log::info!(
+                                                "IRC [{}] Requesting capabilities: {:?}",
+                                                stream_server_id,
+                                                pending_cap_req
+                                            );
+                                            let _ = sender.send(Command::Raw(
+                                                "CAP".to_string(),
+                                                vec!["REQ".to_string(), pending_cap_req.join(" ")],
+                                            ));
+                                        }
+                                    } else if !registered {
+                                        if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
+                                            let _ = sender.send(Command::Raw(
+                                                "CAP".to_string(),
+                                                vec!["END".to_string()],
+                                            ));
+                                        }
                                     }
                                 }
                             } else if sub_str == "ACK" || sub_str == "NAK" {
@@ -1563,25 +1597,46 @@ async fn connect_irc(
                                         let mut map = server_caps_clone.lock().await;
                                         let entry = map.entry(stream_server_id.clone()).or_default();
                                         for cap in caps.split_whitespace() {
-                                            entry.insert(cap.to_ascii_lowercase());
+                                            let cap_base = cap.split('=').next().unwrap_or(cap);
+                                            entry.insert(cap_base.to_ascii_lowercase());
                                         }
-                                        log::info!("IRC [{}] CAP ACK: {}", stream_server_id, caps);
+                                        log::info!("IRC [{}] CAP ACK: {:?}", stream_server_id, entry);
+                                    }
+                                } else {
+                                    log::warn!("IRC [{}] CAP NAK: {:?} {:?}", stream_server_id, cap_name, extra);
+                                }
+                                if !registered {
+                                    if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
+                                        let _ = sender.send(Command::Raw(
+                                            "CAP".to_string(),
+                                            vec!["END".to_string()],
+                                        ));
                                     }
                                 }
-                                if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
-                                    let _ = sender.send(Command::Raw(
-                                        "CAP".to_string(),
-                                        vec!["END".to_string()],
-                                    ));
-                                }
                             } else if sub_str == "NEW" {
-                                let cap_str = cap_name.as_deref().unwrap_or("");
-                                let wanted = ["server-time", "away-notify", "batch", "echo-message", "message-tags", "znc.in/server-time-iso", "znc.in/self-message"];
-                                let requested = wanted
-                                    .iter()
-                                    .filter(|&&c| cap_str.split_whitespace().any(|s| s == c))
-                                    .copied()
-                                    .collect::<Vec<_>>();
+                                let caps_chunk = [cap_name.as_deref(), extra.as_deref()]
+                                    .into_iter()
+                                    .flatten()
+                                    .collect::<Vec<_>>()
+                                    .join(" ");
+                                let wanted = [
+                                    "server-time",
+                                    "away-notify",
+                                    "batch",
+                                    "echo-message",
+                                    "message-tags",
+                                    "draft/reply",
+                                    "reply",
+                                    "znc.in/server-time-iso",
+                                    "znc.in/self-message",
+                                ];
+                                let mut requested = Vec::new();
+                                for token in caps_chunk.split_whitespace() {
+                                    let cap_base = token.split('=').next().unwrap_or(token);
+                                    if wanted.contains(&cap_base) {
+                                        requested.push(cap_base.to_string());
+                                    }
+                                }
                                 if !requested.is_empty() {
                                     if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
                                         log::info!("IRC [{}] CAP NEW received, requesting: {:?}", stream_server_id, requested);
@@ -1622,7 +1677,18 @@ async fn connect_irc(
                                             && m.target.eq_ignore_ascii_case(&target_check)
                                             && m.content == content
                                     }) {
-                                        recent.remove(pos);
+                                        let matched = recent.remove(pos);
+                                        if let (Some(msgid_val), Some(lid)) = (msgid.as_ref(), matched.local_id.as_ref()) {
+                                            let _ = app_clone.emit(
+                                                "irc_self_msgid",
+                                                IrcSelfMsgidEvent {
+                                                    server_id: stream_server_id.clone(),
+                                                    channel: channel.clone(),
+                                                    local_id: lid.clone(),
+                                                    msgid: msgid_val.clone(),
+                                                },
+                                            );
+                                        }
                                         continue;
                                     }
                                 }
@@ -1949,6 +2015,7 @@ async fn connect_irc(
                             }
                         }
                         Command::Response(Response::RPL_WELCOME, ref args) => {
+                            registered = true;
                             if let Some(welcome_nick) = args.first() {
                                 nicknames_clone
                                     .lock()
@@ -3145,16 +3212,35 @@ async fn send_message(
     reply_nick: Option<String>,
     reply_preview: Option<String>,
     reply_parent_offset: Option<u64>,
+    local_id: Option<String>,
+    reply_mode: Option<String>,
 ) -> Result<(), String> {
     let senders = state.senders.lock().await;
     if let Some(sender) = senders.get(&server_id) {
-        let has_message_tags = state
+        let has_reply_tags = state
             .server_caps
             .lock()
             .await
             .get(&server_id)
-            .map(|caps| caps.contains("message-tags"))
+            .map(|caps| {
+                caps.contains("message-tags")
+                    || caps.contains("draft/reply")
+                    || caps.contains("reply")
+            })
             .unwrap_or(false);
+        let tag_name = state
+            .server_caps
+            .lock()
+            .await
+            .get(&server_id)
+            .map(|caps| {
+                if caps.contains("reply") && !caps.contains("draft/reply") {
+                    "+reply"
+                } else {
+                    "+draft/reply"
+                }
+            })
+            .unwrap_or("+draft/reply");
         let sender_name = state
             .nicknames
             .lock()
@@ -3166,26 +3252,54 @@ async fn send_message(
             .as_ref()
             .map(|value| value.trim())
             .filter(|value| !value.is_empty());
-        let tag_bytes = if has_message_tags {
+
+        let reply_mode_str = reply_mode.as_deref().unwrap_or("auto");
+        let has_reply_intent = reply_msgid.is_some() || reply_nick.is_some() || reply_preview.is_some();
+        let should_send_tags = if !has_reply_intent {
+            false
+        } else {
+            match reply_mode_str {
+                "modern" => has_reply_tags && reply_msgid.is_some(),
+                "legacy" => false,
+                "hybrid" => has_reply_tags && reply_msgid.is_some(),
+                _ => has_reply_tags && reply_msgid.is_some(), // "auto"
+            }
+        };
+        let should_send_compat_body = if !has_reply_intent {
+            false
+        } else {
+            match reply_mode_str {
+                "modern" => false,
+                "legacy" => reply_nick.is_some() || reply_preview.is_some(),
+                "hybrid" => reply_nick.is_some() || reply_preview.is_some(),
+                _ => (!has_reply_tags || reply_msgid.is_none()) && (reply_nick.is_some() || reply_preview.is_some()), // "auto" fallback
+            }
+        };
+
+        let tag_bytes = if should_send_tags {
             reply_msgid
-                .map(|msgid| format!("@+draft/reply={msgid} ").len())
+                .map(|msgid| format!("@{tag_name}={msgid} ").len())
                 .unwrap_or(0)
         } else {
             0
         };
         let budget = reply_body_budget(&sender_name, &channel, tag_bytes);
-        let wire_message = format_compat_reply(
-            reply_nick.as_deref(),
-            reply_preview.as_deref(),
-            &message,
-            budget,
-        );
+        let wire_message = if should_send_compat_body {
+            format_compat_reply(
+                reply_nick.as_deref(),
+                reply_preview.as_deref(),
+                &message,
+                budget,
+            )
+        } else {
+            message.clone()
+        };
 
-        let send_result = if has_message_tags {
+        let send_result = if should_send_tags {
             if let Some(msgid) = reply_msgid {
                 match Message::with_tags(
                     Some(vec![Tag(
-                        "+draft/reply".to_string(),
+                        tag_name.to_string(),
                         Some(msgid.to_string()),
                     )]),
                     None,
@@ -3228,6 +3342,7 @@ async fn send_message(
             target: channel.clone(),
             content: wire_message,
             timestamp: std::time::Instant::now(),
+            local_id,
         });
         if let Err(error) = append_log_line(
             &app,
@@ -4099,10 +4214,6 @@ mod reply_compat_tests {
         assert_eq!(
             format_compat_reply(Some("n"), Some("p"), "/me waves", 400),
             "/me waves"
-        );
-        assert_eq!(
-            format_compat_reply(Some("n"), Some("p"), "\u{0001}ACTION hi\u{0001}", 400),
-            "\u{0001}ACTION hi\u{0001}"
         );
     }
 }

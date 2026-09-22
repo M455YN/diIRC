@@ -330,7 +330,8 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
     sender: string,
     content: string,
     msgid?: string | null,
-    replyToMsgid?: string | null
+    replyToMsgid?: string | null,
+    replyFallback?: { nick: string; preview: string }
   ) => {
     const replyStore = useReplyStore.getState();
     if (msgid) {
@@ -349,6 +350,13 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           preview: parent.preview,
           msgid: replyToMsgid,
         });
+      } else if (replyFallback) {
+        replyStore.rememberSent(messageId, {
+          messageId: "",
+          nick: replyFallback.nick,
+          preview: replyFallback.preview,
+          msgid: replyToMsgid,
+        });
       }
     }
   };
@@ -358,16 +366,47 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
     const rawContent = payload.content;
     const incoming = rawContent ? rawContent.replace(/\u0085/g, "\n") : "";
     const stripped = stripCompatReply(incoming);
-    const content = stripped.body;
+    let content = stripped.body;
     const serverId = payload.serverId || payload.server_id;
     const isSystem = payload.isSystem ?? payload.is_system;
     const msgid = payload.msgid || null;
     const replyToMsgid = payload.reply_to_msgid || payload.replyToMsgid || null;
     const quoteNick = payload.reply_nick || payload.replyNick || stripped.nick;
     const quotePreview = payload.reply_preview || payload.replyPreview || stripped.preview;
-    const parent = replyToMsgid
+    let parent = replyToMsgid
       ? useReplyStore.getState().findByMsgid(replyToMsgid)
       : undefined;
+
+    // Fallback: If not indexed in replyStore, search currently loaded channel/DM messages
+    if (replyToMsgid && !parent) {
+      const store = useMockStore.getState();
+      for (const msgs of Object.values(store.messages)) {
+        const found = msgs.find((m) => m.ircMsgid === replyToMsgid);
+        if (found) {
+          parent = {
+            messageId: found.id,
+            nick: found.member.profile.name,
+            preview: found.content,
+          };
+          useReplyStore.getState().indexMsgid(replyToMsgid, parent);
+          break;
+        }
+      }
+      if (!parent) {
+        for (const msgs of Object.values(store.directMessages)) {
+          const found = msgs.find((m) => m.ircMsgid === replyToMsgid);
+          if (found) {
+            parent = {
+              messageId: found.id,
+              nick: found.member.profile.name,
+              preview: found.content,
+            };
+            useReplyStore.getState().indexMsgid(replyToMsgid, parent);
+            break;
+          }
+        }
+      }
+    }
 
     let replyTo: { messageId: string; nick: string; preview: string; msgid?: string } | undefined;
     if (parent) {
@@ -384,6 +423,14 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
         preview: quotePreview || "",
         msgid: replyToMsgid || undefined,
       };
+    } else if (replyToMsgid) {
+      // Graceful fallback for pure IRCv3 reply whose parent is not yet in active buffer
+      replyTo = {
+        messageId: "",
+        nick: "Replied message",
+        preview: `Referenced message (${replyToMsgid.slice(0, 8)}…)`,
+        msgid: replyToMsgid,
+      };
     }
     const ircMeta =
       msgid || replyToMsgid || replyTo
@@ -393,6 +440,27 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             replyTo,
           }
         : undefined;
+
+    if (replyTo?.nick) {
+      const targetNick = replyTo.nick.toLowerCase();
+      const trimmed = content.trimStart();
+      const prefixes = [
+        `@${targetNick}:`,
+        `@${targetNick},`,
+        `@${targetNick} `,
+        `${targetNick}:`,
+        `${targetNick},`,
+      ];
+      for (const prefix of prefixes) {
+        if (trimmed.toLowerCase().startsWith(prefix)) {
+          const rest = trimmed.slice(prefix.length).trimStart();
+          if (rest.length > 0) {
+            content = rest;
+            break;
+          }
+        }
+      }
+    }
 
     if (!serverId) return;
 
@@ -508,7 +576,14 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             true,
             { createdAt: msgTimestamp, ...ircMeta }
           );
-          applyIncomingIrcMeta(created.id, "System", content, msgid, replyToMsgid);
+          applyIncomingIrcMeta(
+            created.id,
+            "System",
+            content,
+            msgid,
+            replyToMsgid,
+            replyTo ? { nick: replyTo.nick, preview: replyTo.preview } : undefined
+          );
           store.openConversation(targetServer.id, targetMember.id);
           if (!isSendError) {
             store.addToHistoricalConversations(targetServer.id, targetMember.id);
@@ -537,7 +612,14 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           false,
           { createdAt: msgTimestamp, ...ircMeta }
         );
-        applyIncomingIrcMeta(created.id, sender, content, msgid, replyToMsgid);
+        applyIncomingIrcMeta(
+          created.id,
+          sender,
+          content,
+          msgid,
+          replyToMsgid,
+          replyTo ? { nick: replyTo.nick, preview: replyTo.preview } : undefined
+        );
         store.openConversation(targetServer.id, otherMember.id);
         store.addToHistoricalConversations(targetServer.id, otherMember.id);
 
@@ -655,7 +737,14 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
         effectiveIsSystem,
         { createdAt: msgTimestamp, ...ircMeta }
       );
-      applyIncomingIrcMeta(created.id, sender, content, msgid, replyToMsgid);
+      applyIncomingIrcMeta(
+        created.id,
+        sender,
+        content,
+        msgid,
+        replyToMsgid,
+        replyTo ? { nick: replyTo.nick, preview: replyTo.preview } : undefined
+      );
     } else if (targetServer.channels.length > 0) {
       const created = addMessage(
         targetServer.channels[0].id,
@@ -665,7 +754,14 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
         effectiveIsSystem,
         { createdAt: msgTimestamp, ...ircMeta }
       );
-      applyIncomingIrcMeta(created.id, sender, content, msgid, replyToMsgid);
+      applyIncomingIrcMeta(
+        created.id,
+        sender,
+        content,
+        msgid,
+        replyToMsgid,
+        replyTo ? { nick: replyTo.nick, preview: replyTo.preview } : undefined
+      );
     }
 
     // Trigger notification for channel message
@@ -1254,6 +1350,59 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
 
     setupAwayListener();
 
+    let unlistenSelfMsgidFn: (() => void) | null = null;
+    const setupSelfMsgidListener = async () => {
+      try {
+        const unlistenSelfMsgid = await listen<{
+          serverId: string;
+          channel: string;
+          localId: string;
+          msgid: string;
+        }>("irc_self_msgid", (event) => {
+          const { localId, msgid } = event.payload;
+          if (!localId || !msgid) return;
+          const store = useMockStore.getState();
+          store.updateMessageMsgid(localId, msgid);
+
+          let previewContent = "";
+          let senderNick = "";
+          for (const msgs of Object.values(store.messages)) {
+            const m = msgs.find((x) => x.id === localId);
+            if (m) {
+              previewContent = m.content;
+              senderNick = m.member?.profile?.name || "You";
+              break;
+            }
+          }
+          if (!senderNick) {
+            for (const msgs of Object.values(store.directMessages)) {
+              const m = msgs.find((x) => x.id === localId);
+              if (m) {
+                previewContent = m.content;
+                senderNick = m.member?.profile?.name || "You";
+                break;
+              }
+            }
+          }
+          useReplyStore.getState().indexMsgid(msgid, {
+            messageId: localId,
+            nick: senderNick || "You",
+            preview: previewContent,
+          });
+        });
+
+        if (isCancelled) {
+          unlistenSelfMsgid();
+        } else {
+          unlistenSelfMsgidFn = unlistenSelfMsgid;
+        }
+      } catch (error) {
+        console.error("Failed to setup IRC self msgid listener:", error);
+      }
+    };
+
+    setupSelfMsgidListener();
+
     return () => {
       isCancelled = true;
       if (unlistenFn) unlistenFn();
@@ -1272,6 +1421,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
       if (unlistenModeErrorFn) unlistenModeErrorFn();
       if (unlistenMotdFn) unlistenMotdFn();
       if (unlistenAwayFn) unlistenAwayFn();
+      if (unlistenSelfMsgidFn) unlistenSelfMsgidFn();
     };
   }, [addMessage, addServerMember, removeServerMember, setIrcConnected]);
 

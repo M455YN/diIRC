@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff } from "lucide-react";
+import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff, Reply } from "lucide-react";
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
 import {
@@ -56,6 +56,7 @@ const formSchema = z.object({
   autoConnect: z.boolean().default(true),
   autoReconnect: z.boolean().default(true),
   parseLegacyZncTimestamps: z.boolean().default(false),
+  replyMode: z.enum(["inherit", "auto", "modern", "legacy", "hybrid"]).default("inherit"),
   customCommands: z.array(
     z.object({
       trigger: z.string(),
@@ -100,6 +101,8 @@ export const EditServerModal = () => {
   const [customSoundUrlOverride, setCustomSoundUrlOverride] = useState<string | undefined>(undefined);
   const [customDmSoundUrlOverride, setCustomDmSoundUrlOverride] = useState<string | undefined>(undefined);
 
+  const defaultReplyMode = useMockStore((state) => state.defaultReplyMode) || "auto";
+
   const inheritedChannelNotifStr =
     globalNotif?.channelNotifications === "all"
       ? "All messages"
@@ -113,6 +116,14 @@ export const EditServerModal = () => {
   const inheritedCooldownSec = ((globalNotif?.soundCooldownMs ?? 3000) / 1000).toFixed(1);
   const inheritedSoundPresetStr = globalNotif?.soundPreset || "chime";
   const inheritedDmSoundPresetStr = globalNotif?.dmSoundPreset || "chime";
+  const inheritedReplyModeStr =
+    defaultReplyMode === "modern"
+      ? "Modern IRCv3 only"
+      : defaultReplyMode === "legacy"
+      ? "Legacy inline only"
+      : defaultReplyMode === "hybrid"
+      ? "Hybrid (both)"
+      : "Auto (recommended)";
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -126,6 +137,8 @@ export const EditServerModal = () => {
       useTls: false,
       autoConnect: true,
       autoReconnect: true,
+      parseLegacyZncTimestamps: false,
+      replyMode: "inherit",
       customCommands: [],
     }
   });
@@ -171,6 +184,7 @@ export const EditServerModal = () => {
         autoConnect: server.autoConnect ?? true,
         autoReconnect: server.autoReconnect ?? true,
         parseLegacyZncTimestamps: server.parseLegacyZncTimestamps ?? false,
+        replyMode: server.replyMode ?? "inherit",
         customCommands: (server.customCommands || []).map((c) => ({
           trigger: c.trigger,
           message: c.message,
@@ -202,6 +216,7 @@ export const EditServerModal = () => {
         autoConnect: values.autoConnect,
         autoReconnect: values.autoReconnect,
         parseLegacyZncTimestamps: values.parseLegacyZncTimestamps,
+        replyMode: values.replyMode,
         customCommands: normalizeCustomCommandsFromForm(values.customCommands),
         motdPolicy: motdPolicyOverride,
         displayNameMode: displayNameModeOverride,
@@ -634,6 +649,41 @@ export const EditServerModal = () => {
                   <option value="collapsed">Always collapsed</option>
                 </select>
               </div>
+
+              {/* SECTION: REPLY FORMAT */}
+              <FormField
+                control={form.control}
+                name="replyMode"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col rounded-xl border border-zinc-300/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-3.5 space-y-2.5 shadow-sm">
+                    <div className="flex items-center gap-x-2">
+                      <Reply className="w-4 h-4 text-indigo-500" />
+                      <FormLabel className="text-sm font-semibold text-zinc-900 dark:text-zinc-200 cursor-pointer">
+                        Reply format
+                      </FormLabel>
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Choose how replies are sent to this server. Auto uses modern IRCv3 tags if supported and falls back to legacy inline quoting.
+                    </p>
+                    <FormControl>
+                      <select
+                        value={field.value}
+                        onChange={field.onChange}
+                        className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                      >
+                        <option value="inherit">
+                          Default (Use app setting: {inheritedReplyModeStr})
+                        </option>
+                        <option value="auto">Auto (recommended)</option>
+                        <option value="modern">Modern IRCv3 only</option>
+                        <option value="legacy">Legacy inline only</option>
+                        <option value="hybrid">Hybrid (both)</option>
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* SECTION: SERVER NOTIFICATION OVERRIDES */}
               <NotificationSettingsFields

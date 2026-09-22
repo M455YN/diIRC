@@ -18,7 +18,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useModal } from "@/hooks/use-modal-store";
 import { EmojiPicker } from "@/components/emoji-picker";
-import { Member } from "@/types";
+import { Member, Message, DirectMessage } from "@/types";
 import { useMockStore, getServerSelfMember, getServerActiveNick, formatNickCompletion } from "@/lib/mock-store";
 import { UserRoleIcon, getHighestChannelRole, ROLE_CONFIGS, UserRoleKey } from "@/components/user-role-icon";
 import { UserAvatar } from "@/components/user-avatar";
@@ -101,6 +101,7 @@ export const ChatInput = ({
   const enableCommandSuggestions = useMockStore((state) => state.enableCommandSuggestions ?? true);
   const enableMarkdown = useMockStore((state) => state.enableMarkdown ?? true);
   const enableFormattingPreview = useMockStore((state) => state.enableFormattingPreview ?? true);
+  const defaultReplyMode = useMockStore((state) => state.defaultReplyMode ?? "auto");
   const { onOpen } = useModal();
   const navigate = useNavigate();
 
@@ -157,6 +158,10 @@ export const ChatInput = ({
       },
     };
   }
+
+  const serverReplyMode = activeServer?.replyMode;
+  const effectiveReplyMode =
+    serverReplyMode && serverReplyMode !== "inherit" ? serverReplyMode : defaultReplyMode;
 
   const currentUserModes = (type === "channel" && activeId && currentMember) ? (channelUserModesMap[activeId]?.[currentMember.profile.name.toLowerCase()] || []) : [];
   const hasVoiceOrHigher = getHighestChannelRole(currentUserModes) !== null;
@@ -1245,29 +1250,22 @@ export const ChatInput = ({
             for (const img of readyImages) {
               if (img.url) {
                 if (type === "channel" && query?.channelId) {
+                  const created = addMessage(query.channelId, senderMember, img.url);
+                  markTailSeen(created.id);
+                  clearUnreadMarker();
+                  setTailPinned(true);
                   await invoke("send_message", {
                     serverId: activeServer.id,
                     channel: name.startsWith("#") ? name : `#${name}`,
                     message: img.url,
                     replyToMsgid: null,
-                  replyNick: null,
-                  replyPreview: null,
-                  replyParentOffset: null,
+                    replyNick: null,
+                    replyPreview: null,
+                    replyParentOffset: null,
+                    localId: created.id,
+                    replyMode: effectiveReplyMode,
                   }).catch((e) => console.error(e));
-                  const created = addMessage(query.channelId, senderMember, img.url);
-                  markTailSeen(created.id);
-                  clearUnreadMarker();
-                  setTailPinned(true);
                 } else if (type === "conversation" && query?.conversationId) {
-                  await invoke("send_message", {
-                    serverId: activeServer.id,
-                    channel: name,
-                    message: img.url,
-                    replyToMsgid: null,
-                  replyNick: null,
-                  replyPreview: null,
-                  replyParentOffset: null,
-                  }).catch((e) => console.error(e));
                   const created = addDirectMessage(query.conversationId, senderMember, img.url);
                   markTailSeen(created.id);
                   clearUnreadMarker();
@@ -1275,6 +1273,17 @@ export const ChatInput = ({
                   if (query.targetMemberId) {
                     useMockStore.getState().addToHistoricalConversations(activeServer.id, query.targetMemberId);
                   }
+                  await invoke("send_message", {
+                    serverId: activeServer.id,
+                    channel: name,
+                    message: img.url,
+                    replyToMsgid: null,
+                    replyNick: null,
+                    replyPreview: null,
+                    replyParentOffset: null,
+                    localId: created.id,
+                    replyMode: effectiveReplyMode,
+                  }).catch((e) => console.error(e));
                 }
               }
             }
@@ -1330,8 +1339,10 @@ export const ChatInput = ({
             }
           : undefined;
 
+        let createdMessage: Message | DirectMessage | null = null;
         if (type === "channel" && query?.channelId) {
           const created = addMessage(query.channelId, senderMember, line, null, false, replyMeta);
+          createdMessage = created;
           markTailSeen(created.id);
           clearUnreadMarker();
           setTailPinned(true);
@@ -1340,6 +1351,7 @@ export const ChatInput = ({
           }
         } else if (type === "conversation" && query?.conversationId) {
           const created = addDirectMessage(query.conversationId, senderMember, line, null, false, replyMeta);
+          createdMessage = created;
           markTailSeen(created.id);
           clearUnreadMarker();
           setTailPinned(true);
@@ -1360,12 +1372,14 @@ export const ChatInput = ({
             channel: targetName,
             message: ircMessage,
             replyToMsgid: isReplyLineLocal ? replyTarget?.msgid ?? null : null,
-          replyNick: isReplyLineLocal ? replyTarget?.nick ?? null : null,
-          replyPreview: isReplyLineLocal ? replyTarget?.preview ?? null : null,
-          replyParentOffset:
-            isReplyLineLocal && replyTarget?.parentOffset != null
-              ? replyTarget.parentOffset
-              : null,
+            replyNick: isReplyLineLocal ? replyTarget?.nick ?? null : null,
+            replyPreview: isReplyLineLocal ? replyTarget?.preview ?? null : null,
+            replyParentOffset:
+              isReplyLineLocal && replyTarget?.parentOffset != null
+                ? replyTarget.parentOffset
+                : null,
+            localId: createdMessage ? createdMessage.id : null,
+            replyMode: effectiveReplyMode,
           });
         } catch (err: any) {
           console.error("Failed to send message via Tauri IRC:", err);
