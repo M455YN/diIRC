@@ -130,6 +130,7 @@ export const ChatInput = ({
   const [showCommands, setShowCommands] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(true);
+  const commandListRef = useRef<HTMLDivElement>(null);
   const [formattingPreviewHeight, setFormattingPreviewHeight] = useState(FORMATTING_PREVIEW_HEIGHT_DEFAULT);
   const [selectionRange, setSelectionRange] = useState({ start: 0, end: 0 });
 
@@ -911,6 +912,14 @@ export const ChatInput = ({
     }
   }, [selectedNickIndex, showNickMenu]);
 
+  useEffect(() => {
+    if (showCommands && commandListRef.current) {
+      const activeEl = commandListRef.current.children[selectedCommandIndex] as HTMLElement | undefined;
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [selectedCommandIndex, showCommands]);
   const handleFormattingPreviewResizeStart = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       e.preventDefault();
@@ -1523,10 +1532,11 @@ export const ChatInput = ({
 
                   {showCommands && filteredCommands.length > 0 && (
                     <div className="absolute bottom-full left-4 mb-2 w-80 bg-white dark:bg-[#2b2d31] border border-zinc-200 dark:border-zinc-800 rounded-md shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                      <div className="px-3 py-2 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50 dark:bg-[#232428] border-b border-zinc-200 dark:border-zinc-800">
-                        Commands matching {content?.startsWith("/") ? content.split(/\s/)[0] : "/"}
+                      <div className="px-3 py-2 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50 dark:bg-[#232428] border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                        <span className="truncate">Commands matching {content?.startsWith("/") ? content.split(/\s/)[0] : "/"}</span>
+                        <span className="text-[10px] font-normal text-zinc-400 shrink-0 ml-1.5">{filteredCommands.length}</span>
                       </div>
-                      <div className="max-h-60 overflow-y-auto p-1">
+                      <div ref={commandListRef} className="max-h-60 overflow-y-auto p-1 discord-scrollbar-ghost">
                         {filteredCommands.map((cmd, idx) => (
                           <div
                             key={`${cmd.insert}-${idx}`}

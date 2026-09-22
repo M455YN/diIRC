@@ -20,6 +20,13 @@ export const ChannelPage = () => {
 
   const server = servers.find((s) => s.id === serverId);
   const channel = server?.channels.find((c) => c.id === channelId);
+  const setLastActiveChat = useMockStore((state) => state.setLastActiveChat);
+
+  useEffect(() => {
+    if (serverId && channel?.id) {
+      setLastActiveChat(serverId, { type: "channel", id: channel.id });
+    }
+  }, [serverId, channel?.id, setLastActiveChat]);
 
   useEffect(() => {
     if (channelId) {

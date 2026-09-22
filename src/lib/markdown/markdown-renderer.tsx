@@ -22,6 +22,7 @@ interface MarkdownRendererProps {
   compact?: boolean;
   myNicks?: string[];
   allMemberNicks?: string[];
+  allowImages?: boolean;
 }
 
 // CodeBlock component with syntax highlighting & copy button
@@ -126,6 +127,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   compact = false,
   myNicks = [],
   allMemberNicks = [],
+  allowImages = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const enableLinkPreviews = useMockStore((s) => s.enableLinkPreviews);
@@ -214,7 +216,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       if (!safe || !href) {
         return <span className="text-zinc-600 dark:text-zinc-300">{children}</span>;
       }
-      if (enableLinkPreviews && isMediaUrl(href)) {
+      if (allowImages && enableLinkPreviews && isMediaUrl(href)) {
         return null;
       }
       return (
@@ -230,7 +232,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     },
     hr: () => <hr className="my-2 border-zinc-200 dark:border-zinc-700" />,
     img: ({ src, alt }: any) => {
-      if (!src || !isSafeHref(src)) return null;
+      if (!allowImages || !src || !isSafeHref(src)) return null;
       return (
         <img
           src={src}

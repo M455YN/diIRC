@@ -4,7 +4,7 @@ import { PlusCircle, Settings, Trash, Unplug, Radio } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { ActionTooltip } from "@/components/action-tooltip";
-import { useMockStore } from "@/lib/mock-store";
+import { useMockStore, getServerSelfMember } from "@/lib/mock-store";
 import { useModalStore } from "@/hooks/use-modal-store";
 import {
   ContextMenu,
@@ -39,11 +39,28 @@ export const NavigationItem = ({
   const navigate = useNavigate();
 
   const onClick = () => {
-    navigate(`/servers/${id}`);
     const store = useMockStore.getState();
+    const lastActive = store.lastActiveChatPerServer[id];
+    const targetServer = store.servers.find((s) => s.id === id);
+
+    if (lastActive && targetServer) {
+      if (lastActive.type === "channel" && targetServer.channels.some((c) => c.id === lastActive.id)) {
+        navigate(`/servers/${id}/channels/${lastActive.id}`);
+      } else if (lastActive.type === "conversation" && targetServer.members.some((m) => m.id === lastActive.id)) {
+        navigate(`/servers/${id}/conversations/${lastActive.id}`);
+      } else if (targetServer.channels.length > 0) {
+        navigate(`/servers/${id}/channels/${targetServer.channels[0].id}`);
+      } else {
+        navigate(`/servers/${id}`);
+      }
+    } else if (targetServer && targetServer.channels.length > 0) {
+      navigate(`/servers/${id}/channels/${targetServer.channels[0].id}`);
+    } else {
+      navigate(`/servers/${id}`);
+    }
+
     const motd = store.serverMotds[id];
     if (motd && motd.length > 0 && store.shouldAutoShowMotd(id, motd)) {
-      const targetServer = store.servers.find((s) => s.id === id);
       useModalStore.getState().onOpen("motd", {
         server: targetServer,
         serverId: id,
@@ -72,32 +89,14 @@ export const NavigationItem = ({
         if (info.hasMention) hasMention = true;
       }
     }
-    const processedRawKeys = new Set<string>();
-    for (const [key, info] of Object.entries(unreadState)) {
-      if (key.startsWith("conversation:") && info.count > 0) {
-        let raw = "";
-        if (key.startsWith(`conversation:${id}:`)) {
-          raw = key.replace(`conversation:${id}:`, "");
-        } else if (!key.includes(":", "conversation:".length)) {
-          const rawId = key.replace("conversation:", "");
-          if (server.members.some((m) => m.id === rawId)) {
-            raw = rawId;
-          }
-        }
-        if (raw) {
-          let isDup = false;
-          for (const existing of processedRawKeys) {
-            if (existing === raw || existing.includes(raw) || raw.includes(existing)) {
-              isDup = true;
-              break;
-            }
-          }
-          if (!isDup) {
-            totalUnread += info.count;
-            if (info.hasMention) hasMention = true;
-            processedRawKeys.add(raw);
-          }
-        }
+    const currentMember = getServerSelfMember(server, useMockStore.getState().currentProfile?.id);
+    for (const member of server.members) {
+      if (member.id === currentMember.id) continue;
+      const convId = [currentMember.id, member.id].sort().join("-");
+      const info = unreadState[`conversation:${convId}`];
+      if (info && info.count > 0) {
+        totalUnread += info.count;
+        if (info.hasMention) hasMention = true;
       }
     }
   }

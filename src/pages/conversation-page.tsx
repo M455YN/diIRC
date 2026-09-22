@@ -24,12 +24,14 @@ export const ConversationPage = () => {
   const targetMember =
     server?.members.find((m) => m.id === memberId) ||
     server?.members.find((m) => m.profile.name.toLowerCase() === memberId?.toLowerCase());
+  const setLastActiveChat = useMockStore((state) => state.setLastActiveChat);
 
   const prevPathRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (serverId && memberId && targetMember) {
       useMockStore.getState().openConversation(serverId, targetMember.id);
+      setLastActiveChat(serverId, { type: "conversation", id: targetMember.id });
       
       const wasInConversation = prevPathRef.current?.includes("/conversations/");
       if (!wasInConversation) {
@@ -37,7 +39,7 @@ export const ConversationPage = () => {
       }
     }
     prevPathRef.current = location.pathname;
-  }, [serverId, memberId, targetMember, location.pathname, setMembersSidebar]);
+  }, [serverId, memberId, targetMember, location.pathname, setMembersSidebar, setLastActiveChat]);
 
   useEffect(() => {
     if (!server && servers.length > 0) {

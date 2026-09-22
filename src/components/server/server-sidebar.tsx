@@ -302,16 +302,8 @@ export const ServerSidebar = ({
     sortedPmMembers.sort((a, b) => {
       const convIdA = currentMember ? [currentMember.id, a.id].sort().join("-") : "";
       const convIdB = currentMember ? [currentMember.id, b.id].sort().join("-") : "";
-      const unreadA =
-        unreadState[`conversation:${server.id}:${convIdA}`] ||
-        unreadState[`conversation:${server.id}:${a.id}`] ||
-        unreadState[`conversation:${convIdA}`] ||
-        unreadState[`conversation:${a.id}`];
-      const unreadB =
-        unreadState[`conversation:${server.id}:${convIdB}`] ||
-        unreadState[`conversation:${server.id}:${b.id}`] ||
-        unreadState[`conversation:${convIdB}`] ||
-        unreadState[`conversation:${b.id}`];
+      const unreadA = convIdA ? unreadState[`conversation:${convIdA}`] : undefined;
+      const unreadB = convIdB ? unreadState[`conversation:${convIdB}`] : undefined;
       const isUnreadA = !!unreadA && unreadA.count > 0 ? 1 : 0;
       const isUnreadB = !!unreadB && unreadB.count > 0 ? 1 : 0;
       return isUnreadB - isUnreadA;

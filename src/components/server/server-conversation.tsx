@@ -37,11 +37,7 @@ export const ServerConversation = ({
   const displayName = getMemberDisplayName(member, server);
 
   const unread = useMockStore(
-    (state) =>
-      state.unreadState[`conversation:${server.id}:${conversationId}`] ||
-      state.unreadState[`conversation:${server.id}:${member.id}`] ||
-      state.unreadState[`conversation:${conversationId}`] ||
-      state.unreadState[`conversation:${member.id}`]
+    (state) => conversationId ? state.unreadState[`conversation:${conversationId}`] : undefined
   );
   const isUnread = !!unread && unread.count > 0;
 

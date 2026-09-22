@@ -30,7 +30,6 @@ export const ChangelogModal = () => {
   const { isOpen, onClose, type } = useModal();
   const isModalOpen = isOpen && type === "changelog";
 
-  const enableLinkPreviews = useMockStore((state) => state.enableLinkPreviews);
   const { versions, hasCurrentVersion, currentVersion, loading, error, refresh } = useChangelog();
 
   // Expanded version items state (Set of version strings)
@@ -203,13 +202,13 @@ export const ChangelogModal = () => {
                     {isExpanded && (
                       <div className="p-4 space-y-3 bg-white/40 dark:bg-[#2B2D31]/40">
                         {(() => {
-                          const blocks = parseMarkdownContentBlocks(v.content, enableLinkPreviews);
+                          const blocks = parseMarkdownContentBlocks(v.content, true);
                           return (
                             <div className="text-sm text-zinc-800 dark:text-zinc-200 space-y-3">
                               {blocks.map((block) => (
                                 <div key={block.id} className="space-y-2">
                                   {block.markdown.trim() && (
-                                    <MarkdownRenderer content={block.markdown} compact />
+                                    <MarkdownRenderer content={block.markdown} compact allowImages={true} />
                                   )}
                                   {block.urls.length > 0 && (
                                     <div className="space-y-2 my-2 max-w-2xl">

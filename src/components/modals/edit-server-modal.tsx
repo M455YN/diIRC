@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles } from "lucide-react";
+import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff } from "lucide-react";
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
 import {
@@ -33,6 +33,7 @@ import {
   DmNotificationOverrideValue,
   ServerMotdDisplayPolicy,
   ServerUserDisplayNameMode,
+  ServerMediaCollapseMode,
 } from "@/types";
 import { NotificationSettingsFields } from "@/components/notifications/notification-settings-fields";
 import { CustomCommandsFields, normalizeCustomCommandsFromForm } from "@/components/server/custom-commands-fields";
@@ -78,13 +79,16 @@ export const EditServerModal = () => {
 
   const globalNotif = useMockStore((state) => state.notificationSettings);
   const globalMotdPolicy = useMockStore((state) => state.globalMotdPolicy) || "on_change";
+  const autoCollapseImages = useMockStore((state) => state.autoCollapseImages ?? false);
   const serverMotdPolicies = useMockStore((state) => state.serverMotdPolicies);
   const setServerMotdPolicy = useMockStore((state) => state.setServerMotdPolicy);
+  const setServerMediaCollapsePolicy = useMockStore((state) => state.setServerMediaCollapsePolicy);
   const setGlobalMotdPolicy = useMockStore((state) => state.setGlobalMotdPolicy);
 
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [motdPolicyOverride, setMotdPolicyOverride] = useState<ServerMotdDisplayPolicy>("default");
   const [displayNameModeOverride, setDisplayNameModeOverride] = useState<ServerUserDisplayNameMode>("default");
+  const [mediaCollapseOverride, setMediaCollapseOverride] = useState<ServerMediaCollapseMode>("default");
   const [channelNotificationsOverride, setChannelNotificationsOverride] = useState<ChannelNotificationOverrideValue>("default");
   const [dmNotificationsOverride, setDmNotificationsOverride] = useState<DmNotificationOverrideValue>("default");
   const [soundOverride, setSoundOverride] = useState<NotificationOverrideValue>("default");
@@ -153,6 +157,7 @@ export const EditServerModal = () => {
           : server.motdPolicy || "default"
       );
       setDisplayNameModeOverride(server.displayNameMode || "default");
+      setMediaCollapseOverride(server.autoCollapseImages || "default");
 
       form.reset({
         name: server.name || "",
@@ -200,6 +205,7 @@ export const EditServerModal = () => {
         customCommands: normalizeCustomCommandsFromForm(values.customCommands),
         motdPolicy: motdPolicyOverride,
         displayNameMode: displayNameModeOverride,
+        autoCollapseImages: mediaCollapseOverride,
         notificationSettings: {
           channelNotifications: channelNotificationsOverride,
           dmNotifications: dmNotificationsOverride,
@@ -215,6 +221,7 @@ export const EditServerModal = () => {
       });
 
       setServerMotdPolicy(server.id, motdPolicyOverride);
+      setServerMediaCollapsePolicy(server.id, mediaCollapseOverride);
       setConfirmCloseOpen(false);
       form.reset();
       onClose();
@@ -601,6 +608,30 @@ export const EditServerModal = () => {
                   <option value="nickname">Nickname</option>
                   <option value="realname">RealName</option>
                   <option value="username">Username</option>
+                </select>
+              </div>
+
+              {/* SECTION: IMAGE COLLAPSE OVERRIDE */}
+              <div className="flex flex-col rounded-xl border border-zinc-300/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-3.5 space-y-2.5 shadow-sm">
+                <div className="flex items-center gap-x-2">
+                  <EyeOff className="w-4 h-4 text-indigo-500" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-200">
+                    Image preview collapse
+                  </label>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Choose default collapse state for image attachments and previews on this server.
+                </p>
+                <select
+                  value={mediaCollapseOverride}
+                  onChange={(e) => setMediaCollapseOverride(e.target.value as ServerMediaCollapseMode)}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="default">
+                    Default (Use app setting: {autoCollapseImages ? "Collapsed" : "Expanded"})
+                  </option>
+                  <option value="expanded">Always expanded</option>
+                  <option value="collapsed">Always collapsed</option>
                 </select>
               </div>
 

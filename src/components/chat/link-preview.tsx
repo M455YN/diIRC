@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { ExternalLink, Globe } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { ExternalLink, Globe, ImageIcon, ChevronRight, ChevronDown } from "lucide-react";
 import { useMockStore } from "@/lib/mock-store";
 import { isImageUrl, isVideoUrl, checkIsMediaUrlAsync, subscribeImageCache } from "@/lib/image-utils";
 import { useModal } from "@/hooks/use-modal-store";
 import { ImageContextMenu } from "@/components/image-context-menu";
-import { openExternalUrl } from "@/lib/system-utils";
+import { openExternalUrl, getFilenameFromUrl } from "@/lib/system-utils";
 import { SmartImage } from "@/components/chat/smart-image";
 import { LazyYouTubeEmbed } from "@/components/chat/youtube-embed";
 import { LazyVideoEmbed } from "@/components/chat/lazy-video-embed";
@@ -50,6 +51,11 @@ export function clearOgCache() {
 
 export const LinkPreview: React.FC<LinkPreviewProps> = ({ url, onContentSizeChange }) => {
   const { onOpen } = useModal();
+  const params = useParams();
+  const activeServerId = params?.serverId;
+  const shouldAutoCollapse = useMockStore((state) => state.shouldAutoCollapseImages(activeServerId));
+  const [isImageCollapsed, setIsImageCollapsed] = useState<boolean>(() => shouldAutoCollapse);
+
   const linkPreviewApiUrl = useMockStore((state) => state.linkPreviewApiUrl);
   const enableWebPagePreviews = useMockStore((state) => state.enableWebPagePreviews);
 
@@ -58,6 +64,11 @@ export const LinkPreview: React.FC<LinkPreviewProps> = ({ url, onContentSizeChan
   const [error, setError] = useState<boolean>(false);
   const [dynamicIsImage, setDynamicIsImage] = useState<boolean>(isImageUrl(url));
   const [dynamicIsVideo, setDynamicIsVideo] = useState<boolean>(isVideoUrl(url));
+
+  const toggleImageCollapse = () => {
+    setIsImageCollapsed((prev) => !prev);
+    onContentSizeChange?.();
+  };
 
   // Listen to global media cache updates
   useEffect(() => {
@@ -181,9 +192,38 @@ export const LinkPreview: React.FC<LinkPreviewProps> = ({ url, onContentSizeChan
 
   // A) Render Direct Image Preview
   if (isDirectImage) {
+    const filename = getFilenameFromUrl(url, "Image");
+    const parts = filename.split(".");
+    const ext = parts.length > 1 ? parts.pop()?.toUpperCase() : "IMG";
+
+    if (isImageCollapsed) {
+      return (
+        <div className="mt-1.5 inline-flex items-center justify-between gap-x-2.5 p-2 rounded-lg bg-zinc-100 dark:bg-[#2b2d31] border border-zinc-200 dark:border-zinc-700/60 w-fit max-w-[280px] group shadow-sm transition hover:border-zinc-300 dark:hover:border-zinc-600">
+          <ImageContextMenu url={url} filename={filename} isCollapsed={isImageCollapsed} onToggleCollapse={toggleImageCollapse}>
+            <div className="flex items-center gap-x-2 min-w-0 flex-1 cursor-pointer" onClick={toggleImageCollapse}>
+              <div className="p-1.5 rounded-md bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 shrink-0">
+                <ImageIcon className="h-4 w-4" />
+              </div>
+              <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate" title={filename}>
+                {filename}
+              </span>
+            </div>
+          </ImageContextMenu>
+          <button
+            type="button"
+            onClick={toggleImageCollapse}
+            className="h-6 px-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 dark:hover:bg-indigo-500/20 rounded flex items-center gap-x-1 shrink-0 transition"
+          >
+            <span>Show</span>
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="mt-2 w-fit max-w-md rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800/80 group relative shadow-sm">
-        <ImageContextMenu url={url}>
+        <ImageContextMenu url={url} filename={filename} isCollapsed={isImageCollapsed} onToggleCollapse={toggleImageCollapse}>
           <button
             type="button"
             onClick={() => onOpen("imagePreview", { url })}
@@ -199,9 +239,22 @@ export const LinkPreview: React.FC<LinkPreviewProps> = ({ url, onContentSizeChan
             />
           </button>
         </ImageContextMenu>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleImageCollapse();
+          }}
+          title="Collapse image"
+          aria-label="Collapse image"
+          className="absolute top-2 right-2 p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white/90 hover:text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition shadow-md z-10 cursor-pointer"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+        </button>
       </div>
     );
   }
+
 
   // B) Render Direct Video Preview
   if (isDirectVideo) {

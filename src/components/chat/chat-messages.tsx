@@ -88,6 +88,8 @@ export const ChatMessages = ({
   const setTailPinned = useMockStore((state) => state.setTailPinned);
   const unreadCount = useMockStore((state) => state.historyWindow.unreadCount);
   const firstUnreadMessageId = useMockStore((state) => state.historyWindow.firstUnreadMessageId);
+  const historyWindowKey = useMockStore((state) => state.historyWindow.key);
+  const currentChatKey = `${type}:${chatId}`;
   const windowReady = useMockStore((state) => state.historyWindow.ready);
   const hasOlder = useMockStore((state) => state.historyWindow.hasOlder);
   const olderCursor = useMockStore((state) => state.historyWindow.olderCursor);
@@ -122,6 +124,7 @@ export const ChatMessages = ({
   const totalCount = items.length + (hasWelcome ? 1 : 0);
 
   useEffect(() => {
+    if (!hasInitializedRef.current) return;
     if (!(atBottom && !hasNewer && items.length > 0)) return;
     // Directional guard (Fix A): while the viewport is still moving away from
     // the bottom, freshly arrived messages must remain unread instead of being
@@ -131,6 +134,16 @@ export const ChatMessages = ({
     if (typeof document !== "undefined" && !document.hasFocus()) return;
     markTailSeen(items[items.length - 1].id);
   }, [items, atBottom, hasNewer, markTailSeen, chatId]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      if (atBottom && !hasNewer && items.length > 0) {
+        markTailSeen(items[items.length - 1].id);
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [atBottom, hasNewer, items, markTailSeen]);
 
   // Unread counter (Model v2): event-driven, stored in historyWindow.unreadCount.
   // Arrivals while away-from-bottom increment it inside addMessage/addDirectMessage;
@@ -512,72 +525,46 @@ export const ChatMessages = ({
   }, [items, totalCount, pinToBottom, markProgrammaticScroll, hasNewer, hasWelcome, virtualizer]);
 
   useEffect(() => {
-    if (totalCount === 0) return;
+    if (totalCount === 0 || !windowReady || historyWindowKey !== currentChatKey) return;
 
     if (!hasInitializedRef.current) {
-      // Pass 1: always pin to bottom first so the virtualizer renders and
-      // the DOM is measured (clientHeight, scrollHeight are real after this).
-      pinToBottom("auto", "initialMount");
+      const unreadId =
+        firstUnreadMessageId ||
+        useMockStore.getState().historyWindow.firstUnreadMessageId;
 
-      const raf1 = requestAnimationFrame(() => {
-        // Pass 2: now that the DOM is laid out we can check whether the unread
-        // divider is already visible in the viewport (Discord mechanic).
-        const unreadId =
-          firstUnreadMessageId ||
-          useMockStore.getState().historyWindow.firstUnreadMessageId;
+      if (unreadId) {
+        const currentItems = (
+          useMockStore.getState().messages[chatId] ||
+          useMockStore.getState().directMessages[chatId] ||
+          []
+        ) as (Message | DirectMessage)[];
+        const messageIndex = currentItems.findIndex((m) => m.id === unreadId);
 
-        if (unreadId) {
-          const currentItems = (
-            useMockStore.getState().messages[chatId] ||
-            useMockStore.getState().directMessages[chatId] ||
-            []
-          ) as (Message | DirectMessage)[];
-          const messageIndex = currentItems.findIndex((m) => m.id === unreadId);
+        if (messageIndex !== -1) {
+          const virtualIndex = messageIndex + (hasWelcome ? 1 : 0);
+          shouldStickToBottomRef.current = false;
+          setTailPinned(false);
+          setAtBottom(false);
+          markProgrammaticScroll(600);
+          virtualizer.scrollToIndex(virtualIndex, { align: "start" });
 
-          if (messageIndex !== -1) {
-            const virtualIndex = messageIndex + (hasWelcome ? 1 : 0);
-            const [targetOffset] = virtualizer.getOffsetForIndex(virtualIndex, "start") ?? [];
-            const element = chatRef.current;
-
-            if (typeof targetOffset === "number" && !isNaN(targetOffset) && element) {
-              const viewportHeight = element.clientHeight;
-              const totalSize = virtualizer.getTotalSize();
-              // The divider is "visible at bottom" when scrolled to the very end.
-              const visibleAtBottom = targetOffset >= totalSize - viewportHeight;
-
-              if (!visibleAtBottom) {
-                // Scroll to the unread divider (not the bottom).
-                shouldStickToBottomRef.current = false;
-                setTailPinned(false);
-                setAtBottom(false);
-                markProgrammaticScroll(400);
-                virtualizer.scrollToIndex(virtualIndex, { align: "start" });
-
-                requestAnimationFrame(() => {
-                  markProgrammaticScroll(400);
-                  virtualizer.scrollToIndex(virtualIndex, { align: "start" });
-                  if (chatRef.current) {
-                    // Add small offset so the divider isn't flush at top.
-                    chatRef.current.scrollTop = Math.max(0, chatRef.current.scrollTop - 48);
-                  }
-                  hasInitializedRef.current = true;
-                });
-                return;
-              }
+          const raf = requestAnimationFrame(() => {
+            markProgrammaticScroll(600);
+            virtualizer.scrollToIndex(virtualIndex, { align: "start" });
+            if (chatRef.current) {
+              chatRef.current.scrollTop = Math.max(0, chatRef.current.scrollTop - 40);
             }
-          }
+            hasInitializedRef.current = true;
+          });
+          return () => cancelAnimationFrame(raf);
         }
+      }
 
-        // No unread divider off-screen → stay at bottom.
-        if (shouldStickToBottomRef.current) {
-          pinToBottom("auto", "initialMountRaf");
-        }
-        hasInitializedRef.current = true;
-      });
-
-      return () => cancelAnimationFrame(raf1);
+      // No unread messages -> pin to bottom
+      pinToBottom("auto", "initialMount");
+      hasInitializedRef.current = true;
     }
-  }, [totalCount, pinToBottom, firstUnreadMessageId, chatId, hasWelcome, virtualizer, markProgrammaticScroll]);
+  }, [totalCount, windowReady, historyWindowKey, currentChatKey, pinToBottom, firstUnreadMessageId, chatId, hasWelcome, virtualizer, markProgrammaticScroll]);
 
   useEffect(() => {
     if (totalCount === 0) return;

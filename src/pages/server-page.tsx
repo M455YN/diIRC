@@ -10,12 +10,26 @@ export const ServerPage = () => {
   const { serverId } = useParams();
   const navigate = useNavigate();
   const servers = useMockStore((state) => state.servers);
+  const lastActiveChatPerServer = useMockStore((state) => state.lastActiveChatPerServer);
   const { onOpen } = useModal();
 
   const server = servers.find((s) => s.id === serverId);
 
   useEffect(() => {
     if (server) {
+      const lastActive = serverId ? lastActiveChatPerServer[serverId] : undefined;
+
+      if (lastActive) {
+        if (lastActive.type === "channel" && server.channels.some((c) => c.id === lastActive.id)) {
+          navigate(`/servers/${server.id}/channels/${lastActive.id}`, { replace: true });
+          return;
+        }
+        if (lastActive.type === "conversation" && server.members.some((m) => m.id === lastActive.id)) {
+          navigate(`/servers/${server.id}/conversations/${lastActive.id}`, { replace: true });
+          return;
+        }
+      }
+
       const initialChannel = server.channels[0];
 
       if (initialChannel) {
@@ -26,7 +40,7 @@ export const ServerPage = () => {
     } else {
       navigate("/", { replace: true });
     }
-  }, [serverId, servers, server, navigate]);
+  }, [serverId, servers, server, lastActiveChatPerServer, navigate]);
 
   if (server && server.channels.length === 0) {
     return (

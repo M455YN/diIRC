@@ -51,7 +51,7 @@ export const MotdModal = () => {
   const setServerMotdPolicy = useMockStore((state) => state.setServerMotdPolicy);
   const setGlobalMotdPolicy = useMockStore((state) => state.setGlobalMotdPolicy);
   const markServerMotdSeen = useMockStore((state) => state.markServerMotdSeen);
-  const enableLinkPreviews = useMockStore((state) => state.enableLinkPreviews ?? true);
+  const enableMotdMediaPreviews = useMockStore((state) => state.enableMotdMediaPreviews ?? false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const activeServerId = data?.server?.id || data?.serverId || params.serverId || servers[0]?.id;
@@ -96,7 +96,7 @@ export const MotdModal = () => {
     return detectMotdFormat(rawMotdLines);
   }, [rawMotdLines]);
 
-  // Extract all media/web links from the MOTD content
+  // Extract all media/web links from the MOTD content for clickable link list in ASCII mode
   const detectedUrls = useMemo(() => {
     if (!motdLines.length) return [];
     return extractUrlsFromMarkdownText(motdLines.join("\n"));
@@ -108,10 +108,9 @@ export const MotdModal = () => {
 
     const totalLines = motdLines.length;
     const maxLineLength = Math.max(0, ...motdLines.map((l) => stripIrcCodes(l).length));
-    const hasMedia = detectedUrls.some((u) => isImageUrl(u) || isVideoUrl(u) || /youtu\.?be/.test(u));
+    const hasMedia = enableMotdMediaPreviews && detectedUrls.some((u) => isImageUrl(u) || isVideoUrl(u) || /youtu\.?be/.test(u));
 
     if (isDirc) {
-      // diIRC Mode
       if (hasMedia) return "max-w-3xl lg:max-w-4xl";
       if (totalLines > 16 || maxLineLength > 85) return "max-w-3xl";
       if (totalLines > 7 || maxLineLength > 55) return "max-w-2xl";
@@ -123,7 +122,7 @@ export const MotdModal = () => {
     if (maxLineLength > 65 || totalLines > 20) return "max-w-3xl lg:max-w-4xl";
     if (maxLineLength > 45 || totalLines > 10) return "max-w-2xl";
     return "max-w-xl";
-  }, [motdLines, detectedUrls, isDirc]);
+  }, [motdLines, isDirc]);
 
   const serverDisplayName = activeServer?.name || activeServer?.host || "Server";
 
@@ -194,7 +193,7 @@ export const MotdModal = () => {
                 /* ========================================================================= */
                 <div className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed break-words space-y-2">
                   {motdLines.map((line, idx) => {
-                    const lineUrls = enableLinkPreviews ? extractUrlsFromMarkdownText(line) : [];
+                    const lineUrls = enableMotdMediaPreviews ? extractUrlsFromMarkdownText(line) : [];
 
                     return (
                       <div key={idx} className="space-y-2">
@@ -202,7 +201,7 @@ export const MotdModal = () => {
                           {hasIrcControlCodes(line) ? (
                             <IrcLineRenderer line={line} />
                           ) : line.trim() ? (
-                            <MarkdownRenderer content={line} compact />
+                            <MarkdownRenderer content={line} compact allowImages={enableMotdMediaPreviews} />
                           ) : (
                             <div className="h-2" />
                           )}

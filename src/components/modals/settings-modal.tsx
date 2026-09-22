@@ -67,6 +67,12 @@ export const SettingsModal = () => {
   const enableLinkPreviews = useMockStore((state) => state.enableLinkPreviews);
   const setEnableLinkPreviews = useMockStore((state) => state.setEnableLinkPreviews);
 
+  const autoCollapseImages = useMockStore((state) => state.autoCollapseImages ?? false);
+  const setAutoCollapseImages = useMockStore((state) => state.setAutoCollapseImages);
+
+  const enableMotdMediaPreviews = useMockStore((state) => state.enableMotdMediaPreviews ?? false);
+  const setEnableMotdMediaPreviews = useMockStore((state) => state.setEnableMotdMediaPreviews);
+
   const enableWebPagePreviews = useMockStore((state) => state.enableWebPagePreviews);
   const setEnableWebPagePreviews = useMockStore((state) => state.setEnableWebPagePreviews);
 
@@ -811,6 +817,44 @@ export const SettingsModal = () => {
             <Switch
               checked={enableLinkPreviews}
               onCheckedChange={(checked) => setEnableLinkPreviews(checked)}
+            />
+          </div>
+
+          {/* Switch 1b: Collapse Images by Default */}
+          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+            <div className="space-y-0.5 pr-4">
+              <div className="flex items-center gap-x-2">
+                <EyeOff className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                  Collapse images by default
+                </label>
+              </div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Automatically collapse image previews in chat messages into compact expandable cards.
+              </p>
+            </div>
+            <Switch
+              checked={autoCollapseImages}
+              onCheckedChange={(checked) => setAutoCollapseImages(checked)}
+            />
+          </div>
+
+          {/* Switch 1c: Render media embeds in MOTD */}
+          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+            <div className="space-y-0.5 pr-4">
+              <div className="flex items-center gap-x-2">
+                <ScrollText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                  Render media embeds in MOTD
+                </label>
+              </div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Show rich media embeds (images, videos, YouTube) in Message of the Day dialogs.
+              </p>
+            </div>
+            <Switch
+              checked={enableMotdMediaPreviews}
+              onCheckedChange={(checked) => setEnableMotdMediaPreviews(checked)}
             />
           </div>
 

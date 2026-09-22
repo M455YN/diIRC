@@ -543,11 +543,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (!isSelf) {
           const activeKey = store.activeChatKey;
-          const isCurrentChat =
-            activeKey === `conversation:${targetServer.id}:${otherMember.id}` ||
-            activeKey === `conversation:${targetServer.id}:${conversationId}` ||
-            activeKey === `conversation:${otherMember.id}` ||
-            activeKey === `conversation:${conversationId}`;
+          const isCurrentChat = activeKey === `conversation:${conversationId}`;
           let isWindowFocused = typeof document !== "undefined" && document.hasFocus();
           
           try {
@@ -559,7 +555,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
 
           if (!isCurrentChat || !isWindowFocused) {
-            store.markUnread(`conversation:${targetServer.id}:${conversationId}`, true);
+            store.markUnread(`conversation:${conversationId}`, true);
           }
 
           if (!isCurrentChat || !isWindowFocused) {

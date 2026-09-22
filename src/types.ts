@@ -205,6 +205,9 @@ export type ServerMotdDisplayPolicy = "default" | "always" | "on_change" | "neve
 export type UserDisplayNameMode = "nickname" | "realname" | "username";
 export type ServerUserDisplayNameMode = "default" | "nickname" | "realname" | "username";
 
+export type MediaCollapseMode = "expanded" | "collapsed";
+export type ServerMediaCollapseMode = "default" | "expanded" | "collapsed";
+
 export interface Server {
   id: string;
   name: string;
@@ -230,6 +233,7 @@ export interface Server {
   motd?: string[];
   motdPolicy?: ServerMotdDisplayPolicy;
   displayNameMode?: ServerUserDisplayNameMode;
+  autoCollapseImages?: ServerMediaCollapseMode;
   parseLegacyZncTimestamps?: boolean;
 }
 
@@ -237,7 +241,7 @@ export type ServerWithMembersWithProfiles = Server;
 
 export type StatusDisplayMode = "always" | "on_error" | "disabled";
 
-
-
-
-
+export interface ActiveChatTarget {
+  type: "channel" | "conversation";
+  id: string;
+}
