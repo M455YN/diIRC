@@ -21,6 +21,15 @@ export const isTauriEnvironment = (): boolean => {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 };
 
+/** In-app updater is desktop-only (unsupported on iOS/Android). */
+export const isDesktopUpdateSupported = (): boolean => {
+  if (!isTauriEnvironment() || typeof navigator === "undefined") {
+    return false;
+  }
+  const ua = navigator.userAgent.toLowerCase();
+  return !/iphone|ipad|ipod|android/.test(ua);
+};
+
 /** Get currently configured update endpoint based on user settings */
 export const getActiveUpdateEndpoint = (): string | undefined => {
   const { updateSourceMode, customUpdateUrl } = useMockStore.getState();
@@ -32,7 +41,7 @@ export const getActiveUpdateEndpoint = (): string | undefined => {
 
 /** Perform update check */
 export const checkForAppUpdate = async (overrideEndpoint?: string): Promise<Update | null> => {
-  if (!isTauriEnvironment()) {
+  if (!isDesktopUpdateSupported()) {
     console.warn("Update check skipped: Not running in Tauri desktop environment.");
     return null;
   }

@@ -12,7 +12,12 @@
     "release": "bumpp package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml",
     "devtools:bots": "node devtools/bot-joiner/index.js",
     "build:e2e": "cargo build --manifest-path src-tauri/Cargo.toml",
-    "test:e2e": "npm run build:e2e && wdio run test/wdio.conf.js"
+    "test:e2e": "npm run build:e2e && wdio run test/wdio.conf.js",
+    "ios:setup": "bash scripts/ios-setup.sh",
+    "ios:ipa": "bash scripts/ios-build-ipa.sh debugging",
+    "ios:ipa:testflight": "bash scripts/ios-build-ipa.sh release-testing",
+    "ios:ipa:store": "bash scripts/ios-build-ipa.sh app-store-connect",
+    "ios:open": "tauri ios build --open"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.1.2",

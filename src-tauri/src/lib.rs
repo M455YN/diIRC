@@ -3838,39 +3838,58 @@ async fn check_app_update(
     webview: tauri::WebviewWindow,
     endpoint: Option<String>,
 ) -> Result<Option<UpdateMetadata>, String> {
-    use tauri_plugin_updater::UpdaterExt;
-    use reqwest::Url;
-
-    let mut builder = webview.updater_builder();
-    if let Some(ep) = endpoint {
-        let ep_clean = ep.trim();
-        if !ep_clean.is_empty() {
-            let url = Url::parse(ep_clean).map_err(|e| format!("Invalid update URL: {e}"))?;
-            builder = builder.endpoints(vec![url]).map_err(|e| format!("Updater config error: {e}"))?;
-        }
+    #[cfg(mobile)]
+    {
+        let _ = (webview, endpoint);
+        return Err(
+            "In-app updates are not available on mobile; use the App Store or Play Store."
+                .into(),
+        );
     }
 
-    let updater = builder.build().map_err(|e| format!("Failed to build updater: {e}"))?;
-    let update_opt = updater.check().await.map_err(|e| format!("Failed to check for update: {e}"))?;
+    #[cfg(desktop)]
+    {
+        use reqwest::Url;
+        use tauri_plugin_updater::UpdaterExt;
 
-    if let Some(update) = update_opt {
-        let date_str = update.date.as_ref().map(|d| d.to_string());
-        let current_version = update.current_version.clone();
-        let version = update.version.clone();
-        let body = update.body.clone();
-        let raw_json = update.raw_json.clone();
-        let rid = webview.resources_table().add(update);
+        let mut builder = webview.updater_builder();
+        if let Some(ep) = endpoint {
+            let ep_clean = ep.trim();
+            if !ep_clean.is_empty() {
+                let url = Url::parse(ep_clean).map_err(|e| format!("Invalid update URL: {e}"))?;
+                builder = builder
+                    .endpoints(vec![url])
+                    .map_err(|e| format!("Updater config error: {e}"))?;
+            }
+        }
 
-        Ok(Some(UpdateMetadata {
-            rid: rid as u32,
-            current_version,
-            version,
-            date: date_str,
-            body,
-            raw_json,
-        }))
-    } else {
-        Ok(None)
+        let updater = builder
+            .build()
+            .map_err(|e| format!("Failed to build updater: {e}"))?;
+        let update_opt = updater
+            .check()
+            .await
+            .map_err(|e| format!("Failed to check for update: {e}"))?;
+
+        if let Some(update) = update_opt {
+            let date_str = update.date.as_ref().map(|d| d.to_string());
+            let current_version = update.current_version.clone();
+            let version = update.version.clone();
+            let body = update.body.clone();
+            let raw_json = update.raw_json.clone();
+            let rid = webview.resources_table().add(update);
+
+            Ok(Some(UpdateMetadata {
+                rid: rid as u32,
+                current_version,
+                version,
+                date: date_str,
+                body,
+                raw_json,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -3972,8 +3991,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             connect_irc,
             send_message,
@@ -4000,6 +4017,13 @@ pub fn run() {
             create_app_backup
         ])
         .setup(|app| {
+            #[cfg(desktop)]
+            {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+                app.handle().plugin(tauri_plugin_process::init())?;
+            }
+
             if let Some(window) = app.get_webview_window("main") {
                 if let Some(icon) = app.default_window_icon() {
                     let _ = window.set_icon(icon.clone());

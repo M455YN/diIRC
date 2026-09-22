@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Desktop permissions for Luna IRC",
-  "platforms": ["linux", "macOS", "windows"],
+  "identifier": "mobile-default",
+  "description": "iOS/Android permissions for Luna IRC (no desktop updater/process)",
+  "platforms": ["iOS", "android"],
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -17,9 +17,6 @@
     "notification:default",
     "notification:allow-is-permission-granted",
     "notification:allow-request-permission",
-    "notification:allow-notify",
-    "core:window:allow-request-user-attention",
-    "updater:default",
-    "process:default"
+    "notification:allow-notify"
   ]
 }

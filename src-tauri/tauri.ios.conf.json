@@ -1,0 +1,10 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Luna IRC",
+  "bundle": {
+    "createUpdaterArtifacts": false,
+    "iOS": {
+      "minimumSystemVersion": "14.0"
+    }
+  }
+}

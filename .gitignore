@@ -15,7 +15,10 @@
 # production / build
 /build
 /dist
+/dist-ios
 src-tauri/target/
+src-tauri/gen/apple/build/
+src-tauri/gen/apple/Externals/
 
 # devtools data
 /devtools/bot-joiner/config.json

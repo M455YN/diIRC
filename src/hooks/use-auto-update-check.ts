@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useMockStore } from "@/lib/mock-store";
 import { useModal } from "@/hooks/use-modal-store";
-import { checkForAppUpdate, isTauriEnvironment } from "@/lib/update-service";
+import { checkForAppUpdate, isDesktopUpdateSupported } from "@/lib/update-service";
 import tauriConfig from "../../src-tauri/tauri.conf.json";
 
 export const useAutoUpdateCheck = () => {
@@ -13,7 +13,7 @@ export const useAutoUpdateCheck = () => {
     if (hasCheckedOnStartup.current) return;
     hasCheckedOnStartup.current = true;
 
-    if (!isTauriEnvironment()) return;
+    if (!isDesktopUpdateSupported()) return;
     if (autoUpdateMode === "disabled") return;
 
     const runStartupCheck = async () => {

@@ -18,6 +18,13 @@ npm run tauri build
 The compiled installers (e.g., Linux `.AppImage`/`.deb`/`.rpm` or Windows `.exe`/`.msi`) will be located in:
 `src-tauri/target/release/bundle/`
 
+### iOS IPA (macOS + Xcode only):
+```bash
+npm run ios:setup
+npm run ios:ipa
+```
+See [docs/IOS_BUILD.md](docs/IOS_BUILD.md) for signing, TestFlight, and App Store export methods.
+
 ---
 
 ## 2. Releasing a New Version
