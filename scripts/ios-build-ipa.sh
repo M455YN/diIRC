@@ -32,8 +32,13 @@ fi
 
 if [[ -z "${APPLE_DEVELOPMENT_TEAM:-}" ]]; then
   yellow "APPLE_DEVELOPMENT_TEAM is unset."
-  yellow "Xcode automatic signing may still work if you signed in once."
-  yellow "Otherwise: export APPLE_DEVELOPMENT_TEAM=Your10CharTeamID"
+  yellow "Find Team ID: Xcode → Settings → Accounts → your Apple ID → Team → Team ID"
+  yellow "Then: export APPLE_DEVELOPMENT_TEAM=AB12CD34EF"
+  yellow "Or open Xcode once: npm run ios:open  → Signing & Capabilities → select your Personal Team"
+elif [[ "${APPLE_DEVELOPMENT_TEAM}" == "XXXXXXXXXX" || "${APPLE_DEVELOPMENT_TEAM}" == "Your10CharTeamID" ]]; then
+  red "APPLE_DEVELOPMENT_TEAM is still the placeholder (${APPLE_DEVELOPMENT_TEAM})."
+  red "Replace it with your real 10-character Team ID from Xcode → Settings → Accounts."
+  exit 1
 fi
 
 green "Building iOS IPA (export-method=$EXPORT_METHOD)..."

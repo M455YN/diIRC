@@ -16,12 +16,27 @@ This branch prepares Luna IRC (Tauri 2) so you can generate a signed `.ipa` on a
 ```bash
 git checkout feature/ios-ipa-build
 npm run ios:setup          # deps, Rust iOS targets, tauri ios init
-export APPLE_DEVELOPMENT_TEAM=XXXXXXXXXX   # optional but recommended (Team ID)
+
+# Real Team ID (NOT the placeholder XXXXXXXXXX):
+# Xcode → Settings → Accounts → Apple ID → Team → Team ID (10 chars, e.g. AB12CD34EF)
+export APPLE_DEVELOPMENT_TEAM=AB12CD34EF
+
 npm run ios:ipa            # debugging IPA (sideload / local device)
 # or:
 npm run ios:ipa:testflight # release-testing
 npm run ios:ipa:store      # App Store Connect
 ```
+
+### First-time signing (free Apple ID)
+
+1. Xcode → **Settings → Accounts** → add your Apple ID
+2. `npm run ios:open`
+3. Select target **app_iOS** → **Signing & Capabilities**
+4. Enable **Automatically manage signing**
+5. Team = your **Personal Team**
+6. Close Xcode, then `export APPLE_DEVELOPMENT_TEAM=<real Team ID>` and `npm run ios:ipa`
+
+Current Xcode SDKs require **iOS 15.0+** (`minimumSystemVersion` in `tauri.ios.conf.json`).
 
 Convenience copy of the newest IPA:
 
