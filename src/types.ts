@@ -235,7 +235,11 @@ export interface Server {
   displayNameMode?: ServerUserDisplayNameMode;
   autoCollapseImages?: ServerMediaCollapseMode;
   parseLegacyZncTimestamps?: boolean;
+  replyMode?: ServerReplyMode;
 }
+
+export type ReplyMode = "auto" | "modern" | "legacy" | "hybrid";
+export type ServerReplyMode = "inherit" | ReplyMode;
 
 export type ServerWithMembersWithProfiles = Server;
 

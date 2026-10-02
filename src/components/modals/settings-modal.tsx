@@ -43,9 +43,10 @@ import {
   ScrollText,
   AtSign,
   Smile,
+  Reply,
 } from "lucide-react";
 import { StatusDisplayMode, formatMessageDate, NickCompletionFormat, formatNickCompletion } from "@/lib/mock-store";
-import { MotdDisplayPolicy, UserDisplayNameMode } from "@/types";
+import { MotdDisplayPolicy, UserDisplayNameMode, ReplyMode } from "@/types";
 import { playNotificationSound, SoundPreset } from "@/lib/notification-sound";
 import { requestDesktopNotificationPermission } from "@/lib/notification-service";
 import { NotificationSettingsFields } from "@/components/notifications/notification-settings-fields";
@@ -106,6 +107,9 @@ export const SettingsModal = () => {
 
   const customNickCompletionFormat = useMockStore((state) => state.customNickCompletionFormat) || "{nick}: ";
   const setCustomNickCompletionFormat = useMockStore((state) => state.setCustomNickCompletionFormat);
+
+  const defaultReplyMode = useMockStore((state) => state.defaultReplyMode) || "auto";
+  const setDefaultReplyMode = useMockStore((state) => state.setDefaultReplyMode);
 
   const notificationSettings = useMockStore((state) => state.notificationSettings) || {
     soundEnabled: true,
@@ -799,6 +803,29 @@ export const SettingsModal = () => {
                 <span className="text-zinc-500 dark:text-zinc-400 font-normal">hello there!</span>
               </span>
             </div>
+          </div>
+
+          {/* Default Reply Format */}
+          <div className="flex flex-col gap-y-2 rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+            <div className="flex items-center gap-x-2">
+              <Reply className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                Default reply format
+              </label>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              Choose how replies are sent to servers. Auto uses modern IRCv3 tags if supported and falls back to legacy inline quoting.
+            </p>
+            <select
+              value={defaultReplyMode}
+              onChange={(e) => setDefaultReplyMode(e.target.value as ReplyMode)}
+              className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value="auto">Auto (recommended)</option>
+              <option value="modern">Modern IRCv3 only</option>
+              <option value="legacy">Legacy inline only</option>
+              <option value="hybrid">Hybrid (both)</option>
+            </select>
           </div>
 
           {/* Switch 1: Enable Link Previews (All embeds) */}

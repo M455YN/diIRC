@@ -25,6 +25,8 @@ import {
   MediaCollapseMode,
   ServerMediaCollapseMode,
   ActiveChatTarget,
+  ReplyMode,
+  ServerReplyMode,
 } from "@/types";
 import {
   INITIAL_SERVERS,
@@ -380,6 +382,7 @@ export interface AddServerOptions {
   notificationSettings?: NotificationOverride;
   displayNameMode?: ServerUserDisplayNameMode;
   autoCollapseImages?: ServerMediaCollapseMode;
+  replyMode?: ServerReplyMode;
 }
 
 export interface UpdateServerOptions {
@@ -400,6 +403,7 @@ export interface UpdateServerOptions {
   motdPolicy?: ServerMotdDisplayPolicy;
   displayNameMode?: ServerUserDisplayNameMode;
   autoCollapseImages?: ServerMediaCollapseMode;
+  replyMode?: ServerReplyMode;
 }
 
 export type NickCompletionFormat =
@@ -482,6 +486,8 @@ interface MockState {
   setCustomNickCompletionFormat: (format: string) => void;
   jumbojiSize: number;
   setJumbojiSize: (size: number) => void;
+  defaultReplyMode: ReplyMode;
+  setDefaultReplyMode: (mode: ReplyMode) => void;
   notificationSettings: GlobalNotificationSettings;
   conversationNotificationSettings: Record<string, NotificationOverride>;
   autoUpdateMode: "auto" | "ask" | "disabled";
@@ -613,6 +619,7 @@ interface MockState {
   setTailPinned: (pinned: boolean) => void;
   addMessage: (channelId: string, member: Member, content: string, fileUrl?: string | null, isSystem?: boolean, extras?: IncomingMessageMeta) => Message;
   deleteMessage: (channelId: string, messageId: string) => void;
+  updateMessageMsgid: (localId: string, msgid: string) => void;
 
   activeConversations: Record<string, string[]>;
   historicalConversations: Record<string, string[]>;
@@ -698,6 +705,8 @@ export const useMockStore = create<MockState>()(
       setCustomNickCompletionFormat: (format) => set({ customNickCompletionFormat: format }),
       jumbojiSize: 42,
       setJumbojiSize: (size: number) => set({ jumbojiSize: size }),
+      defaultReplyMode: "auto",
+      setDefaultReplyMode: (mode) => set({ defaultReplyMode: mode }),
       notificationSettings: {
         soundEnabled: true,
         soundPreset: "chime",
@@ -1165,6 +1174,7 @@ export const useMockStore = create<MockState>()(
           customCommands,
           imageUrl,
           autoCollapseImages: typeof optionsOrName === "object" ? optionsOrName.autoCollapseImages : undefined,
+          replyMode: typeof optionsOrName === "object" ? optionsOrName.replyMode : undefined,
           inviteCode: `invite-${uuidv4().slice(0, 8)}`,
           profileId: get().currentProfile.id,
           channels: [],
@@ -1264,6 +1274,7 @@ export const useMockStore = create<MockState>()(
                 motdPolicy: optionsOrName.motdPolicy ?? s.motdPolicy,
                 displayNameMode: optionsOrName.displayNameMode ?? s.displayNameMode,
                 autoCollapseImages: optionsOrName.autoCollapseImages ?? s.autoCollapseImages,
+                replyMode: optionsOrName.replyMode ?? s.replyMode,
               };
 
               if (newServer.autoConnect === false && s.autoConnect !== false) {
@@ -2653,6 +2664,54 @@ export const useMockStore = create<MockState>()(
             ),
           },
         }));
+      },
+
+      updateMessageMsgid: (localId, msgid) => {
+        set((state) => {
+          let updatedChannel: string | null = null;
+          let nextChannelMsgs: Message[] = [];
+          for (const [chId, msgs] of Object.entries(state.messages)) {
+            const idx = msgs.findIndex((m) => m.id === localId);
+            if (idx !== -1) {
+              updatedChannel = chId;
+              nextChannelMsgs = msgs.map((m) =>
+                m.id === localId ? { ...m, ircMsgid: msgid } : m
+              );
+              break;
+            }
+          }
+          if (updatedChannel) {
+            return {
+              messages: {
+                ...state.messages,
+                [updatedChannel]: nextChannelMsgs,
+              },
+            };
+          }
+
+          let updatedConv: string | null = null;
+          let nextConvMsgs: DirectMessage[] = [];
+          for (const [convId, msgs] of Object.entries(state.directMessages)) {
+            const idx = msgs.findIndex((m) => m.id === localId);
+            if (idx !== -1) {
+              updatedConv = convId;
+              nextConvMsgs = msgs.map((m) =>
+                m.id === localId ? { ...m, ircMsgid: msgid } : m
+              );
+              break;
+            }
+          }
+          if (updatedConv) {
+            return {
+              directMessages: {
+                ...state.directMessages,
+                [updatedConv]: nextConvMsgs,
+              },
+            };
+          }
+
+          return state;
+        });
       },
 
       openConversation: (serverId, memberId) => {
