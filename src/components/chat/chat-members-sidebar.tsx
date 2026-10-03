@@ -13,11 +13,14 @@ import { MoreHorizontal } from "lucide-react";
 interface ChatMembersSidebarProps {
   server: Server;
   channel?: Channel;
+  /** `sidebar` = desktop dock; `panel` = full-width list for mobile sheets */
+  variant?: "sidebar" | "panel";
 }
 
 export const ChatMembersSidebar = ({
   server,
-  channel
+  channel,
+  variant = "sidebar",
 }: ChatMembersSidebarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -173,6 +176,57 @@ export const ChatMembersSidebar = ({
     );
   };
 
+  const listBody = (
+    <div className={cn("h-full flex flex-col", variant === "panel" ? "w-full" : "w-60")}>
+      <div className="flex-1 overflow-y-auto pt-4 px-2">
+        <div className="mb-6">
+          {variant === "sidebar" && (
+            <h3 className="uppercase text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2 px-2">
+              {channel ? "Users" : "Conversations"} — {totalCount}
+            </h3>
+          )}
+          {variant === "panel" && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2 px-2">
+              {totalCount} {channel ? "users" : "conversations"}
+            </p>
+          )}
+          <div className={cn("space-y-[2px] transition-all duration-300", !isConnected && "grayscale opacity-60")}>
+            {selfMember && (
+              <>
+                <div key={selfMember.id}>{renderMember(selfMember, true)}</div>
+                <div className="my-1.5 border-b border-zinc-200 dark:border-zinc-700/60" />
+              </>
+            )}
+            {otherMembers.map((member) => (
+              <div key={member.id}>{renderMember(member, false)}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {!channel && (
+        <div className="p-3 border-t border-zinc-200 dark:border-zinc-700/60 bg-[#F2F3F5] dark:bg-[#2B2D31] shrink-0 mt-auto mobile-safe-bottom">
+          <button
+            onClick={() => onOpen("privateMessages")}
+            className="w-full text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-200/80 dark:bg-zinc-700/80 hover:bg-zinc-300 dark:hover:bg-zinc-600 px-3 py-2.5 min-h-[44px] rounded-md transition flex items-center justify-center gap-x-2 shadow-sm cursor-pointer"
+            title="More options"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+            More
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  if (variant === "panel") {
+    return (
+      <div className="h-full w-full bg-[#F2F3F5] dark:bg-[#2B2D31] select-none">
+        {listBody}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -180,43 +234,8 @@ export const ChatMembersSidebar = ({
         showMembersSidebar ? "w-60" : "w-0"
       )}
     >
-      {/* Sliding Outer Clipping Wrapper */}
       <div className="w-full h-full overflow-hidden border-l border-zinc-200 dark:border-zinc-800 bg-[#F2F3F5] dark:bg-[#2B2D31]">
-        <div className="w-60 h-full flex flex-col">
-          {/* Scrollable Members / Conversations List */}
-          <div className="flex-1 overflow-y-auto pt-4 px-2">
-            <div className="mb-6">
-              <h3 className="uppercase text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2 px-2">
-                {channel ? "Users" : "Conversations"} — {totalCount}
-              </h3>
-              <div className={cn("space-y-[2px] transition-all duration-300", !isConnected && "grayscale opacity-60")}>
-                {selfMember && (
-                  <>
-                    <div key={selfMember.id}>{renderMember(selfMember, true)}</div>
-                    <div className="my-1.5 border-b border-zinc-200 dark:border-zinc-700/60" />
-                  </>
-                )}
-                {otherMembers.map((member) => (
-                  <div key={member.id}>{renderMember(member, false)}</div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Anchored Bottom Footer for Private Messages */}
-          {!channel && (
-            <div className="p-3 border-t border-zinc-200 dark:border-zinc-700/60 bg-[#F2F3F5] dark:bg-[#2B2D31] shrink-0 mt-auto">
-              <button
-                onClick={() => onOpen("privateMessages")}
-                className="w-full text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-200/80 dark:bg-zinc-700/80 hover:bg-zinc-300 dark:hover:bg-zinc-600 px-3 py-2 rounded-md transition flex items-center justify-center gap-x-2 shadow-sm cursor-pointer"
-                title="More options"
-              >
-                <MoreHorizontal className="w-4 h-4" />
-                More
-              </button>
-            </div>
-          )}
-        </div>
+        {listBody}
       </div>
     </div>
   );

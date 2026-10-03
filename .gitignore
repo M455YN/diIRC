@@ -44,3 +44,9 @@ next-env.d.ts
 
 test/reports
 test/reports/**
+
+# IDE / local
+.vs/
+
+# Tauri mobile project is generated locally (`tauri android init`); build trees are huge
+src-tauri/gen/android/

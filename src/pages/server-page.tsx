@@ -2,13 +2,14 @@ import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMockStore } from "@/lib/mock-store";
 import { useModal } from "@/hooks/use-modal-store";
-import { ChannelType } from "@/types";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 import { Hash, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const ServerPage = () => {
   const { serverId } = useParams();
   const navigate = useNavigate();
+  const isMobile = useIsMobileShell();
   const servers = useMockStore((state) => state.servers);
   const lastActiveChatPerServer = useMockStore((state) => state.lastActiveChatPerServer);
   const { onOpen } = useModal();
@@ -16,6 +17,16 @@ export const ServerPage = () => {
   const server = servers.find((s) => s.id === serverId);
 
   useEffect(() => {
+    // Mobile shell shows the channel list at /servers/:id — do not auto-enter last chat.
+    if (isMobile) {
+      if (!server && servers.length > 0) {
+        navigate(`/servers/${servers[0].id}`, { replace: true });
+      } else if (!server && servers.length === 0) {
+        navigate("/", { replace: true });
+      }
+      return;
+    }
+
     if (server) {
       const lastActive = serverId ? lastActiveChatPerServer[serverId] : undefined;
 
@@ -40,7 +51,7 @@ export const ServerPage = () => {
     } else {
       navigate("/", { replace: true });
     }
-  }, [serverId, servers, server, lastActiveChatPerServer, navigate]);
+  }, [serverId, servers, server, lastActiveChatPerServer, navigate, isMobile]);
 
   if (server && server.channels.length === 0) {
     return (
@@ -65,6 +76,11 @@ export const ServerPage = () => {
         </div>
       </div>
     );
+  }
+
+  // On mobile, channel list is rendered by MobileShellLayout via ServerSidebar.
+  if (isMobile) {
+    return null;
   }
 
   return null;
