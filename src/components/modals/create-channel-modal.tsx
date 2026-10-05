@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/tooltip";
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { MobileCreateChannelModal } from "@/components/mobile/mobile-channel-modals";
 
 const formSchema = z.object({
   name: z.string().min(1, {
@@ -40,7 +42,10 @@ const formSchema = z.object({
   joinTemporary: z.boolean().default(false)
 });
 
-export const CreateChannelModal = () => {
+export const CreateChannelModal = () =>
+  useIsMobileShell() ? <MobileCreateChannelModal /> : <DesktopCreateChannelModal />;
+
+const DesktopCreateChannelModal = () => {
   const { isOpen, onClose, type, data } = useModal();
   const navigate = useNavigate();
   const params = useParams();

@@ -48,5 +48,16 @@ test/reports/**
 # IDE / local
 .vs/
 
-# Tauri mobile project is generated locally (`tauri android init`); build trees are huge
+# Tauri mobile project is generated locally (`tauri android/ios init`); build trees are huge
 src-tauri/gen/android/
+src-tauri/gen/ios/
+
+# Local plugin mobile build caches
+src-tauri/plugins/mobile-chrome/android/.tauri/
+src-tauri/plugins/mobile-chrome/ios/.tauri/
+src-tauri/plugins/mobile-chrome/dist-js/
+src-tauri/plugins/mobile-chrome/node_modules/
+
+# Local mobile build artifacts
+*.apk
+build-apk.log

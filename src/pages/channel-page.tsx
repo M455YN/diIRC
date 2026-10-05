@@ -12,13 +12,7 @@ import { ChatMembersSidebar } from "@/components/chat/chat-members-sidebar";
 import { ChatSearchResultsPanel } from "@/components/chat/search/search-results-panel";
 import { MobileChatHeader } from "@/components/mobile/mobile-chat-header";
 import { MobileMembersSheet } from "@/components/mobile/mobile-members-sheet";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { ChatSearchInput } from "@/components/chat/search/chat-search-input";
+import { MobileMessageSearch } from "@/components/mobile/mobile-message-search";
 
 export const ChannelPage = () => {
   const { serverId, channelId } = useParams();
@@ -84,7 +78,7 @@ export const ChannelPage = () => {
 
   if (isMobile) {
     return (
-      <div className="bg-white dark:bg-[#313338] flex flex-col h-full">
+      <div className="flex h-full flex-col bg-background text-foreground">
         <MobileChatHeader
           name={channel.name}
           type="channel"
@@ -96,7 +90,7 @@ export const ChannelPage = () => {
           }}
           showMembers={membersOpen}
         />
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <ChatMessages
             member={currentMember}
             name={channel.name}
@@ -106,7 +100,7 @@ export const ChannelPage = () => {
             paramKey="channelId"
             paramValue={channel.id}
           />
-          <div className="mobile-safe-bottom shrink-0">
+          <div className="mobile-safe-bottom shrink-0 bg-background">
             <ChatInput
               name={channel.name}
               type="channel"
@@ -125,30 +119,15 @@ export const ChannelPage = () => {
           channel={channel}
         />
 
-        <Sheet
+        <MobileMessageSearch
           open={searchSheetOpen}
-          onOpenChange={(open) => {
-            setSearchSheetOpen(open);
-            if (!open) closeSearch();
+          onClose={() => {
+            setSearchSheetOpen(false);
+            closeSearch();
           }}
-        >
-          <SheetContent
-            side="bottom"
-            className="h-[85dvh] p-0 flex flex-col rounded-t-2xl"
-          >
-            <SheetHeader className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-              <SheetTitle className="text-left text-base">Search messages</SheetTitle>
-            </SheetHeader>
-            <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-              <ChatSearchInput context={searchContext} members={searchMembers} />
-            </div>
-            <div className="flex-1 min-h-0 overflow-hidden">
-              {searchOpen && (
-                <ChatSearchResultsPanel context={searchContext} variant="panel" />
-              )}
-            </div>
-          </SheetContent>
-        </Sheet>
+          context={searchContext}
+          members={searchMembers}
+        />
       </div>
     );
   }

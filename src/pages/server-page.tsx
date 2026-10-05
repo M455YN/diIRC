@@ -55,22 +55,56 @@ export const ServerPage = () => {
 
   if (server && server.channels.length === 0) {
     return (
-      <div className="flex-1 bg-white dark:bg-[#313338] flex flex-col items-center justify-center h-full p-6 text-center">
-        <div className="flex flex-col items-center max-w-md space-y-4">
-          <div className="w-16 h-16 rounded-full bg-zinc-200 dark:bg-zinc-700/50 flex items-center justify-center mb-2">
-            <Hash className="w-8 h-8 text-zinc-500 dark:text-zinc-400" />
+      <div
+        className={
+          isMobile
+            ? "flex h-full flex-1 flex-col items-center justify-center bg-background p-6 text-center text-foreground"
+            : "flex h-full flex-1 flex-col items-center justify-center bg-white p-6 text-center dark:bg-[#313338]"
+        }
+      >
+        <div className="flex max-w-md flex-col items-center space-y-4">
+          <div
+            className={
+              isMobile
+                ? "mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-secondary"
+                : "mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-700/50"
+            }
+          >
+            <Hash
+              className={
+                isMobile
+                  ? "h-8 w-8 text-muted-foreground"
+                  : "h-8 w-8 text-zinc-500 dark:text-zinc-400"
+              }
+            />
           </div>
-          <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          <h2
+            className={
+              isMobile
+                ? "text-2xl font-bold"
+                : "text-2xl font-bold text-zinc-900 dark:text-zinc-100"
+            }
+          >
             No channels on server
           </h2>
-          <p className="text-zinc-500 dark:text-zinc-400 text-sm max-w-xs">
+          <p
+            className={
+              isMobile
+                ? "max-w-xs text-sm text-muted-foreground"
+                : "max-w-xs text-sm text-zinc-500 dark:text-zinc-400"
+            }
+          >
             This server currently has no channels. Join an existing channel or create a new one.
           </p>
           <Button
             onClick={() => onOpen("createChannel", { server })}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-5 py-2 flex items-center gap-x-2"
+            className={
+              isMobile
+                ? "flex items-center gap-x-2 bg-blue-500 px-5 py-2 font-medium text-white hover:bg-blue-600"
+                : "flex items-center gap-x-2 bg-indigo-600 px-5 py-2 font-medium text-white hover:bg-indigo-700"
+            }
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="h-4 w-4" />
             Join / Create channel
           </Button>
         </div>

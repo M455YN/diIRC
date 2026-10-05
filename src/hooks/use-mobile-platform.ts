@@ -80,14 +80,6 @@ export function useMobileOs(): MobileOs | null {
   return os;
 }
 
-/**
- * Whether to use a native tab bar bridge (SwiftUI Liquid Glass on iOS 26+).
- * Until the iOS native chrome is wired, always false — WebView glass is used.
- */
-export function useNativeMobileTabBar(): boolean {
-  return false;
-}
-
 /** Sync helper for non-React code paths. */
 export function isMobileShell(): boolean {
   return detectMobileShell();

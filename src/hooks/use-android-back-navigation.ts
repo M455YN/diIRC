@@ -51,13 +51,14 @@ export function useAndroidBackNavigation(options?: {
     let cancelled = false;
 
     const handleBack = () => {
+      // Overlays with inner navigation (e.g. settings subpages) consume back first
+      if (emitMobileBack()) return;
+
       const modal = useModalStore.getState();
       if (modal.isOpen) {
         modal.onClose();
         return;
       }
-
-      if (emitMobileBack()) return;
 
       const { pathname, serverId: sid, tab: currentTab, setTab: setCurrentTab, navigate: nav } =
         stateRef.current;

@@ -8,6 +8,7 @@ import { UserHoverCard, getMemberDisplayName } from "@/components/user-hover-car
 import { ActionTooltip } from "@/components/action-tooltip";
 import { cn } from "@/lib/utils";
 import { useMockStore } from "@/lib/mock-store";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 import { focusChatMessage, useReplyStore } from "@/hooks/use-reply-store";
 import { ChatItemAttachment } from "./chat-item-attachment";
 import { LinkPreview } from "./link-preview";
@@ -67,6 +68,7 @@ const ChatItemInner = ({
 }: ChatItemProps) => {
   const params = useParams();
   const navigate = useNavigate();
+  const isMobile = useIsMobileShell();
 
   const compactMode = useMockStore((state) => state.compactMode);
   const enableLinkPreviews = useMockStore((state) => state.enableLinkPreviews);
@@ -342,6 +344,142 @@ const ChatItemInner = ({
         <p className="text-sm text-zinc-500 italic ml-2">
           {content}
         </p>
+      </div>
+    );
+  }
+
+  // Mobile: iOS-style bubbles (no reactions / hover chrome)
+  if (isMobile) {
+    const timeLabel = compactTime || timestamp;
+    const bubbleBody = (
+      <>
+        {fileUrl && (
+          <ChatItemAttachment
+            fileUrl={fileUrl}
+            content={content}
+            onContentSizeChange={onContentSizeChange}
+          />
+        )}
+        {!fileUrl && (hasVisibleText || deleted) && (
+          hasBrokenHeader ? (
+            <div className="inline-flex items-center gap-x-2 rounded-xl bg-rose-500/15 px-2.5 py-1 text-xs font-medium text-rose-600">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              <span>{textToEvaluate}</span>
+            </div>
+          ) : isAction ? (
+            <p className="text-[15px] font-normal italic leading-snug">
+              * {displayName} {actionText}
+            </p>
+          ) : shouldUseMarkdown && !isOnlyEmoji ? (
+            <div
+              className={cn(
+                "text-[15px] font-normal leading-snug",
+                deleted && "italic opacity-70"
+              )}
+            >
+              <MarkdownRenderer
+                content={cleanContent}
+                onContentSizeChange={onContentSizeChange}
+                compact={compact}
+                myNicks={myNicks}
+                allMemberNicks={allMemberNicks}
+              />
+            </div>
+          ) : (
+            <p
+              style={isOnlyEmoji ? emojiSizeProps.style : undefined}
+              className={cn(
+                "whitespace-pre-wrap break-words text-[15px] font-normal leading-snug",
+                isOnlyEmoji && emojiSizeProps.className,
+                deleted && "italic opacity-70 text-[13px]"
+              )}
+            >
+              {renderContentWithLinks(cleanContent)}
+            </p>
+          )
+        )}
+        {!fileUrl &&
+          extractedUrls.map((url) => (
+            <LinkPreview
+              key={url}
+              url={url}
+              onContentSizeChange={onContentSizeChange}
+            />
+          ))}
+      </>
+    );
+
+    return (
+      <div
+        className={cn(
+          "flex w-full px-3 py-0.5",
+          isSelf ? "justify-end" : "justify-start",
+          isMention && !isSelf && "rounded-xl bg-amber-500/10"
+        )}
+        onDoubleClick={handleReply}
+      >
+        <div
+          className={cn(
+            "flex max-w-[82%] flex-col",
+            isSelf ? "items-end" : "items-start"
+          )}
+        >
+          {(replyMeta?.nick || replyMeta?.preview) && (
+            <button
+              type="button"
+              onClick={() => {
+                if (replyMeta?.messageId) focusChatMessage(replyMeta.messageId);
+              }}
+              className="mb-1 max-w-full truncate rounded-lg bg-secondary/80 px-2 py-1 text-left text-[11px] text-muted-foreground"
+            >
+              <span className="font-medium text-blue-500">{replyMeta.nick}</span>
+              {": "}
+              {replyMeta.preview}
+            </button>
+          )}
+
+          {!isSelf && !compact && channelId && (
+            <button
+              type="button"
+              onClick={onMemberClick}
+              className="mb-0.5 px-1 text-[12px] font-medium text-muted-foreground"
+            >
+              {displayName}
+            </button>
+          )}
+
+          <div className="flex items-end gap-1.5">
+            {!isSelf && (
+              <span className="mb-1 shrink-0 text-[10px] text-muted-foreground">
+                {timeLabel}
+              </span>
+            )}
+            <div
+              className={cn(
+                "rounded-[20px] px-3.5 py-2",
+                isSelf
+                  ? "rounded-br-md bg-blue-500 text-white"
+                  : "rounded-bl-md bg-secondary text-foreground",
+                isOnlyEmoji && "bg-transparent px-1 py-0.5 shadow-none"
+              )}
+            >
+              <div
+                className={cn(
+                  isSelf &&
+                    !isOnlyEmoji &&
+                    "[&_*]:text-white [&_a]:text-blue-100 [&_a]:underline"
+                )}
+              >
+                {bubbleBody}
+              </div>
+            </div>
+            {isSelf && (
+              <span className="mb-1 shrink-0 text-[10px] text-muted-foreground">
+                {timeLabel}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
     );
   }

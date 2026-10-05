@@ -1,4 +1,4 @@
-import { ArrowLeft, Hash, Search, Users } from "lucide-react";
+import { ChevronLeft, Hash, MoreHorizontal, Search, Users } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
 
@@ -6,6 +6,8 @@ interface MobileChatHeaderProps {
   name: string;
   type: "channel" | "conversation";
   imageUrl?: string;
+  statusLabel?: string;
+  online?: boolean;
   onBack: () => void;
   onMembers?: () => void;
   onSearch?: () => void;
@@ -16,42 +18,63 @@ export const MobileChatHeader = ({
   name,
   type,
   imageUrl,
+  statusLabel,
+  online,
   onBack,
   onMembers,
   onSearch,
   showMembers,
 }: MobileChatHeaderProps) => {
   return (
-    <div className="mobile-safe-top shrink-0 z-20 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#313338]">
-      <div className="mobile-chrome-bar px-1 flex items-center gap-0.5 min-w-0">
+    <div
+      className={cn(
+        "mobile-safe-top z-20 shrink-0",
+        "border-b border-border/40",
+        "bg-secondary/55 dark:bg-secondary/40",
+        "backdrop-blur-2xl backdrop-saturate-150"
+      )}
+    >
+      <div className="mobile-chrome-bar flex min-w-0 items-center gap-1 px-1.5">
         <button
           type="button"
           onClick={onBack}
-          className="h-10 w-10 flex items-center justify-center rounded-lg text-zinc-600 dark:text-zinc-300 shrink-0"
+          className="flex h-10 w-9 shrink-0 items-center justify-center text-blue-500 active:opacity-60"
           aria-label="Back"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ChevronLeft className="h-7 w-7 stroke-[2]" />
         </button>
 
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {type === "channel" ? (
-            <Hash className="w-4 h-4 text-zinc-500 shrink-0" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-blue-500">
+              <Hash className="h-4 w-4" />
+            </div>
           ) : (
-            <UserAvatar src={imageUrl} name={name} className="h-7 w-7 shrink-0" />
+            <UserAvatar src={imageUrl} name={name} className="h-9 w-9 shrink-0" />
           )}
-          <p className="font-semibold text-sm text-zinc-900 dark:text-white truncate">
-            {name}
-          </p>
+          <div className="min-w-0">
+            <p className="truncate text-[16px] font-medium leading-tight text-foreground">
+              {name}
+            </p>
+            {(statusLabel || online !== undefined) && (
+              <p className="flex items-center gap-1 truncate text-[12px] font-normal text-muted-foreground">
+                {online && (
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                )}
+                {statusLabel || (online ? "Online" : "Away")}
+              </p>
+            )}
+          </div>
         </div>
 
         {onSearch && (
           <button
             type="button"
             onClick={onSearch}
-            className="h-10 w-10 flex items-center justify-center rounded-lg text-zinc-600 dark:text-zinc-300 shrink-0"
+            className="flex h-10 w-10 shrink-0 items-center justify-center text-blue-500 active:opacity-60"
             aria-label="Search"
           >
-            <Search className="w-4 h-4" />
+            <Search className="h-[18px] w-[18px]" />
           </button>
         )}
 
@@ -60,14 +83,16 @@ export const MobileChatHeader = ({
             type="button"
             onClick={onMembers}
             className={cn(
-              "h-10 w-10 flex items-center justify-center rounded-lg shrink-0",
-              showMembers
-                ? "text-indigo-500 dark:text-indigo-400"
-                : "text-zinc-600 dark:text-zinc-300"
+              "flex h-10 w-10 shrink-0 items-center justify-center active:opacity-60",
+              showMembers ? "text-blue-600" : "text-blue-500"
             )}
-            aria-label="Members"
+            aria-label={type === "channel" ? "Members" : "More"}
           >
-            <Users className="w-4 h-4" />
+            {type === "channel" ? (
+              <Users className="h-[18px] w-[18px]" />
+            ) : (
+              <MoreHorizontal className="h-5 w-5" />
+            )}
           </button>
         )}
       </div>

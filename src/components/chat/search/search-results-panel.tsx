@@ -36,7 +36,7 @@ const resultUnit = (count: number): string => {
   return count === 1 ? "result" : "results";
 };
 
-const groupHitsByDay = (hits: SearchHit[]): HitGroup[] => {
+export const groupHitsByDay = (hits: SearchHit[]): HitGroup[] => {
   const groups: HitGroup[] = [];
   let current: HitGroup | null = null;
   for (const hit of hits) {
@@ -52,7 +52,7 @@ const groupHitsByDay = (hits: SearchHit[]): HitGroup[] => {
 };
 
 /** Renders message content with case-insensitive `<mark>` highlights (no innerHTML). */
-const HighlightedContent = ({ content, ranges }: { content: string; ranges: HighlightRange[] }) => {
+export const HighlightedContent = ({ content, ranges }: { content: string; ranges: HighlightRange[] }) => {
   if (ranges.length === 0) {
     return <span>{content}</span>;
   }
@@ -133,8 +133,8 @@ export const ChatSearchResultsPanel = ({
       data-search-results-panel="true"
       className={
         variant === "panel"
-          ? "flex flex-col h-full w-full bg-zinc-50 dark:bg-[#2b2d31] shrink-0"
-          : "hidden md:flex flex-col h-full w-64 bg-zinc-50 dark:bg-[#2b2d31] border-l border-zinc-200 dark:border-zinc-800 shrink-0"
+          ? "flex h-full w-full shrink-0 flex-col bg-muted"
+          : "hidden h-full w-64 shrink-0 flex-col border-l border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-[#2b2d31] md:flex"
       }
     >
       {/* Panel header */}

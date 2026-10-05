@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
-import { useMockStore } from "@/lib/mock-store";
-import { useModalStore } from "@/hooks/use-modal-store";
-import { useKeyboardOpen } from "@/hooks/use-keyboard-open";
 import { useAndroidBackNavigation } from "@/hooks/use-android-back-navigation";
-import { ServerSidebar } from "@/components/server/server-sidebar";
+import { useKeyboardOpen } from "@/hooks/use-keyboard-open";
+import { useMobileThemeSync } from "@/hooks/use-mobile-theme";
+import { useModalStore } from "@/hooks/use-modal-store";
 import {
   MobileBottomNav,
   type MobileTab,
 } from "@/components/mobile/mobile-bottom-nav";
-import { MobileServersTab } from "@/components/mobile/mobile-servers-tab";
+import { MobileChatsTab } from "@/components/mobile/mobile-chats-tab";
 import { MobileMoreTab } from "@/components/mobile/mobile-more-tab";
+import { MobileServersTab } from "@/components/mobile/mobile-servers-tab";
+import { useMockStore } from "@/lib/mock-store";
 import { cn } from "@/lib/utils";
 
 function isChatRoute(pathname: string): boolean {
@@ -28,14 +29,29 @@ export const MobileShellLayout = () => {
   const inChat = isChatRoute(location.pathname);
 
   useAndroidBackNavigation({ tab, setTab });
+  useMobileThemeSync();
 
   const activeServer =
     servers.find((s) => s.id === serverId) || (serverId ? undefined : servers[0]);
 
-  // Auto MOTD (same as desktop MainLayout)
   const activeMotd = useMockStore((state) =>
     activeServer ? state.serverMotds[activeServer.id] : undefined
   );
+
+  // MD3 navigation bar — hidden in chat and while keyboard is open
+  const barVisible = !keyboardOpen && !inChat;
+
+  useEffect(() => {
+    // Ensure any leftover native chrome flag is cleared
+    document.documentElement.removeAttribute("data-native-tab-bar");
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (barVisible) root.setAttribute("data-mobile-nav-visible", "true");
+    else root.removeAttribute("data-mobile-nav-visible");
+    return () => root.removeAttribute("data-mobile-nav-visible");
+  }, [barVisible]);
 
   useEffect(() => {
     if (!servers || servers.length === 0) {
@@ -60,15 +76,15 @@ export const MobileShellLayout = () => {
     }
   }, [activeServer?.id, activeMotd]);
 
-  // When entering a chat route, keep chats tab selected for when user goes back
   useEffect(() => {
     if (inChat) setTab("chats");
   }, [inChat]);
 
   const handleTabChange = (next: MobileTab) => {
+    const modal = useModalStore.getState();
+    if (modal.isOpen) modal.onClose();
     setTab(next);
     if (next === "chats" && activeServer) {
-      // Stay on server index (channel list) — do not jump into last chat
       if (inChat || location.pathname === "/") {
         navigate(`/servers/${activeServer.id}`);
       } else if (!location.pathname.startsWith(`/servers/${activeServer.id}`)) {
@@ -77,34 +93,22 @@ export const MobileShellLayout = () => {
     }
   };
 
-  // Chat keeps the floating pill so navigation stays visible
   if (inChat) {
     return (
-      <div className="relative h-full bg-white dark:bg-[#313338]">
-        <div
-          className={cn(
-            "h-full min-h-0 overflow-hidden",
-            !keyboardOpen && "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]"
-          )}
-        >
+      <div className="relative h-full bg-background text-foreground">
+        <div className="h-full min-h-0 overflow-hidden">
           <Outlet />
         </div>
-        <MobileBottomNav
-          active={tab}
-          onChange={handleTabChange}
-          hidden={keyboardOpen}
-        />
       </div>
     );
   }
 
   return (
-    <div className="relative h-full bg-white dark:bg-[#313338]">
-      {/* Content scrolls under the floating glass nav */}
+    <div className="relative h-full bg-background text-foreground">
       <div
         className={cn(
           "h-full min-h-0 overflow-hidden",
-          !keyboardOpen && "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]"
+          barVisible && "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
         )}
       >
         <div className={cn("h-full", tab !== "servers" && "hidden")}>
@@ -115,19 +119,7 @@ export const MobileShellLayout = () => {
         </div>
 
         <div className={cn("h-full", tab !== "chats" && "hidden")}>
-          {activeServer && activeServer.channels.length > 0 ? (
-            <div className="h-full mobile-safe-top">
-              <ServerSidebar serverId={activeServer.id} />
-            </div>
-          ) : activeServer && activeServer.channels.length === 0 ? (
-            <Outlet />
-          ) : (
-            <div className="h-full flex items-center justify-center p-6 text-center">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                Select a server to see channels and private messages.
-              </p>
-            </div>
-          )}
+          <MobileChatsTab serverId={activeServer?.id} />
         </div>
 
         <div className={cn("h-full", tab !== "more" && "hidden")}>
@@ -135,7 +127,7 @@ export const MobileShellLayout = () => {
         </div>
 
         {location.pathname === "/" && tab === "chats" && servers.length === 0 && (
-          <div className="absolute inset-0 z-10 bg-white dark:bg-[#313338]">
+          <div className="absolute inset-0 z-10 bg-background">
             <Outlet />
           </div>
         )}
@@ -144,7 +136,7 @@ export const MobileShellLayout = () => {
       <MobileBottomNav
         active={tab}
         onChange={handleTabChange}
-        hidden={keyboardOpen}
+        hidden={!barVisible}
       />
     </div>
   );

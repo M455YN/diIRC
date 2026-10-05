@@ -26,6 +26,8 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff, Reply } from "lucide-react";
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { MobileServerFormModal } from "@/components/mobile/mobile-server-form";
 import {
   NotificationOverrideValue,
   SoundPreset,
@@ -67,7 +69,10 @@ const formSchema = z.object({
   ).default([]),
 });
 
-export const EditServerModal = () => {
+export const EditServerModal = () =>
+  useIsMobileShell() ? <MobileServerFormModal mode="edit" /> : <DesktopEditServerModal />;
+
+const DesktopEditServerModal = () => {
   const { isOpen, onClose, type, data } = useModal();
   const updateServer = useMockStore((state) => state.updateServer);
 

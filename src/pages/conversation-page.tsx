@@ -13,13 +13,7 @@ import { ChatSearchResultsPanel } from "@/components/chat/search/search-results-
 import { getMemberDisplayName } from "@/components/user-hover-card";
 import { MobileChatHeader } from "@/components/mobile/mobile-chat-header";
 import { MobileMembersSheet } from "@/components/mobile/mobile-members-sheet";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { ChatSearchInput } from "@/components/chat/search/chat-search-input";
+import { MobileMessageSearch } from "@/components/mobile/mobile-message-search";
 
 export const ConversationPage = () => {
   const { serverId, memberId } = useParams();
@@ -88,6 +82,9 @@ export const ConversationPage = () => {
   const conversationId = [currentMember.id, targetMember.id].sort().join("-");
   const displayName = getMemberDisplayName(targetMember, server);
   const targetNick = targetMember.profile.name;
+  const isAway = useMockStore(
+    (state) => !!state.awayUsers[server.id]?.[targetNick.toLowerCase()]
+  );
 
   const searchContext = {
     type: "conversation" as const,
@@ -102,11 +99,13 @@ export const ConversationPage = () => {
 
   if (isMobile) {
     return (
-      <div className="bg-white dark:bg-[#313338] flex flex-col h-full">
+      <div className="flex h-full flex-col bg-background text-foreground">
         <MobileChatHeader
           name={displayName}
           type="conversation"
           imageUrl={targetMember.profile.imageUrl}
+          online={!isAway}
+          statusLabel={isAway ? "Away" : "Online"}
           onBack={() => navigate(`/servers/${server.id}`)}
           onMembers={() => setMembersOpen(true)}
           onSearch={() => {
@@ -115,7 +114,7 @@ export const ConversationPage = () => {
           }}
           showMembers={membersOpen}
         />
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <ChatMessages
             member={currentMember}
             name={targetNick}
@@ -125,7 +124,7 @@ export const ConversationPage = () => {
             paramKey="conversationId"
             paramValue={conversationId}
           />
-          <div className="mobile-safe-bottom shrink-0">
+          <div className="mobile-safe-bottom shrink-0 bg-background">
             <ChatInput
               name={targetNick}
               type="conversation"
@@ -144,30 +143,15 @@ export const ConversationPage = () => {
           server={server}
         />
 
-        <Sheet
+        <MobileMessageSearch
           open={searchSheetOpen}
-          onOpenChange={(open) => {
-            setSearchSheetOpen(open);
-            if (!open) closeSearch();
+          onClose={() => {
+            setSearchSheetOpen(false);
+            closeSearch();
           }}
-        >
-          <SheetContent
-            side="bottom"
-            className="h-[85dvh] p-0 flex flex-col rounded-t-2xl"
-          >
-            <SheetHeader className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-              <SheetTitle className="text-left text-base">Search messages</SheetTitle>
-            </SheetHeader>
-            <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-              <ChatSearchInput context={searchContext} members={searchMembers} />
-            </div>
-            <div className="flex-1 min-h-0 overflow-hidden">
-              {searchOpen && (
-                <ChatSearchResultsPanel context={searchContext} variant="panel" />
-              )}
-            </div>
-          </SheetContent>
-        </Sheet>
+          context={searchContext}
+          members={searchMembers}
+        />
       </div>
     );
   }

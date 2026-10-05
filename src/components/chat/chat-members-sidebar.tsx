@@ -9,6 +9,7 @@ import { useUIStore } from "@/hooks/use-ui-store";
 import { useModal } from "@/hooks/use-modal-store";
 import { ActionTooltip } from "@/components/action-tooltip";
 import { MoreHorizontal } from "lucide-react";
+import { MobileMembersList, type MobileMemberRow } from "@/components/mobile/mobile-members-list";
 
 interface ChatMembersSidebarProps {
   server: Server;
@@ -219,11 +220,35 @@ export const ChatMembersSidebar = ({
     </div>
   );
 
+  // Panel variant is mobile-only (Material 3 members screen).
   if (variant === "panel") {
+    const toRow = (member: Member, isSelf: boolean): MobileMemberRow => {
+      const nickLower = member.profile.name.toLowerCase();
+      const ourNickLower = ourNick.toLowerCase();
+      const userModes = channel ? channelUserModesMap[channel.id]?.[nickLower] || [] : [];
+      return {
+        member,
+        displayName: getMemberDisplayName(member, server),
+        role: getHighestChannelRole(userModes),
+        isSelf,
+        isAway: isSelf
+          ? !!selfAwayMap[server.id] ||
+            !!awayUsersMap[server.id]?.[ourNickLower] ||
+            !!awayUsersMap[server.id]?.[nickLower]
+          : !!awayUsersMap[server.id]?.[nickLower],
+        awayReason: isSelf
+          ? awayReasonsMap[server.id]?.[ourNickLower] || awayReasonsMap[server.id]?.[nickLower]
+          : awayReasonsMap[server.id]?.[nickLower],
+      };
+    };
     return (
-      <div className="h-full w-full bg-[#F2F3F5] dark:bg-[#2B2D31] select-none">
-        {listBody}
-      </div>
+      <MobileMembersList
+        rows={[toRow(selfMember, true), ...otherMembers.map((m) => toRow(m, false))]}
+        isChannel={!!channel}
+        isConnected={isConnected}
+        onMemberClick={onMemberClick}
+        onMore={() => onOpen("privateMessages")}
+      />
     );
   }
 

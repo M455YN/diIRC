@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import { MessageSquare, MoreHorizontal, Server } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useNativeMobileTabBar } from "@/hooks/use-mobile-platform";
+import Box from "@mui/material/Box";
+import ButtonBase from "@mui/material/ButtonBase";
+import DnsOutlinedIcon from "@mui/icons-material/DnsOutlined";
+import DnsIcon from "@mui/icons-material/Dns";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
+import ChatBubbleIcon from "@mui/icons-material/ChatBubble";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import type { ReactNode } from "react";
+import { M3Provider, useM3 } from "@/components/mobile/m3";
 
 export type MobileTab = "servers" | "chats" | "more";
 
@@ -11,106 +16,115 @@ interface MobileBottomNavProps {
   hidden?: boolean;
 }
 
-const tabs: { id: MobileTab; label: string; icon: typeof Server }[] = [
-  { id: "servers", label: "Servers", icon: Server },
-  { id: "chats", label: "Chats", icon: MessageSquare },
-  { id: "more", label: "More", icon: MoreHorizontal },
+/**
+ * Material Design 3 Navigation Bar
+ * Spec: https://m3.material.io/components/navigation-bar/specs
+ *
+ * - 80dp container on surface-container, no elevation shadow
+ * - 64×32 active indicator pill on secondary-container behind the icon
+ */
+const TABS: { id: MobileTab; label: string; icon: ReactNode; activeIcon: ReactNode }[] = [
+  { id: "servers", label: "Servers", icon: <DnsOutlinedIcon />, activeIcon: <DnsIcon /> },
+  {
+    id: "chats",
+    label: "Chats",
+    icon: <ChatBubbleOutlineIcon />,
+    activeIcon: <ChatBubbleIcon />,
+  },
+  { id: "more", label: "More", icon: <MoreHorizIcon />, activeIcon: <MoreHorizIcon /> },
 ];
 
-/**
- * Floating liquid-glass tab bar (React port of the liquid_glass_navbar look):
- * frosted pill, sliding bubble highlight, safe-area padding.
- *
- * Flutter package https://pub.dev/packages/liquid_glass_navbar cannot run in Tauri;
- * this mirrors its UX in the WebView. iOS 26+ may later swap to native SwiftUI
- * via `useNativeMobileTabBar()`.
- */
-export const MobileBottomNav = ({ active, onChange, hidden }: MobileBottomNavProps) => {
-  const useNative = useNativeMobileTabBar();
-  const rowRef = useRef<HTMLDivElement>(null);
-  const [bubble, setBubble] = useState({ left: 0, width: 0, ready: false });
-
-  const activeIndex = Math.max(0, tabs.findIndex((t) => t.id === active));
-
-  useEffect(() => {
-    const row = rowRef.current;
-    if (!row) return;
-
-    const measure = () => {
-      const btn = row.children[activeIndex] as HTMLElement | undefined;
-      if (!btn) return;
-      setBubble({
-        left: btn.offsetLeft + 4,
-        width: Math.max(0, btn.offsetWidth - 8),
-        ready: true,
-      });
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(row);
-    return () => ro.disconnect();
-  }, [activeIndex, hidden]);
-
-  if (hidden || useNative) return null;
-
+const NavBar = ({ active, onChange }: Omit<MobileBottomNavProps, "hidden">) => {
+  const t = useM3();
   return (
-    <nav
-      className={cn(
-        "pointer-events-none fixed inset-x-0 bottom-0 z-[100]",
-        "flex justify-center px-5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]"
-      )}
+    <Box
+      data-mobile-nav="m3"
+      component="nav"
       aria-label="Main"
+      sx={{
+        position: "fixed",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 100,
+        // Radix modal dialogs set `pointer-events: none` on <body>; the bar must stay tappable
+        pointerEvents: "auto",
+        bgcolor: t.surfaceContainer,
+        pb: "env(safe-area-inset-bottom, 0px)",
+      }}
     >
-      <div
-        data-mobile-nav="liquid-glass"
-        className={cn(
-          "pointer-events-auto relative flex items-stretch w-full max-w-md",
-          "h-[65px] rounded-full px-1.5",
-          "border border-white/45 dark:border-white/15",
-          "shadow-[0_10px_40px_rgba(0,0,0,0.28)]",
-          "bg-white/25 dark:bg-white/10",
-          "backdrop-blur-[10px] backdrop-saturate-150",
-          // Android WebView often weakens blur — keep a readable fallback fill
-          "supports-[not(backdrop-filter)]:bg-[#f4f4f5]/92 dark:supports-[not(backdrop-filter)]:bg-[#2b2d31]/92"
-        )}
-      >
-        {/* Sliding bubble (liquid_glass_navbar-style) */}
-        <span
-          aria-hidden
-          className={cn(
-            "absolute top-1/2 -translate-y-1/2 h-[52px] rounded-full z-0",
-            "bg-white/40 dark:bg-white/20",
-            "border border-white/50 dark:border-white/15",
-            "shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]",
-            "transition-[left,width] duration-300 ease-out",
-            !bubble.ready && "opacity-0"
-          )}
-          style={{ left: bubble.left, width: bubble.width }}
-        />
-
-        <div ref={rowRef} className="relative z-10 flex flex-1 items-stretch">
-          {tabs.map(({ id, label, icon: Icon }) => {
-            const isActive = active === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => onChange(id)}
-                className={cn(
-                  "flex-1 flex flex-col items-center justify-center gap-0.5 rounded-full transition-colors",
-                  isActive
-                    ? "text-sky-600 dark:text-sky-300"
-                    : "text-zinc-700/90 dark:text-zinc-200/90"
-                )}
+      <Box sx={{ display: "flex", height: 80, alignItems: "stretch", px: 1 }}>
+        {TABS.map((tab) => {
+          const selected = active === tab.id;
+          return (
+            <ButtonBase
+              key={tab.id}
+              onClick={() => onChange(tab.id)}
+              aria-current={selected ? "page" : undefined}
+              disableRipple
+              sx={{
+                flex: 1,
+                flexDirection: "column",
+                gap: 0.5,
+                pt: 1.5,
+                pb: 2,
+                color: selected ? t.onSurface : t.onSurfaceVariant,
+                fontFamily: "Roboto, system-ui, sans-serif",
+                "&:active .m3-indicator::after": { opacity: 0.12 },
+              }}
+            >
+              <Box
+                className="m3-indicator"
+                sx={{
+                  position: "relative",
+                  width: 64,
+                  height: 32,
+                  borderRadius: "16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: selected ? t.secondaryContainer : "transparent",
+                  color: selected ? t.onSecondaryContainer : t.onSurfaceVariant,
+                  transition: "background-color 200ms cubic-bezier(0.2, 0, 0, 1)",
+                  "& .MuiSvgIcon-root": { fontSize: 24 },
+                  "&::after": {
+                    content: '""',
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "16px",
+                    bgcolor: t.onSurface,
+                    opacity: 0,
+                    transition: "opacity 150ms",
+                  },
+                }}
               >
-                <Icon className="w-[26px] h-[26px] stroke-[1.6]" />
-                <span className="text-[11px] font-semibold leading-none">{label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </nav>
+                {selected ? tab.activeIcon : tab.icon}
+              </Box>
+              <Box
+                component="span"
+                sx={{
+                  fontSize: "0.75rem",
+                  fontWeight: selected ? 700 : 500,
+                  letterSpacing: "0.5px",
+                  lineHeight: "16px",
+                  userSelect: "none",
+                }}
+              >
+                {tab.label}
+              </Box>
+            </ButtonBase>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+};
+
+export const MobileBottomNav = ({ active, onChange, hidden }: MobileBottomNavProps) => {
+  if (hidden) return null;
+  return (
+    <M3Provider>
+      <NavBar active={active} onChange={onChange} />
+    </M3Provider>
   );
 };
