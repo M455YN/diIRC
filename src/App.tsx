@@ -8,6 +8,7 @@ import { IrcProvider } from "@/components/providers/irc-provider";
 import { ErrorBoundary } from "@/components/providers/error-boundary";
 
 import { MainLayout } from "@/layouts/main-layout";
+import { MobileShellLayout } from "@/layouts/mobile-shell-layout";
 import { SetupPage } from "@/pages/setup-page";
 import { ServerPage } from "@/pages/server-page";
 import { ChannelPage } from "@/pages/channel-page";
@@ -17,6 +18,28 @@ import { InvitePage } from "@/pages/invite-page";
 import { InvitePreviewPage } from "@/pages/invite-preview-page";
 
 import { useAutoUpdateCheck } from "@/hooks/use-auto-update-check";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+
+function AppRoutes() {
+  const isMobileShell = useIsMobileShell();
+  const Layout = isMobileShell ? MobileShellLayout : MainLayout;
+
+  return (
+    <Routes>
+      <Route path="/invite/:inviteCode" element={<InvitePage />} />
+      <Route element={<Layout />}>
+        <Route path="/" element={<SetupPage />} />
+        <Route path="/servers/:serverId">
+          <Route index element={<ServerPage />} />
+          <Route path="channels/:channelId" element={<ChannelPage />} />
+          <Route path="conversations/:memberId" element={<ConversationPage />} />
+          <Route path="invites/:channelName" element={<InvitePreviewPage />} />
+        </Route>
+        <Route path="*" element={<SetupPage />} />
+      </Route>
+    </Routes>
+  );
+}
 
 export function App() {
   useAutoUpdateCheck();
@@ -66,19 +89,7 @@ export function App() {
         <BrowserRouter>
           <IrcProvider>
             <ModalProvider />
-            <Routes>
-              <Route path="/invite/:inviteCode" element={<InvitePage />} />
-              <Route element={<MainLayout />}>
-                <Route path="/" element={<SetupPage />} />
-                <Route path="/servers/:serverId">
-                  <Route index element={<ServerPage />} />
-                  <Route path="channels/:channelId" element={<ChannelPage />} />
-                  <Route path="conversations/:memberId" element={<ConversationPage />} />
-                  <Route path="invites/:channelName" element={<InvitePreviewPage />} />
-                </Route>
-                <Route path="*" element={<SetupPage />} />
-              </Route>
-            </Routes>
+            <AppRoutes />
           </IrcProvider>
         </BrowserRouter>
       </SocketProvider>

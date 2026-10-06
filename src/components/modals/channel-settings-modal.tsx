@@ -10,11 +10,16 @@ import {
 import { useModal } from "@/hooks/use-modal-store";
 import { Button } from "@/components/ui/button";
 import { useMockStore } from "@/lib/mock-store";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { MobileChannelSettingsModal } from "@/components/mobile/mobile-channel-modals";
 import { NotificationOverrideValue, SoundPreset, ChannelNotificationOverrideValue, DmNotificationOverrideValue } from "@/types";
 import { resolveEffectiveNotificationSettings } from "@/lib/notification-service";
 import { NotificationSettingsFields } from "@/components/notifications/notification-settings-fields";
 
-export const ChannelSettingsModal = () => {
+export const ChannelSettingsModal = () =>
+  useIsMobileShell() ? <MobileChannelSettingsModal /> : <DesktopChannelSettingsModal />;
+
+const DesktopChannelSettingsModal = () => {
   const { isOpen, onClose, type, data } = useModal();
 
   const setChannelNotificationSettings = useMockStore((state) => state.setChannelNotificationSettings);

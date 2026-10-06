@@ -1,0 +1,27 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "mobile-capability",
+  "description": "Permissions for Android and iOS shells",
+  "platforms": ["android", "iOS"],
+  "permissions": [
+    "core:default",
+    "clipboard-manager:default",
+    "clipboard-manager:allow-read-image",
+    "clipboard-manager:allow-write-image",
+    "fs:default",
+    "fs:allow-read",
+    "fs:allow-exists",
+    "opener:default",
+    "dialog:default",
+    "notification:default",
+    "notification:allow-is-permission-granted",
+    "notification:allow-request-permission",
+    "notification:allow-notify",
+    "updater:default",
+    "process:default",
+    "os:allow-platform",
+    "os:allow-os-type",
+    "core:app:allow-exit",
+    "process:allow-exit"
+  ]
+}

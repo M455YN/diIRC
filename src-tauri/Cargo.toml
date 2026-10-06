@@ -30,7 +30,8 @@ chrono = "0.4"
 log = "0.4"
 tauri = { version = "2.11.3", features = ["devtools"] }
 tauri-plugin-log = "2"
-irc = "1.1.0"
+# tls-rust avoids OpenSSL (needed for Android cross-compile; native-tls pulls openssl-sys)
+irc = { version = "1.1.0", default-features = false, features = ["ctcp", "tls-rust", "channel-lists", "toml_config", "encoding"] }
 regex = "1"
 tokio = "1.53.1"
 futures = "0.3.34"
@@ -43,3 +44,5 @@ tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-os = "2.3.2"
+

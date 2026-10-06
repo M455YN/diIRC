@@ -25,10 +25,16 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { MobileChangelogModal } from "@/components/mobile/mobile-info-modals";
 
-export const ChangelogModal = () => {
+export const ChangelogModal = () =>
+  useIsMobileShell() ? <MobileChangelogModal /> : <DesktopChangelogModal />;
+
+const DesktopChangelogModal = () => {
   const { isOpen, onClose, type } = useModal();
   const isModalOpen = isOpen && type === "changelog";
+  const isMobile = useIsMobileShell();
 
   const { versions, hasCurrentVersion, currentVersion, loading, error, refresh } = useChangelog();
 
@@ -80,21 +86,54 @@ export const ChangelogModal = () => {
 
   return (
     <Dialog open={isModalOpen} onOpenChange={handleClose}>
-      <DialogContent className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 p-0 overflow-hidden sm:max-w-5xl w-[94vw] h-[88vh] max-h-[90vh] flex flex-col border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl">
+      <DialogContent
+        className={cn(
+          "flex flex-col overflow-hidden p-0 shadow-2xl",
+          isMobile
+            ? "h-[100dvh] max-h-[100dvh] w-screen border-0 bg-background text-foreground"
+            : "h-[88vh] max-h-[90vh] w-[94vw] rounded-xl border border-zinc-200 bg-white text-zinc-900 dark:border-zinc-800 dark:bg-[#313338] dark:text-zinc-100 sm:max-w-5xl"
+        )}
+      >
         {/* Modal Header */}
-        <DialogHeader className="pt-5 px-6 pb-4 shrink-0 border-b border-zinc-200 dark:border-zinc-800 flex flex-row items-center justify-between space-y-0">
+        <DialogHeader
+          className={cn(
+            "flex shrink-0 flex-row items-center justify-between space-y-0 border-b px-6 pb-4",
+            isMobile
+              ? "mobile-safe-top border-border pt-4"
+              : "border-zinc-200 pt-5 dark:border-zinc-800"
+          )}
+        >
           <div className="flex items-center gap-x-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center text-indigo-500 shrink-0">
-              <History className="w-5 h-5" />
-            </div>
+            {!isMobile && (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-500 dark:bg-indigo-500/20">
+                <History className="h-5 w-5" />
+              </div>
+            )}
             <div>
-              <DialogTitle className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-x-2">
+              <DialogTitle
+                className={cn(
+                  "flex items-center gap-x-2 font-bold",
+                  isMobile ? "text-[28px] tracking-tight" : "text-lg text-zinc-900 dark:text-zinc-100"
+                )}
+              >
                 <span>Changelog</span>
-                <span className="text-xs font-mono font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 font-mono text-xs font-medium",
+                    isMobile
+                      ? "bg-secondary text-muted-foreground"
+                      : "border border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+                  )}
+                >
                   v{cleanCurrentVersion}
                 </span>
               </DialogTitle>
-              <DialogDescription className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              <DialogDescription
+                className={cn(
+                  "mt-0.5 text-xs",
+                  isMobile ? "text-muted-foreground" : "text-zinc-500 dark:text-zinc-400"
+                )}
+              >
                 Release notes and update history for Luna IRC
               </DialogDescription>
             </div>

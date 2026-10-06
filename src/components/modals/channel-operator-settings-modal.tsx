@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useMockStore } from "@/lib/mock-store";
 import { inviteUserToChannel } from "@/lib/irc-actions";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { MobileChannelOperatorView } from "@/components/mobile/mobile-motd-operator-views";
 
 export interface FlagConfig {
   flag: string;
@@ -64,6 +66,7 @@ export const CHANNEL_FLAGS: FlagConfig[] = [
 
 export const ChannelOperatorSettingsModal = () => {
   const { isOpen, onClose, type, data } = useModal();
+  const isMobile = useIsMobileShell();
   const channelModesMap = useMockStore((state) => state.channelModes);
   const updateChannelModes = useMockStore((state) => state.updateChannelModes);
   const updateChannelKey = useMockStore((state) => state.updateChannelKey);
@@ -258,6 +261,36 @@ export const ChannelOperatorSettingsModal = () => {
       setIsInviteLoading(false);
     }
   };
+
+  if (isMobile) {
+    const noopEvent = { preventDefault: () => {} } as React.FormEvent;
+    return (
+      <MobileChannelOperatorView
+        open={isModalOpen}
+        onClose={handleClose}
+        channelName={channel?.name?.replace(/^#/, "") ?? ""}
+        errorMessage={errorMessage}
+        hasKey={hasExistingKey}
+        password={password}
+        setPassword={setPassword}
+        passwordBusy={isPasswordLoading}
+        onSetPassword={() => handleSetPassword(noopEvent)}
+        onRemovePassword={handleRemovePassword}
+        flags={CHANNEL_FLAGS}
+        activeFlags={activeFlags}
+        togglingFlags={togglingFlags}
+        onToggleFlag={handleToggleFlag}
+        inviteNickname={inviteNickname}
+        setInviteNickname={(v) => {
+          setInviteNickname(v);
+          if (inviteSuccessMessage) setInviteSuccessMessage(null);
+        }}
+        inviteBusy={isInviteLoading}
+        inviteSuccess={inviteSuccessMessage}
+        onSendInvite={() => handleSendInvite(noopEvent)}
+      />
+    );
+  }
 
   return (
     <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>

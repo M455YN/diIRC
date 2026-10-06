@@ -10,8 +10,10 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useModal } from "@/hooks/use-modal-store";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 import { useMockStore } from "@/lib/mock-store";
 import { ImageUploadProvider, LitterboxTime } from "@/lib/upload/types";
+import { cn } from "@/lib/utils";
 import {
   Settings,
   Eye,
@@ -53,9 +55,11 @@ import { NotificationSettingsFields } from "@/components/notifications/notificat
 import { checkForAppUpdate } from "@/lib/update-service";
 import { Update } from "@tauri-apps/plugin-updater";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
+import { MobileSettingsModal } from "@/components/mobile/mobile-settings";
 
 export const SettingsModal = () => {
   const { isOpen, onClose, type, onOpen } = useModal();
+  const isMobile = useIsMobileShell();
   const compactMode = useMockStore((state) => state.compactMode);
   const setCompactMode = useMockStore((state) => state.setCompactMode);
 
@@ -220,20 +224,57 @@ export const SettingsModal = () => {
     setNewRuleHeaderValue("");
   };
 
+  // Material 3 categorized settings on mobile (Android Settings-style)
+  if (isMobile) {
+    return <MobileSettingsModal />;
+  }
+
   return (
     <Dialog open={isModalOpen} onOpenChange={handleClose}>
-      <DialogContent className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 p-0 overflow-hidden sm:max-w-xl border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl">
-        <DialogHeader className="pt-6 px-6 space-y-1">
-          <DialogTitle className="text-2xl text-center font-bold text-zinc-900 dark:text-zinc-100 flex items-center justify-center gap-x-2">
-            <Settings className="w-6 h-6 text-indigo-500" />
+      <DialogContent
+        className={cn(
+          "overflow-hidden p-0 shadow-2xl",
+          isMobile
+            ? "border-0 bg-background text-foreground sm:max-w-none"
+            : "rounded-xl border border-zinc-200 bg-white text-zinc-900 dark:border-zinc-800 dark:bg-[#313338] dark:text-zinc-100 sm:max-w-xl"
+        )}
+      >
+        <DialogHeader
+          className={cn(
+            "space-y-1 px-6",
+            isMobile ? "mobile-safe-top space-y-2 pb-2 pt-4 text-left" : "space-y-1 pt-6 text-center"
+          )}
+        >
+          <DialogTitle
+            className={cn(
+              "flex items-center gap-x-2 font-bold",
+              isMobile
+                ? "justify-start text-[28px] font-bold tracking-tight"
+                : "justify-center text-2xl text-zinc-900 dark:text-zinc-100"
+            )}
+          >
+            {!isMobile && <Settings className="h-6 w-6 text-indigo-500" />}
             Settings
           </DialogTitle>
-          <DialogDescription className="text-center text-zinc-500 dark:text-zinc-400 text-xs sm:text-sm">
-            Manage application preferences, notifications, image servers, and authorization rules.
+          <DialogDescription
+            className={cn(
+              isMobile
+                ? "text-left text-[13px] text-muted-foreground"
+                : "text-center text-xs text-zinc-500 dark:text-zinc-400 sm:text-sm"
+            )}
+          >
+            {isMobile
+              ? "Notifications, appearance, and app preferences"
+              : "Manage application preferences, notifications, image servers, and authorization rules."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-6 py-6 space-y-5 max-h-[75vh] overflow-y-auto">
+        <div
+          className={cn(
+            "space-y-5 overflow-y-auto px-6 py-6",
+            isMobile ? "max-h-none space-y-3 pb-10" : "max-h-[75vh]"
+          )}
+        >
           {/* SECTION: GLOBAL NOTIFICATIONS */}
           <NotificationSettingsFields
             mode="global"

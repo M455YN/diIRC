@@ -7,6 +7,127 @@ body,
 #root {
   height: 100%;
 }
+
+/* Mobile shell (Android / iOS): edge-to-edge; safe-area only on chrome elements */
+html.mobile-shell,
+html.mobile-shell body,
+html.mobile-shell #root {
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  /* Avoid desktop-scale feel on high-DPI phones */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Kill square WebView focus / selection chrome on taps */
+html.mobile-shell *:focus,
+html.mobile-shell *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+html.mobile-shell button,
+html.mobile-shell [role="button"],
+html.mobile-shell a {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html.mobile-shell .mobile-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html.mobile-shell .mobile-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Compact chrome */
+html.mobile-shell .mobile-chrome-bar {
+  min-height: 2.75rem; /* 44px */
+  height: 2.75rem;
+}
+
+/* Floating / fixed mobile tab bar */
+html.mobile-shell [data-mobile-nav="mui"],
+html.mobile-shell [data-mobile-nav="liquid-glass"] {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+html.mobile-shell .scrollbar-none {
+  scrollbar-width: none;
+}
+html.mobile-shell .scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* When iOS native SwiftUI tab bar is wired, hide CSS chrome via data attr */
+/* When native tab bar was used — keep rule harmless for CSS fallbacks */
+html.mobile-shell[data-native-tab-bar="true"] [data-mobile-nav="liquid-glass"],
+html.mobile-shell[data-native-tab-bar="true"] [data-mobile-nav="mui"] {
+  display: none;
+}
+
+/* Denser server/channel lists on mobile */
+html.mobile-shell [data-sidebar="server"] .px-3 {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+html.mobile-shell [data-sidebar="server"] > div > button.h-12,
+html.mobile-shell [data-sidebar="server"] button.h-12 {
+  height: 2.75rem;
+  font-size: 0.875rem;
+}
+
+html.mobile-shell [data-sidebar="server"] .py-1\.5 {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+/* Full-screen dialogs on mobile shell — system theme, not Discord surfaces */
+html.mobile-shell [data-mobile-dialog="true"] {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  top: 0 !important;
+  left: 0 !important;
+  transform: none !important;
+  border-radius: 0 !important;
+  padding-top: max(1rem, env(safe-area-inset-top, 0px)) !important;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+  /* Grid track must not grow to the content's min-content width (e.g. side-by-side inputs) */
+  grid-template-columns: minmax(0, 1fr) !important;
+  overflow-x: hidden !important;
+}
+
+/* Keep the navigation bar visible and tappable below full-screen dialogs */
+html.mobile-shell[data-mobile-nav-visible="true"] [data-mobile-dialog="true"] {
+  height: calc(100dvh - 5rem - env(safe-area-inset-bottom, 0px)) !important;
+  max-height: calc(100dvh - 5rem - env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: 0 !important;
+}
+
+/* Mobile chat: softer bubbles spacing, no desktop Discord chrome */
+html.mobile-shell [data-search-results-panel="true"] {
+  background-color: hsl(var(--muted));
+}
+
+html.mobile-shell .discord-scrollbar-chat {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
  
 @layer base {
   :root {
