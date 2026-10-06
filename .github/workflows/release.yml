@@ -66,8 +66,9 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'diIRC ${{ github.ref_name }}'
           releaseBody: '${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}'
-          releaseDraft: true
-          prerelease: true
+          # Forks publish straight away: the updater reads /releases/latest, which skips drafts and prereleases.
+          releaseDraft: ${{ github.repository == 'TheStami/diIRC' }}
+          prerelease: ${{ github.repository == 'TheStami/diIRC' }}
           includeUpdaterJson: true
           updaterJsonKeepSignatures: true
           args: ${{ matrix.args }}

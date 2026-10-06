@@ -102,6 +102,45 @@ Tauri v2 requires binary signature verification for security before installing u
    - `TAURI_SIGNING_PRIVATE_KEY`: Content of your generated private key file (`.key`).
    - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: (Optional) Your private key password if you created one.
 
+---
+
+## 6. Fork Workflow: `skipahead` Channel (M455YN/diIRC)
+
+### Branches
+- `main` — mirror of `TheStami/main`. Never commit to it directly.
+- `feature/*` — branched from `main`, so they can be sent upstream as PRs.
+- `skipahead` — `main` + merged features. All fork releases are tagged here.
+
+### Syncing with upstream
+```bash
+git fetch TheStami
+git push origin TheStami/main:main
+git checkout skipahead && git merge main   # merge, never rebase (published branch)
+```
+
+### Versioning
+Skipahead versions are numeric prereleases of the **next** official version: `0.3.5-1`, `0.3.5-2`, …
+In semver `0.3.5-N < 0.3.5`, so once the official `0.3.5` ships, users on the official channel get it as a normal update.
+The prerelease part must be numeric (MSI requirement), so `0.3.5-skipahead.1` is not allowed.
+
+```bash
+git checkout skipahead
+npm run release -- 0.3.5-1   # bumps the 3 files, commits, tags v0.3.5-1 and pushes
+```
+
+The fork's workflow publishes the release immediately (no draft/prerelease) so that
+`https://github.com/M455YN/diIRC/releases/latest/download/latest.json` points to it.
+
+### Signing
+Fork releases are signed with the fork's own key (public key in `UPDATE_CHANNELS.skipahead` in
+`src/lib/update-service.ts`). Add the private key to **M455YN/diIRC → Settings → Secrets → Actions**
+as `TAURI_SIGNING_PRIVATE_KEY` (password secret empty or unset).
+
+### Update channels in the app
+Settings → Updates → **Update channel**: `Official`, `Skipahead` or `Custom URL`. Each channel carries its own
+endpoint and public key. After switching, the next check offers that channel's latest build even if it is
+not newer (e.g. `0.3.5-2` → `0.3.4`); a backup is created before installing.
+
 ### How Updates Work Across Platforms:
 - **AppImage (Linux) & EXE (Windows):** Fully automated in-app download, signature verification, installation, and application restart.
 - **`.deb` Packages (Linux):** Since `.deb` packages are installed in root-owned system directories (`/usr/bin`), non-root applications cannot write to them directly. If an update is detected for a `.deb` installation, the app provides a convenient button to download the latest `.deb` package directly from GitHub Releases.
