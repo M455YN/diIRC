@@ -465,6 +465,7 @@ interface MockState {
   compactMode: boolean;
   enableMarkdown: boolean;
   enableFormattingPreview: boolean;
+  scrollToUnreadOnFocus: boolean;
   confirmLeaveChannel: boolean;
   enableCommandSuggestions: boolean;
   enableLinkPreviews: boolean;
@@ -544,6 +545,7 @@ interface MockState {
   setCompactMode: (enabled: boolean) => void;
   setEnableMarkdown: (enabled: boolean) => void;
   setEnableFormattingPreview: (enabled: boolean) => void;
+  setScrollToUnreadOnFocus: (enabled: boolean) => void;
   setConfirmLeaveChannel: (enabled: boolean) => void;
   setEnableCommandSuggestions: (enabled: boolean) => void;
   setEnableLinkPreviews: (enabled: boolean) => void;
@@ -688,6 +690,7 @@ export const useMockStore = create<MockState>()(
       compactMode: false,
       enableMarkdown: true,
       enableFormattingPreview: true,
+      scrollToUnreadOnFocus: false,
       confirmLeaveChannel: true,
       enableCommandSuggestions: true,
       enableLinkPreviews: true,
@@ -1116,6 +1119,7 @@ export const useMockStore = create<MockState>()(
       setCompactMode: (enabled: boolean) => set({ compactMode: enabled }),
       setEnableMarkdown: (enabled: boolean) => set({ enableMarkdown: enabled }),
       setEnableFormattingPreview: (enabled: boolean) => set({ enableFormattingPreview: enabled }),
+      setScrollToUnreadOnFocus: (enabled: boolean) => set({ scrollToUnreadOnFocus: enabled }),
       setConfirmLeaveChannel: (enabled: boolean) => set({ confirmLeaveChannel: enabled }),
       setEnableCommandSuggestions: (enabled: boolean) => set({ enableCommandSuggestions: enabled }),
       setEnableLinkPreviews: (enabled: boolean) => set({ enableLinkPreviews: enabled }),
