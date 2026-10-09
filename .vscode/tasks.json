@@ -1,0 +1,49 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Release: skipahead",
+      "detail": "Bumps the version on skipahead, tags, pushes and waits until latest.json serves it",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/release-skipahead.ps1",
+        "${input:releaseVersion}"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Release: re-push tag",
+      "detail": "Deletes the tag on origin and pushes it again to retrigger the release workflow",
+      "type": "shell",
+      "command": "git push origin :refs/tags/${input:releaseTag}; git push origin ${input:releaseTag}",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "releaseVersion",
+      "type": "promptString",
+      "description": "Skipahead version, e.g. 0.3.5-2 (leave empty for the next number)",
+      "default": ""
+    },
+    {
+      "id": "releaseTag",
+      "type": "promptString",
+      "description": "Tag to re-push (must exist locally)",
+      "default": "v0.3.5-2"
+    }
+  ]
+}

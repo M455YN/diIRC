@@ -124,9 +124,13 @@ In semver `0.3.5-N < 0.3.5`, so once the official `0.3.5` ships, users on the of
 The prerelease part must be numeric (MSI requirement), so `0.3.5-skipahead.1` is not allowed.
 
 ```bash
-git checkout skipahead
-npm run release -- 0.3.5-1   # bumps the 3 files, commits, tags v0.3.5-1 and pushes
+powershell -File scripts/release-skipahead.ps1 0.3.5-2   # or VS Code task "Release: skipahead"
 ```
+
+The script stashes local changes, switches to `skipahead`, pulls, validates that the version is newer,
+bumps the 3 files, commits, tags `v0.3.5-2`, pushes, returns to the original branch and restores the
+stash. It then waits until `latest.json` serves the new version. Leave the version empty to use the
+next prerelease number. To rebuild an existing tag, run the VS Code task "Release: re-push tag".
 
 The fork's workflow publishes the release immediately (no draft/prerelease) so that
 `https://github.com/M455YN/diIRC/releases/latest/download/latest.json` points to it.
