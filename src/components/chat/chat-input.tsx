@@ -41,6 +41,7 @@ import {
 import { toggleMarkdownWrap, hasMarkdownSyntax, isMarkdownFormatActive, wrapCodeBlock, toggleLinePrefix, toggleHeadingPrefix, dedentCode } from "@/lib/markdown/markdown-utils";
 import { MarkdownRenderer } from "@/lib/markdown/markdown-renderer";
 import { ActionTooltip } from "@/components/action-tooltip";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 
 const MARKDOWN_FORMATS = [
   { id: "bold", icon: Bold, before: "**", after: "**", label: "Bold (Ctrl+B)", shortcut: "b", shift: false },
@@ -87,6 +88,7 @@ export const ChatInput = ({
   name,
   type,
 }: ChatInputProps) => {
+  const isMobile = useIsMobileShell();
   const addMessage = useMockStore((state) => state.addMessage);
   const addDirectMessage = useMockStore((state) => state.addDirectMessage);
   const markTailSeen = useMockStore((state) => state.markTailSeen);
@@ -1473,7 +1475,13 @@ export const ChatInput = ({
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <div className="relative p-4 pb-6">
+                <div
+                  className={cn(
+                    isMobile
+                      ? "relative border-t border-border/40 bg-secondary/55 px-2 pb-2 pt-2 backdrop-blur-2xl backdrop-saturate-150 dark:bg-secondary/40"
+                      : "relative p-4 pb-6"
+                  )}
+                >
                   {pendingReply && (
                     <div className="mb-2 flex items-center gap-x-3 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2">
                       <div className="w-0.5 self-stretch rounded-full bg-indigo-500 shrink-0" />
@@ -1629,11 +1637,33 @@ export const ChatInput = ({
 
                   <div
                     className={cn(
-                      "relative flex flex-col rounded-lg overflow-hidden",
-                      "bg-zinc-200/90 dark:bg-zinc-700/75"
+                      isMobile && "flex items-end gap-1.5"
                     )}
                   >
-                    {showFormattingPreview && (
+                    {isMobile && (
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="mb-1.5 flex h-9 w-9 shrink-0 items-center justify-center text-blue-500 disabled:opacity-50"
+                        title="Attach files"
+                      >
+                        {isUploading ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <Paperclip className="h-5 w-5" />
+                        )}
+                      </button>
+                    )}
+                  <div
+                    className={cn(
+                      "relative flex flex-col overflow-hidden",
+                      isMobile
+                        ? "min-w-0 flex-1 rounded-full border border-border/50 bg-background shadow-sm"
+                        : "rounded-lg bg-zinc-200/90 dark:bg-zinc-700/75"
+                    )}
+                  >
+                    {showFormattingPreview && !isMobile && (
                       <div className="flex flex-col border-b border-zinc-300/50 dark:border-zinc-600/50">
                         <div
                           role="separator"
@@ -1665,9 +1695,20 @@ export const ChatInput = ({
                     <div className="relative">
                     <Textarea
                       disabled={isInputDisabled}
-                      autoFocus
-                      className="min-h-[44px] max-h-[120px] w-full bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-zinc-600 dark:text-zinc-200 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 py-3 resize-none overflow-y-auto disabled:opacity-60 disabled:cursor-not-allowed"
-                      style={{ paddingRight: enableMarkdown ? "20rem" : "9rem" }}
+                      autoFocus={!isMobile}
+                      className={cn(
+                        "w-full resize-none overflow-y-auto border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-60",
+                        isMobile
+                          ? "min-h-[40px] max-h-[100px] py-2.5 pl-3.5 pr-12 text-[15px] text-foreground placeholder:text-muted-foreground"
+                          : "min-h-[44px] max-h-[120px] py-3 text-zinc-600 placeholder:text-zinc-500 dark:text-zinc-200 dark:placeholder:text-zinc-400"
+                      )}
+                      style={{
+                        paddingRight: isMobile
+                          ? undefined
+                          : enableMarkdown
+                            ? "20rem"
+                            : "9rem",
+                      }}
                       placeholder={
                         !isIrcConnected
                           ? "Disconnected from IRC server"
@@ -1677,6 +1718,8 @@ export const ChatInput = ({
                           ? "Uploading files..."
                           : pendingReply
                           ? `Reply to ${pendingReply.nick}`
+                          : isMobile
+                          ? "Message"
                           : `Message ${type === "conversation" ? name : "#" + name}`
                       }
                       rows={1}
@@ -1708,8 +1751,16 @@ export const ChatInput = ({
                       onInput={autoResize}
                     />
 
-                    <div className="absolute right-3 bottom-2 z-10 flex items-center gap-x-1">
+                    <div
+                      className={cn(
+                        "z-10 flex items-center gap-x-1",
+                        isMobile
+                          ? "absolute bottom-1.5 right-2"
+                          : "absolute bottom-2 right-3"
+                      )}
+                    >
                       {enableMarkdown &&
+                        !isMobile &&
                         MARKDOWN_FORMATS.map(({ id, icon: Icon, before, after, label }) => (
                         <ActionTooltip key={id} label={label} side="top">
                           <button
@@ -1729,7 +1780,7 @@ export const ChatInput = ({
                         </ActionTooltip>
                       ))}
 
-                      {enableMarkdown && (
+                      {enableMarkdown && !isMobile && (
                         <DropdownMenu>
                           <ActionTooltip label="More formatting" side="top">
                             <DropdownMenuTrigger asChild>
@@ -1799,34 +1850,38 @@ export const ChatInput = ({
                         </DropdownMenu>
                       )}
 
-                      {enableMarkdown && (
-                        <div className="w-px h-4 bg-zinc-300/80 dark:bg-zinc-600/80 mx-0.5" />
+                      {enableMarkdown && !isMobile && (
+                        <div className="mx-0.5 h-4 w-px bg-zinc-300/80 dark:bg-zinc-600/80" />
                       )}
 
+                      {!isMobile && (
                       <div
-                        className={`text-[10px] font-mono font-medium px-1.5 py-0.5 rounded transition-colors select-none ${
+                        className={`select-none rounded px-1.5 py-0.5 font-mono text-[10px] font-medium transition-colors ${
                           currentBytes >= maxBytes
-                            ? "bg-rose-500 text-white font-bold shadow-sm"
-                            : "bg-zinc-300/60 dark:bg-zinc-800/80 text-zinc-500 dark:text-zinc-400"
+                            ? "bg-rose-500 font-bold text-white shadow-sm"
+                            : "bg-zinc-300/60 text-zinc-500 dark:bg-zinc-800/80 dark:text-zinc-400"
                         }`}
                         title={`IRC message byte limit: ${currentBytes} / ${maxBytes} bytes`}
                       >
                         {currentBytes}/{maxBytes}
                       </div>
+                      )}
 
+                      {!isMobile && (
                       <button
                         type="button"
                         disabled={isLoading}
                         onClick={() => fileInputRef.current?.click()}
-                        className="h-7 w-7 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition flex items-center justify-center rounded-md hover:bg-zinc-300/50 dark:hover:bg-zinc-600/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-300/50 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-600/50 dark:hover:text-zinc-200"
                         title="Attach files (System dialog)"
                       >
                         {isUploading ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                          <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
                         ) : (
-                          <Paperclip className="w-4 h-4" />
+                          <Paperclip className="h-4 w-4" />
                         )}
                       </button>
+                      )}
 
                       <EmojiPicker
                         disabled={isLoading}
@@ -1845,6 +1900,7 @@ export const ChatInput = ({
                           }
                         }}
                       />
+                    </div>
                     </div>
                     </div>
                   </div>

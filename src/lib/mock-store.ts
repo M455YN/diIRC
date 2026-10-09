@@ -465,6 +465,7 @@ interface MockState {
   compactMode: boolean;
   enableMarkdown: boolean;
   enableFormattingPreview: boolean;
+  scrollToUnreadOnFocus: boolean;
   confirmLeaveChannel: boolean;
   enableCommandSuggestions: boolean;
   enableLinkPreviews: boolean;
@@ -492,10 +493,17 @@ interface MockState {
   conversationNotificationSettings: Record<string, NotificationOverride>;
   autoUpdateMode: "auto" | "ask" | "disabled";
   setAutoUpdateMode: (mode: "auto" | "ask" | "disabled") => void;
-  updateSourceMode: "default" | "custom";
+  /** `default` follows the channel the installed build was released on. */
+  updateSourceMode: "default" | "official" | "skipahead" | "custom";
   customUpdateUrl: string;
-  setUpdateSourceMode: (mode: "default" | "custom") => void;
+  /** Optional minisign public key for a custom source; empty = built-in key. */
+  customUpdatePubkey: string;
+  /** Set when the update source changes so the next check may cross versions. */
+  updateChannelSwitchPending: boolean;
+  setUpdateSourceMode: (mode: "default" | "official" | "skipahead" | "custom") => void;
   setCustomUpdateUrl: (url: string) => void;
+  setCustomUpdatePubkey: (pubkey: string) => void;
+  setUpdateChannelSwitchPending: (pending: boolean) => void;
   serverMotds: Record<string, string[]>;
   setServerMotd: (serverId: string, motd: string[]) => void;
   globalMotdPolicy: MotdDisplayPolicy;
@@ -537,6 +545,7 @@ interface MockState {
   setCompactMode: (enabled: boolean) => void;
   setEnableMarkdown: (enabled: boolean) => void;
   setEnableFormattingPreview: (enabled: boolean) => void;
+  setScrollToUnreadOnFocus: (enabled: boolean) => void;
   setConfirmLeaveChannel: (enabled: boolean) => void;
   setEnableCommandSuggestions: (enabled: boolean) => void;
   setEnableLinkPreviews: (enabled: boolean) => void;
@@ -681,6 +690,7 @@ export const useMockStore = create<MockState>()(
       compactMode: false,
       enableMarkdown: true,
       enableFormattingPreview: true,
+      scrollToUnreadOnFocus: false,
       confirmLeaveChannel: true,
       enableCommandSuggestions: true,
       enableLinkPreviews: true,
@@ -722,8 +732,18 @@ export const useMockStore = create<MockState>()(
       setAutoUpdateMode: (mode) => set({ autoUpdateMode: mode }),
       updateSourceMode: "default",
       customUpdateUrl: "",
-      setUpdateSourceMode: (mode) => set({ updateSourceMode: mode }),
-      setCustomUpdateUrl: (url) => set({ customUpdateUrl: url }),
+      customUpdatePubkey: "",
+      updateChannelSwitchPending: false,
+      setUpdateSourceMode: (mode) =>
+        set((state) =>
+          state.updateSourceMode === mode
+            ? {}
+            : { updateSourceMode: mode, updateChannelSwitchPending: true }
+        ),
+      setCustomUpdateUrl: (url) => set({ customUpdateUrl: url, updateChannelSwitchPending: true }),
+      setCustomUpdatePubkey: (pubkey) =>
+        set({ customUpdatePubkey: pubkey, updateChannelSwitchPending: true }),
+      setUpdateChannelSwitchPending: (pending) => set({ updateChannelSwitchPending: pending }),
       serverMotds: {},
       setServerMotd: (serverId: string, motd: string[]) =>
         set((state) => ({
@@ -1099,6 +1119,7 @@ export const useMockStore = create<MockState>()(
       setCompactMode: (enabled: boolean) => set({ compactMode: enabled }),
       setEnableMarkdown: (enabled: boolean) => set({ enableMarkdown: enabled }),
       setEnableFormattingPreview: (enabled: boolean) => set({ enableFormattingPreview: enabled }),
+      setScrollToUnreadOnFocus: (enabled: boolean) => set({ scrollToUnreadOnFocus: enabled }),
       setConfirmLeaveChannel: (enabled: boolean) => set({ confirmLeaveChannel: enabled }),
       setEnableCommandSuggestions: (enabled: boolean) => set({ enableCommandSuggestions: enabled }),
       setEnableLinkPreviews: (enabled: boolean) => set({ enableLinkPreviews: enabled }),

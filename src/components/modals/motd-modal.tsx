@@ -40,9 +40,12 @@ import {
 import { LinkPreview } from "@/components/chat/link-preview";
 import { ServerMotdDisplayPolicy } from "@/types";
 import { cn } from "@/lib/utils";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { MobileMotdView } from "@/components/mobile/mobile-motd-operator-views";
 
 export const MotdModal = () => {
   const { isOpen, onClose, type, data } = useModal();
+  const isMobile = useIsMobileShell();
   const params = useParams();
   const servers = useMockStore((state) => state.servers);
   const serverMotds = useMockStore((state) => state.serverMotds);
@@ -156,6 +159,55 @@ export const MotdModal = () => {
       ? "Don't show again (all servers)"
       : "When changed";
 
+  if (isMobile) {
+    return (
+      <MobileMotdView
+        open={isModalOpen}
+        onClose={handleClose}
+        serverName={serverDisplayName}
+        isDirc={isDirc}
+        hasContent={motdLines.length > 0}
+        isRefreshing={isRefreshing}
+        urls={detectedUrls}
+        onOpenUrl={openExternalUrl}
+        policy={currentPolicy}
+        globalPolicyLabel={globalMotdPolicy === "never" ? "Never" : globalPolicyLabel}
+        onPolicyChange={handlePolicyChange}
+        content={
+          isDirc ? (
+            <div className="space-y-2 break-words text-sm leading-relaxed">
+              {motdLines.map((line, idx) => {
+                const lineUrls = enableMotdMediaPreviews ? extractUrlsFromMarkdownText(line) : [];
+                return (
+                  <div key={idx} className="space-y-2">
+                    <div className="min-h-[1.25rem]">
+                      {hasIrcControlCodes(line) ? (
+                        <IrcLineRenderer line={line} />
+                      ) : line.trim() ? (
+                        <MarkdownRenderer content={line} compact allowImages={enableMotdMediaPreviews} />
+                      ) : (
+                        <div className="h-2" />
+                      )}
+                    </div>
+                    {lineUrls.map((url, urlIdx) => (
+                      <LinkPreview key={urlIdx} url={url} />
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="scrollbar-none overflow-x-auto whitespace-pre font-mono text-[12px] leading-[1.35]">
+              {motdLines.map((line, idx) => (
+                <IrcMonospaceLineRenderer key={idx} line={line} />
+              ))}
+            </div>
+          )
+        }
+      />
+    );
+  }
+
   return (
     <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogContent
@@ -164,27 +216,54 @@ export const MotdModal = () => {
           closeButtonRef.current?.focus();
         }}
         className={cn(
-          "bg-white dark:bg-[#313338] text-black dark:text-white p-0 overflow-hidden rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-800 w-[94vw] transition-all duration-200 max-h-[90vh] flex flex-col",
-          modalMaxWidth
+          "flex flex-col overflow-hidden p-0 shadow-2xl transition-all duration-200",
+          isMobile
+            ? "h-[100dvh] max-h-[100dvh] w-screen border-0 bg-background text-foreground"
+            : cn(
+                "max-h-[90vh] w-[94vw] rounded-xl border border-zinc-200 bg-white text-black dark:border-zinc-800 dark:bg-[#313338] dark:text-white",
+                modalMaxWidth
+              )
         )}
       >
-        <DialogHeader className="pt-4 px-6 pb-2 shrink-0 border-b border-zinc-100 dark:border-zinc-800/50">
-          <DialogTitle className="text-lg font-bold flex items-center gap-x-2 flex-wrap">
-            <ScrollText className="w-5 h-5 text-indigo-500 shrink-0" />
+        <DialogHeader
+          className={cn(
+            "shrink-0 border-b px-6 pb-2",
+            isMobile
+              ? "mobile-safe-top border-border pt-4"
+              : "border-zinc-100 pt-4 dark:border-zinc-800/50"
+          )}
+        >
+          <DialogTitle
+            className={cn(
+              "flex flex-wrap items-center gap-x-2 font-bold",
+              isMobile ? "text-[22px] tracking-tight" : "text-lg"
+            )}
+          >
+            {!isMobile && <ScrollText className="h-5 w-5 shrink-0 text-indigo-500" />}
             <span>Message of the day</span>
             {isDirc && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60 select-none ml-1">
-                <Sparkles className="w-3 h-3" />
+              <span className="ml-1 inline-flex select-none items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-600 dark:border-indigo-800/60 dark:bg-indigo-950/60 dark:text-indigo-400">
+                <Sparkles className="h-3 w-3" />
                 Luna IRC format
               </span>
             )}
           </DialogTitle>
-          <DialogDescription className="text-xs text-zinc-500 dark:text-zinc-400">
+          <DialogDescription
+            className={cn(
+              "text-xs",
+              isMobile ? "text-muted-foreground" : "text-zinc-500 dark:text-zinc-400"
+            )}
+          >
             {serverDisplayName}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-6 py-4 space-y-3 overflow-y-auto discord-scrollbar-chat flex-1 min-h-0">
+        <div
+          className={cn(
+            "min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4 discord-scrollbar-chat",
+            isMobile && "px-4"
+          )}
+        >
           {motdLines.length > 0 ? (
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/70 dark:bg-[#2B2D31]/70 p-4 select-text transition-all">
               {isDirc ? (
@@ -285,7 +364,14 @@ export const MotdModal = () => {
         </div>
 
         {/* Footer Actions — Fixed at the bottom of the modal */}
-        <DialogFooter className="px-6 py-3 bg-zinc-50/80 dark:bg-[#2B2D31]/80 border-t border-zinc-200 dark:border-zinc-800 shrink-0 flex flex-row items-center justify-end gap-x-3">
+        <DialogFooter
+          className={cn(
+            "flex shrink-0 flex-row items-center justify-end gap-x-3 border-t px-6 py-3",
+            isMobile
+              ? "mobile-safe-bottom flex-col items-stretch gap-y-3 border-border bg-background"
+              : "border-zinc-200 bg-zinc-50/80 dark:border-zinc-800 dark:bg-[#2B2D31]/80"
+          )}
+        >
           <div className="flex items-center gap-x-2">
             <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap select-none">
               Show on connect:
@@ -313,7 +399,10 @@ export const MotdModal = () => {
             variant="default"
             size="sm"
             onClick={handleClose}
-            className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+            className={cn(
+              "bg-indigo-600 text-xs text-white hover:bg-indigo-700",
+              isMobile && "h-11 w-full rounded-full text-sm"
+            )}
           >
             Close
           </Button>

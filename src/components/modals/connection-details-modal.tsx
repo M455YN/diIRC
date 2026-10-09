@@ -13,9 +13,16 @@ import { useModal } from "@/hooks/use-modal-store";
 import { useConnectionStatus } from "@/hooks/use-connection-status";
 import { useMockStore } from "@/lib/mock-store";
 import { AlertCircle, CheckCircle2, RefreshCw, Shield, Wifi, Globe, Unplug } from "lucide-react";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { cn } from "@/lib/utils";
+import { MobileConnectionDetailsModal } from "@/components/mobile/mobile-info-modals";
 
-export const ConnectionDetailsModal = () => {
+export const ConnectionDetailsModal = () =>
+  useIsMobileShell() ? <MobileConnectionDetailsModal /> : <DesktopConnectionDetailsModal />;
+
+const DesktopConnectionDetailsModal = () => {
   const { isOpen, onClose, type, data } = useModal();
+  const isMobile = useIsMobileShell();
   const { serverId: routeServerId } = useParams();
   const servers = useMockStore((state) => state.servers);
 
@@ -55,17 +62,46 @@ export const ConnectionDetailsModal = () => {
 
   return (
     <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
-      <DialogContent className="bg-white dark:bg-[#313338] text-black dark:text-white p-0 max-w-xl overflow-hidden rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-800">
-        <DialogHeader className="pt-6 px-6 pb-2">
-          <DialogTitle className="text-xl font-bold flex items-center gap-x-2">
-            <Wifi className="w-5 h-5 text-indigo-500" />
+      <DialogContent
+        className={cn(
+          "overflow-hidden p-0 shadow-2xl",
+          isMobile
+            ? "border-0 bg-background text-foreground"
+            : "max-w-xl rounded-xl border border-zinc-200 bg-white text-black dark:border-zinc-800 dark:bg-[#313338] dark:text-white"
+        )}
+      >
+        <DialogHeader
+          className={cn(
+            "px-6 pb-2",
+            isMobile ? "mobile-safe-top pt-4 text-left" : "pt-6"
+          )}
+        >
+          <DialogTitle
+            className={cn(
+              "flex items-center gap-x-2 font-bold",
+              isMobile ? "text-[28px] tracking-tight" : "text-xl"
+            )}
+          >
+            {!isMobile && <Wifi className="h-5 w-5 text-indigo-500" />}
             Connection details
           </DialogTitle>
+          {isMobile && (
+            <DialogDescription className="text-left text-[13px] text-muted-foreground">
+              IRC, resources, and network status
+            </DialogDescription>
+          )}
         </DialogHeader>
 
-        <div className="p-6 space-y-4">
+        <div className={cn("space-y-4 p-6", isMobile && "space-y-3 pb-8")}>
           {/* IRC Status Card */}
-          <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#2b2d31] space-y-3">
+          <div
+            className={cn(
+              "space-y-3 rounded-xl border p-4",
+              isMobile
+                ? "border-border bg-muted/60"
+                : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-[#2b2d31]"
+            )}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-x-2.5">
                 <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500">
@@ -188,8 +224,19 @@ export const ConnectionDetailsModal = () => {
           </div>
         </div>
 
-        <div className="p-4 bg-zinc-100 dark:bg-[#2b2d31] flex justify-end border-t border-zinc-200 dark:border-zinc-800">
-          <Button onClick={handleClose} variant="secondary" className="px-5">
+        <div
+          className={cn(
+            "flex border-t p-4",
+            isMobile
+              ? "mobile-safe-bottom justify-stretch border-border bg-background"
+              : "justify-end border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-[#2b2d31]"
+          )}
+        >
+          <Button
+            onClick={handleClose}
+            variant="secondary"
+            className={cn("px-5", isMobile && "h-11 w-full rounded-full")}
+          >
             Close
           </Button>
         </div>

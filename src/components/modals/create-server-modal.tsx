@@ -26,6 +26,8 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Trash, Reply } from "lucide-react";
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { MobileServerFormModal } from "@/components/mobile/mobile-server-form";
 import {
   CustomCommandsFields,
   normalizeCustomCommandsFromForm,
@@ -60,7 +62,10 @@ const formSchema = z.object({
   ).default([]),
 });
 
-export const CreateServerModal = () => {
+export const CreateServerModal = () =>
+  useIsMobileShell() ? <MobileServerFormModal mode="create" /> : <DesktopCreateServerModal />;
+
+const DesktopCreateServerModal = () => {
   const { isOpen, onClose, type } = useModal();
   const navigate = useNavigate();
   const addServer = useMockStore((state) => state.addServer);

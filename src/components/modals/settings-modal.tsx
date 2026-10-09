@@ -10,8 +10,10 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useModal } from "@/hooks/use-modal-store";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 import { useMockStore } from "@/lib/mock-store";
 import { ImageUploadProvider, LitterboxTime } from "@/lib/upload/types";
+import { cn } from "@/lib/utils";
 import {
   Settings,
   Eye,
@@ -50,12 +52,19 @@ import { MotdDisplayPolicy, UserDisplayNameMode, ReplyMode } from "@/types";
 import { playNotificationSound, SoundPreset } from "@/lib/notification-sound";
 import { requestDesktopNotificationPermission } from "@/lib/notification-service";
 import { NotificationSettingsFields } from "@/components/notifications/notification-settings-fields";
-import { checkForAppUpdate } from "@/lib/update-service";
+import {
+  BUILD_UPDATE_CHANNEL,
+  UPDATE_CHANNELS,
+  checkForAppUpdate,
+  resolveUpdateChannelId,
+} from "@/lib/update-service";
 import { Update } from "@tauri-apps/plugin-updater";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
+import { MobileSettingsModal } from "@/components/mobile/mobile-settings";
 
 export const SettingsModal = () => {
   const { isOpen, onClose, type, onOpen } = useModal();
+  const isMobile = useIsMobileShell();
   const compactMode = useMockStore((state) => state.compactMode);
   const setCompactMode = useMockStore((state) => state.setCompactMode);
 
@@ -82,6 +91,8 @@ export const SettingsModal = () => {
 
   const enableFormattingPreview = useMockStore((state) => state.enableFormattingPreview ?? true);
   const setEnableFormattingPreview = useMockStore((state) => state.setEnableFormattingPreview);
+  const scrollToUnreadOnFocus = useMockStore((state) => state.scrollToUnreadOnFocus ?? false);
+  const setScrollToUnreadOnFocus = useMockStore((state) => state.setScrollToUnreadOnFocus);
 
   const linkPreviewApiUrl = useMockStore((state) => state.linkPreviewApiUrl);
   const setLinkPreviewApiUrl = useMockStore((state) => state.setLinkPreviewApiUrl);
@@ -126,6 +137,9 @@ export const SettingsModal = () => {
   const setUpdateSourceMode = useMockStore((state) => state.setUpdateSourceMode);
   const customUpdateUrl = useMockStore((state) => state.customUpdateUrl) || "";
   const setCustomUpdateUrl = useMockStore((state) => state.setCustomUpdateUrl);
+  const customUpdatePubkey = useMockStore((state) => state.customUpdatePubkey) || "";
+  const setCustomUpdatePubkey = useMockStore((state) => state.setCustomUpdatePubkey);
+  const activeUpdateChannel = resolveUpdateChannelId(updateSourceMode);
 
   const sortDmByUnread = useMockStore((state) => state.sortDmByUnread ?? true);
   const setSortDmByUnread = useMockStore((state) => state.setSortDmByUnread);
@@ -220,20 +234,57 @@ export const SettingsModal = () => {
     setNewRuleHeaderValue("");
   };
 
+  // Material 3 categorized settings on mobile (Android Settings-style)
+  if (isMobile) {
+    return <MobileSettingsModal />;
+  }
+
   return (
     <Dialog open={isModalOpen} onOpenChange={handleClose}>
-      <DialogContent className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 p-0 overflow-hidden sm:max-w-xl border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl">
-        <DialogHeader className="pt-6 px-6 space-y-1">
-          <DialogTitle className="text-2xl text-center font-bold text-zinc-900 dark:text-zinc-100 flex items-center justify-center gap-x-2">
-            <Settings className="w-6 h-6 text-indigo-500" />
+      <DialogContent
+        className={cn(
+          "overflow-hidden p-0 shadow-2xl",
+          isMobile
+            ? "border-0 bg-background text-foreground sm:max-w-none"
+            : "rounded-xl border border-zinc-200 bg-white text-zinc-900 dark:border-zinc-800 dark:bg-[#313338] dark:text-zinc-100 sm:max-w-xl"
+        )}
+      >
+        <DialogHeader
+          className={cn(
+            "space-y-1 px-6",
+            isMobile ? "mobile-safe-top space-y-2 pb-2 pt-4 text-left" : "space-y-1 pt-6 text-center"
+          )}
+        >
+          <DialogTitle
+            className={cn(
+              "flex items-center gap-x-2 font-bold",
+              isMobile
+                ? "justify-start text-[28px] font-bold tracking-tight"
+                : "justify-center text-2xl text-zinc-900 dark:text-zinc-100"
+            )}
+          >
+            {!isMobile && <Settings className="h-6 w-6 text-indigo-500" />}
             Settings
           </DialogTitle>
-          <DialogDescription className="text-center text-zinc-500 dark:text-zinc-400 text-xs sm:text-sm">
-            Manage application preferences, notifications, image servers, and authorization rules.
+          <DialogDescription
+            className={cn(
+              isMobile
+                ? "text-left text-[13px] text-muted-foreground"
+                : "text-center text-xs text-zinc-500 dark:text-zinc-400 sm:text-sm"
+            )}
+          >
+            {isMobile
+              ? "Notifications, appearance, and app preferences"
+              : "Manage application preferences, notifications, image servers, and authorization rules."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-6 py-6 space-y-5 max-h-[75vh] overflow-y-auto">
+        <div
+          className={cn(
+            "space-y-5 overflow-y-auto px-6 py-6",
+            isMobile ? "max-h-none space-y-3 pb-10" : "max-h-[75vh]"
+          )}
+        >
           {/* SECTION: GLOBAL NOTIFICATIONS */}
           <NotificationSettingsFields
             mode="global"
@@ -362,25 +413,38 @@ export const SettingsModal = () => {
                 <div>
                   <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-x-1.5">
                     <Server className="w-3.5 h-3.5 text-indigo-500" />
-                    Update version source
+                    Update channel
                   </div>
                   <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Choose whether to fetch version manifests from the default server or a custom URL.
+                    Choose where updates come from. After switching, the next check offers that channel's latest build.
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-2 pt-1">
                 <select
-                  value={updateSourceMode}
-                  onChange={(e) => setUpdateSourceMode(e.target.value as "default" | "custom")}
+                  value={activeUpdateChannel}
+                  onChange={(e) =>
+                    setUpdateSourceMode(e.target.value as "official" | "skipahead" | "custom")
+                  }
                   className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
-                  <option value="default">Default (Cloudflare Worker)</option>
+                  {Object.values(UPDATE_CHANNELS).map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      {channel.label}
+                      {channel.id === BUILD_UPDATE_CHANNEL ? " (this build)" : ""}
+                    </option>
+                  ))}
                   <option value="custom">Custom URL</option>
                 </select>
 
-                {updateSourceMode === "custom" && (
+                {activeUpdateChannel !== "custom" && (
+                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1">
+                    {UPDATE_CHANNELS[activeUpdateChannel].description}
+                  </div>
+                )}
+
+                {activeUpdateChannel === "custom" && (
                   <div className="space-y-1 mt-1">
                     <Input
                       value={customUpdateUrl}
@@ -390,6 +454,15 @@ export const SettingsModal = () => {
                     />
                     <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1">
                       Must be a valid HTTP(S) endpoint returning a Tauri update JSON manifest.
+                    </div>
+                    <Input
+                      value={customUpdatePubkey}
+                      onChange={(e) => setCustomUpdatePubkey(e.target.value)}
+                      placeholder="Public key (optional)"
+                      className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
+                    />
+                    <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1">
+                      Minisign public key the releases are signed with. Leave empty to use the official key.
                     </div>
                   </div>
                 )}
@@ -571,6 +644,22 @@ export const SettingsModal = () => {
               checked={enableFormattingPreview}
               onCheckedChange={(checked) => setEnableFormattingPreview(checked)}
               disabled={!enableMarkdown}
+            />
+          </div>
+
+          {/* Scroll to unread when returning to the app */}
+          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+            <div className="space-y-0.5 pr-4">
+              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                Scroll to new messages on return
+              </label>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                When you come back to the app and the open chat has unread messages, jump straight to the first one.
+              </p>
+            </div>
+            <Switch
+              checked={scrollToUnreadOnFocus}
+              onCheckedChange={(checked) => setScrollToUnreadOnFocus(checked)}
             />
           </div>
 

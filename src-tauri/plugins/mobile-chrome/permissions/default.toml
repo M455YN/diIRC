@@ -1,0 +1,8 @@
+[default]
+description = "Allow native mobile chrome tab bar commands"
+permissions = [
+  "allow-configure-tab-bar",
+  "allow-set-tab-bar-selected",
+  "allow-set-tab-bar-visible",
+  "allow-get-tab-bar-insets",
+]

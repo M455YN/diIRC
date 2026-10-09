@@ -15,6 +15,8 @@ import {
 
 interface ChatSearchResultsPanelProps {
   context: SearchContext;
+  /** `sidebar` hides below md; `panel` is always visible (mobile sheets). */
+  variant?: "sidebar" | "panel";
 }
 
 interface HitGroup {
@@ -34,7 +36,7 @@ const resultUnit = (count: number): string => {
   return count === 1 ? "result" : "results";
 };
 
-const groupHitsByDay = (hits: SearchHit[]): HitGroup[] => {
+export const groupHitsByDay = (hits: SearchHit[]): HitGroup[] => {
   const groups: HitGroup[] = [];
   let current: HitGroup | null = null;
   for (const hit of hits) {
@@ -50,7 +52,7 @@ const groupHitsByDay = (hits: SearchHit[]): HitGroup[] => {
 };
 
 /** Renders message content with case-insensitive `<mark>` highlights (no innerHTML). */
-const HighlightedContent = ({ content, ranges }: { content: string; ranges: HighlightRange[] }) => {
+export const HighlightedContent = ({ content, ranges }: { content: string; ranges: HighlightRange[] }) => {
   if (ranges.length === 0) {
     return <span>{content}</span>;
   }
@@ -82,7 +84,10 @@ const SLICE_SIZE = 50;
  * Discord-style search results panel. Rendered in the right sidebar slot,
  * replacing the members list while a search is active.
  */
-export const ChatSearchResultsPanel = ({ context }: ChatSearchResultsPanelProps) => {
+export const ChatSearchResultsPanel = ({
+  context,
+  variant = "sidebar",
+}: ChatSearchResultsPanelProps) => {
   const hits = useSearchStore((state) => state.hits);
   const status = useSearchStore((state) => state.status);
   const sort = useSearchStore((state) => state.sort);
@@ -126,7 +131,11 @@ export const ChatSearchResultsPanel = ({ context }: ChatSearchResultsPanelProps)
   return (
     <aside
       data-search-results-panel="true"
-      className="hidden md:flex flex-col h-full w-64 bg-zinc-50 dark:bg-[#2b2d31] border-l border-zinc-200 dark:border-zinc-800 shrink-0"
+      className={
+        variant === "panel"
+          ? "flex h-full w-full shrink-0 flex-col bg-muted"
+          : "hidden h-full w-64 shrink-0 flex-col border-l border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-[#2b2d31] md:flex"
+      }
     >
       {/* Panel header */}
       <div className="h-12 px-3 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 shrink-0">

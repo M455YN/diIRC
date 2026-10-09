@@ -21,6 +21,10 @@
     "notification:allow-notify",
     "core:window:allow-request-user-attention",
     "updater:default",
-    "process:default"
+    "process:default",
+    "os:allow-platform",
+    "os:allow-os-type",
+    "core:app:allow-exit",
+    "process:allow-exit"
   ]
 }
