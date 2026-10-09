@@ -9,6 +9,7 @@ import {
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
 import { useChangelog } from "@/lib/changelog-service";
+import { UPDATE_CHANNELS } from "@/lib/update-service";
 import { MarkdownRenderer } from "@/lib/markdown/markdown-renderer";
 import { parseMarkdownContentBlocks } from "@/lib/markdown/markdown-utils";
 import { LinkPreview } from "@/components/chat/link-preview";
@@ -221,6 +222,12 @@ const DesktopChangelogModal = () => {
                         <span className="font-bold text-sm font-mono text-zinc-900 dark:text-zinc-100 truncate">
                           {v.version}
                         </span>
+
+                        {v.channel !== "official" && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                            {UPDATE_CHANNELS[v.channel].label}
+                          </span>
+                        )}
 
                         {isCurrent && (
                           <span className="inline-flex items-center gap-x-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 shrink-0">

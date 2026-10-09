@@ -26,6 +26,14 @@ export interface UpdateChannel {
   /** Minisign public key the channel's releases are signed with. */
   pubkey: string;
   releasesUrl: string;
+  changelog: {
+    /** Gist whose `<version>.md` files hold the release notes. */
+    gistId?: string;
+    /** `owner/repo` whose GitHub release bodies hold the release notes. */
+    releasesRepo?: string;
+    /** Also list notes of this channel (the build includes its changes). */
+    includeChannel?: UpdateChannelId;
+  };
 }
 
 export const UPDATE_CHANNELS: Record<UpdateChannelId, UpdateChannel> = {
@@ -36,6 +44,7 @@ export const UPDATE_CHANNELS: Record<UpdateChannelId, UpdateChannel> = {
     endpoint: tauriConfig.plugins.updater.endpoints[0],
     pubkey: tauriConfig.plugins.updater.pubkey,
     releasesUrl: "https://github.com/TheStami/diIRC/releases/latest",
+    changelog: { gistId: "fcb9ad4e53791a8c0295f4308fff1159" },
   },
   skipahead: {
     id: "skipahead",
@@ -45,6 +54,7 @@ export const UPDATE_CHANNELS: Record<UpdateChannelId, UpdateChannel> = {
     pubkey:
       "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVBNUYyMjlFOTA2Mjc3OUYKUldTZmQyS1FuaUpmNms1NDVoTUNOOGt4c3cxY0psa1VNR2ZPRyt3UWpSV2Jjb1RIR1pXdDdGSzQK",
     releasesUrl: "https://github.com/M455YN/diIRC/releases/latest",
+    changelog: { releasesRepo: "M455YN/diIRC", includeChannel: "official" },
   },
 };
 

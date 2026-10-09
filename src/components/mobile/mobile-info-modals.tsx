@@ -18,6 +18,7 @@ import { useModal } from "@/hooks/use-modal-store";
 import { useConnectionStatus } from "@/hooks/use-connection-status";
 import { useMockStore } from "@/lib/mock-store";
 import { useChangelog } from "@/lib/changelog-service";
+import { UPDATE_CHANNELS } from "@/lib/update-service";
 import { MarkdownRenderer } from "@/lib/markdown/markdown-renderer";
 import { parseMarkdownContentBlocks } from "@/lib/markdown/markdown-utils";
 import { LinkPreview } from "@/components/chat/link-preview";
@@ -299,6 +300,7 @@ const ChangelogBody = ({ open }: { open: boolean }) => {
                     <Box sx={{ fontSize: "1rem", fontWeight: 500, fontFamily: "ui-monospace, monospace" }}>
                       {v.version}
                     </Box>
+                    {v.channel !== "official" && <M3Chip label={UPDATE_CHANNELS[v.channel].label} />}
                     {isCurrent && <M3Chip tone="success" label="Current" />}
                     {isLatest && !isCurrent && (
                       <M3Chip tone="primary" icon={<AutoAwesomeOutlinedIcon />} label="Latest" />

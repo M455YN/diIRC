@@ -22,6 +22,22 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Fork releases list the commits since the previous tag; the in-app changelog reads this body.
+      - name: Generate release notes (forks)
+        id: notes
+        if: github.repository != 'TheStami/diIRC'
+        shell: bash
+        run: |
+          prev=$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)
+          range=${prev:+$prev..}HEAD
+          {
+            echo 'body<<NOTES_EOF'
+            git log --no-merges --pretty='- %s' "$range" | grep -v '^- chore: release' || true
+            echo 'NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -63,9 +79,10 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'diIRC ${{ github.ref_name }}'
-          releaseBody: '${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}'
+          # Taken from the app version so manual runs on a branch do not create a release named after it.
+          tagName: 'v__VERSION__'
+          releaseName: 'diIRC v__VERSION__'
+          releaseBody: ${{ steps.notes.outputs.body || format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, github.ref_name) }}
           # Forks publish straight away: the updater reads /releases/latest, which skips drafts and prereleases.
           releaseDraft: ${{ github.repository == 'TheStami/diIRC' }}
           prerelease: ${{ github.repository == 'TheStami/diIRC' }}
