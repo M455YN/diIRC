@@ -409,6 +409,12 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
                 "Bold, italic, code, spoilers, and links"
               )}
               {toggle(
+                "Scroll to new messages on return",
+                store.scrollToUnreadOnFocus ?? false,
+                store.setScrollToUnreadOnFocus,
+                "Jump to the first unread message when you return to the app"
+              )}
+              {toggle(
                 "Formatting preview",
                 store.enableFormattingPreview ?? true,
                 store.setEnableFormattingPreview,

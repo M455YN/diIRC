@@ -609,12 +609,18 @@ fn extract_message_timestamp(
         if let Some((time_str, match_len)) = matched {
             *content = content[match_len..].to_string();
             let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-            let iso_time = if time_str.len() == 5 {
-                format!("{today}T{time_str}:00Z")
+            let naive_str = if time_str.len() == 5 {
+                format!("{today} {time_str}:00")
             } else {
-                format!("{today}T{time_str}Z")
+                format!("{today} {time_str}")
             };
-            return Some(iso_time);
+            // Legacy ZNC prefixes are the bouncer's local wall-clock time, not UTC.
+            if let Some(local) = chrono::NaiveDateTime::parse_from_str(&naive_str, "%Y-%m-%d %H:%M:%S")
+                .ok()
+                .and_then(|naive| naive.and_local_timezone(chrono::Local).earliest())
+            {
+                return Some(local.to_rfc3339());
+            }
         }
     }
 
@@ -629,6 +635,27 @@ async fn append_log_line(
     sender: &str,
     content: &str,
     meta: Option<LogLineMeta>,
+) -> Result<(), String> {
+    append_log_line_at(app, state, server_id, target, sender, content, meta, None).await
+}
+
+/// Formats an IRCv3 `time` tag (RFC 3339) as a local `YYYY-MM-DD HH:MM:SS` log timestamp.
+fn format_log_timestamp(server_time: Option<&str>) -> String {
+    server_time
+        .and_then(|value| chrono::DateTime::parse_from_rfc3339(value).ok())
+        .map(|parsed| parsed.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S").to_string())
+        .unwrap_or_else(|| Local::now().format("%Y-%m-%d %H:%M:%S").to_string())
+}
+
+async fn append_log_line_at(
+    app: &AppHandle,
+    state: &LogState,
+    server_id: &str,
+    target: &str,
+    sender: &str,
+    content: &str,
+    meta: Option<LogLineMeta>,
+    server_time: Option<&str>,
 ) -> Result<(), String> {
     if target == "***" || sender == "***" || target.trim().is_empty() {
         return Ok(());
@@ -656,7 +683,7 @@ async fn append_log_line(
         }
     };
 
-    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+    let timestamp = format_log_timestamp(server_time);
     let normalized_content = content.replace(['\r', '\n'], " ");
     let meta_suffix = meta
         .filter(|value| !value.is_empty())
@@ -923,6 +950,35 @@ async fn load_log_tail(
     channel: String,
 ) -> Result<Vec<LogEntry>, String> {
     read_log_tail(&app, &server_id, &channel).await
+}
+
+/// Finds a logged message by its IRCv3 `msgid`, scanning the log newest-first.
+/// Used to resolve reply parents that are not in the frontend's in-memory window.
+#[tauri::command]
+async fn find_log_message_by_msgid(
+    app: AppHandle,
+    server_id: String,
+    channel: String,
+    msgid: String,
+) -> Result<Option<LogEntry>, String> {
+    let (_, path) = log_path(&app, &server_id, &channel)?;
+    let content = match fs::read_to_string(&path).await {
+        Ok(content) => content,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("Failed to read log file: {error}")),
+    };
+    let needle = format!("\"m\":\"{}\"", msgid.replace('\\', "\\\\").replace('"', "\\\""));
+    for line in content.lines().rev() {
+        if !line.contains(&needle) {
+            continue;
+        }
+        if let Some(entry) = parse_log_line(line) {
+            if entry.msgid.as_deref() == Some(msgid.as_str()) {
+                return Ok(Some(entry));
+            }
+        }
+    }
+    Ok(None)
 }
 
 #[tauri::command]
@@ -1709,7 +1765,7 @@ async fn connect_irc(
                                     } else {
                                         sender_name.clone()
                                     };
-                                    if let Err(error) = append_log_line(
+                                    if let Err(error) = append_log_line_at(
                                         &app_clone,
                                         &log_state_clone,
                                         &stream_server_id,
@@ -1723,6 +1779,7 @@ async fn connect_irc(
                                             &compat_nick,
                                             &compat_preview,
                                         ),
+                                        timestamp.as_deref(),
                                     )
                                     .await
                                     {
@@ -4084,6 +4141,7 @@ pub fn run() {
             send_message,
             load_log_tail,
             load_log_page,
+            find_log_message_by_msgid,
             list_logged_conversations,
             delete_last_log_entry,
             search_log,

@@ -91,6 +91,8 @@ export const SettingsModal = () => {
 
   const enableFormattingPreview = useMockStore((state) => state.enableFormattingPreview ?? true);
   const setEnableFormattingPreview = useMockStore((state) => state.setEnableFormattingPreview);
+  const scrollToUnreadOnFocus = useMockStore((state) => state.scrollToUnreadOnFocus ?? false);
+  const setScrollToUnreadOnFocus = useMockStore((state) => state.setScrollToUnreadOnFocus);
 
   const linkPreviewApiUrl = useMockStore((state) => state.linkPreviewApiUrl);
   const setLinkPreviewApiUrl = useMockStore((state) => state.setLinkPreviewApiUrl);
@@ -642,6 +644,22 @@ export const SettingsModal = () => {
               checked={enableFormattingPreview}
               onCheckedChange={(checked) => setEnableFormattingPreview(checked)}
               disabled={!enableMarkdown}
+            />
+          </div>
+
+          {/* Scroll to unread when returning to the app */}
+          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+            <div className="space-y-0.5 pr-4">
+              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                Scroll to new messages on return
+              </label>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                When you come back to the app and the open chat has unread messages, jump straight to the first one.
+              </p>
+            </div>
+            <Switch
+              checked={scrollToUnreadOnFocus}
+              onCheckedChange={(checked) => setScrollToUnreadOnFocus(checked)}
             />
           </div>
 

@@ -100,6 +100,7 @@ export const ChatMessages = ({
   const pendingLiveCount = useMockStore((state) => state.historyWindow.pendingLive.length);
   const dateFormatPreset = useMockStore((state) => state.dateFormatPreset) || "d MMM yyyy, HH:mm";
   const customDateFormat = useMockStore((state) => state.customDateFormat) || "yyyy/MM/dd HH:mm";
+  const scrollToUnreadOnFocus = useMockStore((state) => state.scrollToUnreadOnFocus ?? false);
   const [atBottom, setAtBottom] = useState(true);
 
   // Search jump-to-message: pending target queued by the search results panel.
@@ -341,6 +342,20 @@ export const ChatMessages = ({
     });
   }, [hasNewer, newerCursor, loadNewerHistory, clearHistoryLoading, type, chatId, serverId, historyTarget, captureAnchor]);
 
+  // True when the newest message's row is actually inside the viewport. Unlike the
+  // hysteresis-based at-bottom state, this cannot miss a stop a few dozen px above
+  // the very bottom, so the unread badge clears as soon as the tail is on screen.
+  const isTailVisible = useCallback(() => {
+    const element = chatRef.current;
+    const last = items[items.length - 1];
+    if (!element || !last) return false;
+    const row = rowElementsRef.current.get(last.id);
+    if (!row) return false;
+    const rowRect = row.getBoundingClientRect();
+    const viewRect = element.getBoundingClientRect();
+    return rowRect.bottom <= viewRect.bottom + 2 && rowRect.bottom > viewRect.top;
+  }, [items]);
+
   const handleChatScroll = useCallback(() => {
     const element = chatRef.current;
     if (!element) return;
@@ -380,6 +395,19 @@ export const ChatMessages = ({
     shouldStickToBottomRef.current = isAtBottom;
     setAtBottom((prev) => (prev === isAtBottom ? prev : isAtBottom));
 
+    // Tail on screen but still outside the at-bottom hysteresis zone: it has been
+    // seen, so clear the unread badge (never while moving away from the bottom).
+    if (
+      !isAtBottom &&
+      !movingUp &&
+      !hasNewer &&
+      items.length > 0 &&
+      (typeof document === "undefined" || document.hasFocus()) &&
+      isTailVisible()
+    ) {
+      markTailSeen(items[items.length - 1].id);
+    }
+
     if (isAtBottom) {
       anchorRef.current = null;
       // Never stamp messages as seen while scrolling AWAY from the bottom (Fix A):
@@ -404,7 +432,7 @@ export const ChatMessages = ({
         triggerLoadNewer();
       }
     }
-  }, [triggerLoadOlder, triggerLoadNewer, items, hasNewer, markTailSeen, setTailPinned]);
+  }, [triggerLoadOlder, triggerLoadNewer, items, hasNewer, markTailSeen, setTailPinned, isTailVisible]);
 
   const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     const element = chatRef.current;
@@ -691,6 +719,19 @@ export const ChatMessages = ({
       });
     }
   }, [firstUnreadMessageId, items, hasWelcome, virtualizer, markProgrammaticScroll, setTailPinned, type, chatId, serverId, historyTarget, jumpToLatest, handleJumpToLatest]);
+
+  // Optional: when returning to the window, jump to the first unread message of the open chat.
+  useEffect(() => {
+    if (!scrollToUnreadOnFocus) return;
+    const handleReturn = () => {
+      if (document.visibilityState === "hidden") return;
+      const { unreadCount: unread, firstUnreadMessageId: firstUnread } =
+        useMockStore.getState().historyWindow;
+      if (unread > 0 && firstUnread) handleJumpToUnread();
+    };
+    window.addEventListener("focus", handleReturn);
+    return () => window.removeEventListener("focus", handleReturn);
+  }, [scrollToUnreadOnFocus, handleJumpToUnread]);
 
   const handleMarkAsRead = useCallback(() => {
     const lastMsgId = items.length > 0 ? items[items.length - 1].id : null;

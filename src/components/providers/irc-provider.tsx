@@ -408,6 +408,28 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
       }
     }
 
+    // Last resort: the parent may be older than the in-memory window, so ask the on-disk log.
+    if (replyToMsgid && !parent && !quoteNick && serverId) {
+      const logTarget =
+        channel.startsWith("#") || channel.startsWith("&") ? channel : sender;
+      try {
+        const entry = await invoke<{ sender: string; content: string } | null>(
+          "find_log_message_by_msgid",
+          { serverId, channel: logTarget, msgid: replyToMsgid }
+        );
+        if (entry) {
+          parent = {
+            messageId: "",
+            nick: entry.sender,
+            preview: entry.content.replace(/\u0085/g, "\n"),
+          };
+          useReplyStore.getState().indexMsgid(replyToMsgid, parent);
+        }
+      } catch (error) {
+        console.warn("Reply parent log lookup failed:", error);
+      }
+    }
+
     let replyTo: { messageId: string; nick: string; preview: string; msgid?: string } | undefined;
     if (parent) {
       replyTo = {
