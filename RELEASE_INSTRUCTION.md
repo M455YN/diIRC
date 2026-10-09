@@ -125,8 +125,10 @@ The prerelease part must be numeric (MSI requirement), so `0.3.5-skipahead.1` is
 
 ```bash
 git checkout skipahead
-npm run release -- 0.3.5-1   # bumps the 3 files, commits, tags v0.3.5-1 and pushes
+npm run release   # pick "custom" at the bottom of the list and enter e.g. 0.3.5-1
 ```
+
+bumpp then updates the 3 files, commits, tags `v0.3.5-1` and pushes, which triggers the release build.
 
 The fork's workflow publishes the release immediately (no draft/prerelease) so that
 `https://github.com/M455YN/diIRC/releases/latest/download/latest.json` points to it.
