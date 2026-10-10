@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import Box from "@mui/material/Box";
+import ButtonBase from "@mui/material/ButtonBase";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import type { Member } from "@/types";
 import { UserAvatar } from "@/components/user-avatar";
 import {
@@ -16,6 +19,8 @@ import {
   M3Subheader,
   useM3,
 } from "@/components/mobile/m3";
+import { useMockStore } from "@/lib/mock-store";
+import { buildMemberGroups, collapsedKey, type MemberGroup } from "@/lib/member-groups";
 
 export interface MobileMemberRow {
   member: Member;
@@ -26,21 +31,17 @@ export interface MobileMemberRow {
   isSelf: boolean;
 }
 
-const GROUPS: { id: string; title: string; roles: (ChannelRoleKey | null)[] }[] = [
-  { id: "ops", title: "Operators", roles: ["owner", "admin", "op"] },
-  { id: "halfops", title: "Half-operators", roles: ["halfop"] },
-  { id: "voiced", title: "Voiced", roles: ["voice"] },
-  { id: "members", title: "Members", roles: [null] },
-];
-
 const MemberItem = ({
   row,
   onClick,
   divider,
+  showRole = true,
 }: {
   row: MobileMemberRow;
   onClick?: () => void;
   divider: boolean;
+  /** Off inside role groups, where the group header already states the role. */
+  showRole?: boolean;
 }) => {
   const t = useM3();
   const supporting = row.isAway
@@ -49,7 +50,7 @@ const MemberItem = ({
       : "Away"
     : row.isSelf
       ? "You"
-      : row.role
+      : row.role && showRole
         ? ROLE_CONFIGS[row.role].label
         : undefined;
 
@@ -100,7 +101,11 @@ const MemberItem = ({
             </Box>
           )
         }
-        trailing={row.role ? <UserRoleIcon role={row.role} showTooltip={false} className="h-5 w-5" /> : undefined}
+        trailing={
+          row.role && showRole ? (
+            <UserRoleIcon role={row.role} showTooltip={false} className="h-5 w-5" />
+          ) : undefined
+        }
         onClick={onClick}
         divider={divider}
       />
@@ -111,12 +116,14 @@ const MemberItem = ({
 /** Material 3 channel user list / conversation list for the mobile members screen. */
 export const MobileMembersList = ({
   rows,
+  serverId,
   isChannel,
   isConnected,
   onMemberClick,
   onMore,
 }: {
   rows: MobileMemberRow[];
+  serverId: string;
   isChannel: boolean;
   isConnected: boolean;
   onMemberClick: (memberId: string) => void;
@@ -126,23 +133,47 @@ export const MobileMembersList = ({
   const [query, setQuery] = useState("");
   const [searchActive, setSearchActive] = useState(false);
 
-  const self = rows.find((r) => r.isSelf);
-  const others = useMemo(() => {
+  const groupByRole = useMockStore((s) => s.groupMembersByRole);
+  const collapsed = useMockStore((s) => s.collapsedMemberGroups);
+  const toggleCollapsed = useMockStore((s) => s.toggleMemberGroupCollapsed);
+
+  const grouped = isChannel && groupByRole;
+
+  const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = rows.filter((r) => !r.isSelf);
-    if (!q) return list;
-    return list.filter(
+    if (!q) return rows;
+    return rows.filter(
       (r) =>
-        r.displayName.toLowerCase().includes(q) ||
-        r.member.profile.name.toLowerCase().includes(q)
+        r.displayName.toLowerCase().includes(q) || r.member.profile.name.toLowerCase().includes(q)
     );
   }, [rows, query]);
 
-  const groups = isChannel
-    ? GROUPS.map((g) => ({ ...g, rows: others.filter((r) => g.roles.includes(r.role)) })).filter(
-        (g) => g.rows.length > 0
+  const self = rows.find((r) => r.isSelf);
+  const others = filtered.filter((r) => !r.isSelf);
+
+  const groups: MemberGroup<MobileMemberRow>[] = grouped
+    ? buildMemberGroups(
+        filtered,
+        (r) => ({ role: r.role, isAway: r.isAway }),
+        (a, b) => a.displayName.localeCompare(b.displayName, undefined, { sensitivity: "base" })
       )
-    : [{ id: "conversations", title: "Conversations", rows: others }];
+    : others.length > 0
+      ? [
+          {
+            id: isChannel ? "role:users" : "conversations",
+            title: isChannel ? "Users" : "Conversations",
+            kind: "role" as const,
+            items: others,
+          },
+        ]
+      : [];
+
+  const hasAnyRows = grouped ? groups.length > 0 : others.length > 0;
+
+  // A lone plain-Users group would only repeat the search bar's "N users"; any other lone
+  // group (everyone is an operator / away) keeps its header because it carries information.
+  const hideGroupHeaders =
+    grouped && groups.length === 1 && groups[0].kind === "role" && !groups[0].role;
 
   return (
     <Box sx={{ opacity: isConnected ? 1 : 0.6, transition: "opacity 300ms" }}>
@@ -156,7 +187,8 @@ export const MobileMembersList = ({
         />
       </Box>
 
-      {self && !query && (
+      {/* Ungrouped lists keep the self row pinned on top */}
+      {!grouped && self && !query && (
         <>
           <M3Subheader>You</M3Subheader>
           <M3ListGroup>
@@ -165,25 +197,48 @@ export const MobileMembersList = ({
         </>
       )}
 
-      {groups.map((g) => (
-        <Box key={g.id}>
-          <M3Subheader>
-            {g.title} — {g.rows.length}
-          </M3Subheader>
-          <M3ListGroup>
-            {g.rows.map((row, i) => (
-              <MemberItem
-                key={row.member.id}
-                row={row}
-                onClick={() => onMemberClick(row.member.id)}
-                divider={i < g.rows.length - 1}
-              />
-            ))}
-          </M3ListGroup>
-        </Box>
-      ))}
+      {groups.map((g) => {
+        const key = collapsedKey(serverId, g.id);
+        const isCollapsed = grouped && !hideGroupHeaders && !!collapsed[key];
+        return (
+          <Box key={g.id}>
+            {!hideGroupHeaders && (
+              <ButtonBase
+                disabled={!grouped}
+                onClick={() => toggleCollapsed(key)}
+                sx={{ width: "100%", justifyContent: "flex-start", textAlign: "left" }}
+              >
+                <M3Subheader>
+                  <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+                    {grouped &&
+                      (isCollapsed ? (
+                        <ChevronRightIcon fontSize="small" />
+                      ) : (
+                        <ExpandMoreIcon fontSize="small" />
+                      ))}
+                    {g.title} — {g.items.length}
+                  </Box>
+                </M3Subheader>
+              </ButtonBase>
+            )}
+            {!isCollapsed && (
+              <M3ListGroup>
+                {g.items.map((row, i) => (
+                  <MemberItem
+                    key={row.member.id}
+                    row={row}
+                    onClick={() => onMemberClick(row.member.id)}
+                    divider={i < g.items.length - 1}
+                    showRole={!grouped || g.kind !== "role"}
+                  />
+                ))}
+              </M3ListGroup>
+            )}
+          </Box>
+        );
+      })}
 
-      {others.length === 0 && (
+      {!hasAnyRows && (
         <Box sx={{ py: 6, textAlign: "center", color: t.onSurfaceVariant, fontSize: "0.875rem" }}>
           {query ? "No matching users" : isChannel ? "No other users" : "No conversations yet"}
         </Box>

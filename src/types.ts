@@ -107,6 +107,8 @@ export interface Message {
   replyToMsgid?: string;
   /** Persisted reply preview for UI (survives restart). */
   replyTo?: MessageReplyTo;
+  /** Content was changed by an IRCv3 message edit. */
+  edited?: boolean;
 }
 
 export interface DirectMessage {
@@ -125,6 +127,7 @@ export interface DirectMessage {
   ircMsgid?: string;
   replyToMsgid?: string;
   replyTo?: MessageReplyTo;
+  edited?: boolean;
 }
 
 export interface LogEntry {
@@ -138,6 +141,7 @@ export interface LogEntry {
   replyNick?: string;
   replyPreview?: string;
   replyParentOffset?: number;
+  edited?: boolean;
 }
 
 export interface LogPage {

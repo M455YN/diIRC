@@ -99,6 +99,7 @@ const SEARCH_INDEX: { title: string; category: SettingsCategory }[] = [
   { title: "Popup notifications", category: "notifications" },
   { title: "User display name", category: "appearance" },
   { title: "Compact mode", category: "appearance" },
+  { title: "Group users by role", category: "appearance" },
   { title: "Markdown rendering", category: "appearance" },
   { title: "Formatting preview", category: "appearance" },
   { title: "Date format", category: "appearance" },
@@ -401,6 +402,12 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
                 store.compactMode,
                 store.setCompactMode,
                 "Hide avatars in the chat window"
+              )}
+              {toggle(
+                "Group users by role",
+                store.groupMembersByRole ?? true,
+                store.setGroupMembersByRole,
+                "Split the channel user list into owners, operators, voiced, users and away"
               )}
               {toggle(
                 "Markdown rendering",

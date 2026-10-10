@@ -137,6 +137,47 @@ fn emit_user_host(
     );
 }
 
+/// IRCv3 capabilities we ask for whenever a server advertises them (CAP LS / CAP NEW).
+const WANTED_CAPS: &[&str] = &[
+    "server-time",
+    "away-notify",
+    "batch",
+    "echo-message",
+    "message-tags",
+    "draft/reply",
+    "reply",
+    "znc.in/server-time-iso",
+    "znc.in/self-message",
+    // Channel roster fidelity: full prefixes, host in NAMES, realname/account on JOIN,
+    // and live updates for host / realname / account / invite changes.
+    "multi-prefix",
+    "userhost-in-names",
+    "extended-join",
+    "account-notify",
+    "chghost",
+    "setname",
+    "invite-notify",
+    // Message edit / delete (IRCv3 drafts).
+    "draft/message-edit",
+    "draft/message-redaction",
+];
+
+const NAMES_PREFIXES: &[char] = &['@', '+', '%', '~', '&'];
+
+/// Splits one 353 token (`@+nick` or, with userhost-in-names, `@+nick!user@host`)
+/// into the leading status prefixes, the bare nick, and an optional (user, host).
+fn parse_names_token(token: &str) -> (String, String, Option<(String, String)>) {
+    let rest = token.trim_start_matches(NAMES_PREFIXES);
+    let prefixes = token[..token.len() - rest.len()].to_string();
+    match rest.split_once('!') {
+        Some((nick, userhost)) => {
+            let uh = userhost.split_once('@').map(|(u, h)| (u.to_string(), h.to_string()));
+            (prefixes, nick.to_string(), uh)
+        }
+        None => (prefixes, rest.to_string(), None),
+    }
+}
+
 fn irc_tag_value(tags: &Option<Vec<Tag>>, names: &[&str]) -> Option<String> {
     let tags = tags.as_ref()?;
     for Tag(key, value) in tags {
@@ -318,6 +359,66 @@ struct IrcSelfMsgidEvent {
 }
 
 #[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct IrcCapsEvent {
+    server_id: String,
+    edit: bool,
+    redact: bool,
+}
+
+/// Synthetic entry in `server_caps`: ISUPPORT `CLIENTTAGDENY` forbids relaying `+draft/edit`.
+const EDIT_TAG_DENIED: &str = "x-isupport/clienttagdeny=draft/edit";
+
+/// Whether `CLIENTTAGDENY` (comma list, `*` = all, `-tag` = exempt) blocks the given client tag.
+fn client_tag_denied(clienttagdeny: &str, tag: &str) -> bool {
+    let mut denied = false;
+    for entry in clienttagdeny.split(',').map(str::trim).filter(|e| !e.is_empty()) {
+        if let Some(exempt) = entry.strip_prefix('-') {
+            if exempt.eq_ignore_ascii_case(tag) {
+                return false;
+            }
+        } else if entry == "*" || entry.eq_ignore_ascii_case(tag) {
+            denied = true;
+        }
+    }
+    denied
+}
+
+/// Message edit needs the `draft/message-edit` capability, client tags (`message-tags`), and a
+/// server that does not strip `+draft/edit` via `CLIENTTAGDENY`. Redaction needs
+/// `draft/message-redaction`. Nothing is assumed from `message-tags` alone.
+fn message_caps_for(caps: Option<&HashSet<String>>) -> (bool, bool) {
+    let Some(caps) = caps else {
+        return (false, false);
+    };
+    let edit = caps.contains("draft/message-edit")
+        && caps.contains("message-tags")
+        && !caps.contains(EDIT_TAG_DENIED);
+    let redact = caps.contains("draft/message-redaction");
+    (edit, redact)
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct IrcMessageEditEvent {
+    server_id: String,
+    channel: String,
+    sender: String,
+    /// msgid of the message being edited.
+    msgid: String,
+    content: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct IrcMessageRedactEvent {
+    server_id: String,
+    channel: String,
+    sender: String,
+    msgid: String,
+}
+
+#[derive(Serialize, Clone)]
 struct IrcBadChannelKeyEvent {
     server_id: String,
     channel: String,
@@ -371,11 +472,15 @@ struct LogLineMeta {
     rp: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     ro: Option<u64>,
+    /// Message was edited after it was first sent.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    e: Option<bool>,
 }
 
 impl LogLineMeta {
     fn is_empty(&self) -> bool {
-        self.m.is_none()
+        self.e.is_none()
+            && self.m.is_none()
             && self.r.is_none()
             && self.rn.is_none()
             && self.rp.is_none()
@@ -396,6 +501,7 @@ fn inbound_log_meta(
         rn: reply_nick.clone().or_else(|| classic_reply_nick(content)),
         rp: reply_preview.clone(),
         ro: None,
+        e: None,
     };
     if meta.is_empty() {
         None
@@ -422,6 +528,8 @@ struct LogEntry {
     reply_preview: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     reply_parent_offset: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    edited: Option<bool>,
 }
 
 #[derive(Serialize, Clone)]
@@ -750,6 +858,7 @@ fn parse_log_line(line: &str) -> Option<LogEntry> {
     let mut reply_nick = None;
     let mut reply_preview = None;
     let mut reply_parent_offset = None;
+    let mut edited = None;
 
     let content = if let Some((body, meta_json)) = raw_content.split_once('\u{001e}') {
         if let Ok(meta) = serde_json::from_str::<LogLineMeta>(meta_json) {
@@ -758,6 +867,7 @@ fn parse_log_line(line: &str) -> Option<LogEntry> {
             reply_nick = meta.rn;
             reply_preview = meta.rp;
             reply_parent_offset = meta.ro;
+            edited = meta.e;
         }
         body.to_string()
     } else {
@@ -774,6 +884,7 @@ fn parse_log_line(line: &str) -> Option<LogEntry> {
         reply_nick,
         reply_preview,
         reply_parent_offset,
+        edited,
     })
 }
 
@@ -832,6 +943,126 @@ async fn remove_last_log_line_internal(
     } else {
         Ok(false)
     }
+}
+
+/// Rebuilds a log line with new body text and the "edited" flag, keeping its header and meta.
+fn rewrite_log_line_content(line: &str, new_content: &str) -> Option<String> {
+    let timestamp_end = line.find("] <")?;
+    let sender_start = timestamp_end + 3;
+    let sender_end = line.get(sender_start..)?.find("> ")? + sender_start;
+    let header = line.get(..sender_end + 2)?;
+    let raw = line.get(sender_end + 2..)?;
+    let mut meta = match raw.split_once('\u{001e}') {
+        Some((_, json)) => serde_json::from_str::<LogLineMeta>(json).unwrap_or_default(),
+        None => LogLineMeta::default(),
+    };
+    meta.e = Some(true);
+    let json = serde_json::to_string(&meta).ok()?;
+    let body = new_content.replace(['\r', '\n'], " ");
+    Some(format!("{header}{body}\u{001e}{json}"))
+}
+
+/// Edits (`Some(content)`) or removes (`None`) the logged message with the given msgid.
+/// With `sender` set, only a line written by that nick is touched. Returns whether a line changed.
+async fn rewrite_log_message(
+    app: &AppHandle,
+    state: &LogState,
+    server_id: &str,
+    target: &str,
+    msgid: &str,
+    sender: Option<&str>,
+    new_content: Option<&str>,
+) -> Result<bool, String> {
+    let (key, path) = log_path(app, server_id, target)?;
+    if !path.exists() {
+        return Ok(false);
+    }
+    let needle = format!("\"m\":\"{}\"", msgid.replace('\\', "\\\\").replace('"', "\\\""));
+
+    // Drop the cached append handle so the next append reopens the rewritten file.
+    {
+        let mut writers = state.writers.lock().await;
+        writers.remove(&key);
+    }
+
+    let content = fs::read_to_string(&path)
+        .await
+        .map_err(|e| format!("Failed to read log file: {e}"))?;
+    let mut lines: Vec<String> = content.lines().map(str::to_string).collect();
+
+    let idx = lines.iter().rposition(|line| {
+        line.contains(&needle)
+            && parse_log_line(line).is_some_and(|entry| {
+                entry.msgid.as_deref() == Some(msgid)
+                    && sender.map_or(true, |nick| entry.sender.eq_ignore_ascii_case(nick))
+            })
+    });
+    let Some(idx) = idx else {
+        return Ok(false);
+    };
+
+    match new_content {
+        Some(text) => match rewrite_log_line_content(&lines[idx], text) {
+            Some(updated) => lines[idx] = updated,
+            None => return Ok(false),
+        },
+        None => {
+            lines.remove(idx);
+        }
+    }
+
+    if lines.is_empty() {
+        let _ = fs::remove_file(&path).await;
+    } else {
+        fs::write(&path, lines.join("\n") + "\n")
+            .await
+            .map_err(|e| format!("Failed to write updated log file: {e}"))?;
+    }
+    Ok(true)
+}
+
+/// Log file a message belongs to: the channel itself, or the peer nick for private messages.
+fn log_target_for(channel: &str, sender: &str, is_self_sender: bool) -> String {
+    if channel.starts_with('#') || channel.starts_with('&') || is_self_sender {
+        channel.to_string()
+    } else {
+        sender.to_string()
+    }
+}
+
+/// Applies ISUPPORT (005) tokens that affect message editing and re-emits the flags.
+async fn apply_isupport(
+    app: &AppHandle,
+    server_caps: &Arc<Mutex<HashMap<String, HashSet<String>>>>,
+    server_id: &str,
+    args: &[String],
+) {
+    let deny = args.iter().find_map(|token| {
+        token
+            .split_once('=')
+            .filter(|(key, _)| key.eq_ignore_ascii_case("CLIENTTAGDENY"))
+            .map(|(_, value)| value.to_string())
+    });
+    let Some(deny) = deny else {
+        return;
+    };
+    let mut map = server_caps.lock().await;
+    let entry = map.entry(server_id.to_string()).or_default();
+    if client_tag_denied(&deny, "draft/edit") {
+        entry.insert(EDIT_TAG_DENIED.to_string());
+    } else {
+        entry.remove(EDIT_TAG_DENIED);
+    }
+    let (edit, redact) = message_caps_for(Some(&*entry));
+    drop(map);
+    let _ = app.emit(
+        "irc_caps",
+        IrcCapsEvent {
+            server_id: server_id.to_string(),
+            edit,
+            redact,
+        },
+    );
 }
 
 async fn read_log_tail(
@@ -1585,6 +1816,9 @@ async fn connect_irc(
 
         let mut last_error: Option<String> = None;
         let mut motd_buffer: Vec<String> = Vec::new();
+        // 353 lines are accumulated per channel and published as one full roster on 366,
+        // otherwise every chunk of a large channel would overwrite the previous one.
+        let mut names_buffer: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
         let mut pending_cap_req: Vec<String> = Vec::new();
         let mut registered = false;
 
@@ -1602,20 +1836,9 @@ async fn connect_irc(
                                 } else {
                                     extra.as_deref().unwrap_or_else(|| cap_name.as_deref().unwrap_or(""))
                                 };
-                                let wanted = [
-                                    "server-time",
-                                    "away-notify",
-                                    "batch",
-                                    "echo-message",
-                                    "message-tags",
-                                    "draft/reply",
-                                    "reply",
-                                    "znc.in/server-time-iso",
-                                    "znc.in/self-message",
-                                ];
                                 for token in caps_chunk.split_whitespace() {
                                     let cap_base = token.split('=').next().unwrap_or(token);
-                                    if wanted.contains(&cap_base) && !pending_cap_req.iter().any(|c| c == cap_base) {
+                                    if WANTED_CAPS.contains(&cap_base) && !pending_cap_req.iter().any(|c| c == cap_base) {
                                         pending_cap_req.push(cap_base.to_string());
                                     }
                                 }
@@ -1657,6 +1880,15 @@ async fn connect_irc(
                                             entry.insert(cap_base.to_ascii_lowercase());
                                         }
                                         log::info!("IRC [{}] CAP ACK: {:?}", stream_server_id, entry);
+                                        let (edit, redact) = message_caps_for(Some(&*entry));
+                                        let _ = app_clone.emit(
+                                            "irc_caps",
+                                            IrcCapsEvent {
+                                                server_id: stream_server_id.clone(),
+                                                edit,
+                                                redact,
+                                            },
+                                        );
                                     }
                                 } else {
                                     log::warn!("IRC [{}] CAP NAK: {:?} {:?}", stream_server_id, cap_name, extra);
@@ -1675,21 +1907,10 @@ async fn connect_irc(
                                     .flatten()
                                     .collect::<Vec<_>>()
                                     .join(" ");
-                                let wanted = [
-                                    "server-time",
-                                    "away-notify",
-                                    "batch",
-                                    "echo-message",
-                                    "message-tags",
-                                    "draft/reply",
-                                    "reply",
-                                    "znc.in/server-time-iso",
-                                    "znc.in/self-message",
-                                ];
                                 let mut requested = Vec::new();
                                 for token in caps_chunk.split_whitespace() {
                                     let cap_base = token.split('=').next().unwrap_or(token);
-                                    if wanted.contains(&cap_base) {
+                                    if WANTED_CAPS.contains(&cap_base) {
                                         requested.push(cap_base.to_string());
                                     }
                                 }
@@ -1702,11 +1923,65 @@ async fn connect_irc(
                                         ));
                                     }
                                 }
+                            } else if sub_str == "DEL" {
+                                let caps_chunk = [cap_name.as_deref(), extra.as_deref()]
+                                    .into_iter()
+                                    .flatten()
+                                    .collect::<Vec<_>>()
+                                    .join(" ");
+                                if let Some(entry) = server_caps_clone.lock().await.get_mut(&stream_server_id) {
+                                    for cap in caps_chunk.split_whitespace() {
+                                        let cap_base = cap.trim_start_matches(['-', '~', '=']).split('=').next().unwrap_or(cap);
+                                        entry.remove(&cap_base.to_ascii_lowercase());
+                                    }
+                                }
                             }
                         },
                         Command::PRIVMSG(ref channel, ref raw_content) | Command::NOTICE(ref channel, ref raw_content) => {
                             let mut content = raw_content.clone();
                             let (msgid, reply_to_msgid) = extract_reply_tags(&message.tags);
+                            if let Some(edit_of) = irc_tag_value(&message.tags, &["draft/edit"]) {
+                                let edit_sender = match message.prefix.as_ref() {
+                                    Some(Prefix::Nickname(nick, _, _)) => nick.clone(),
+                                    Some(Prefix::ServerName(name)) => name.clone(),
+                                    None => String::new(),
+                                };
+                                if matches!(message.command, Command::PRIVMSG(..))
+                                    && !edit_sender.is_empty()
+                                    && !edit_of.trim().is_empty()
+                                {
+                                    let is_self_sender = nicknames_clone
+                                        .lock()
+                                        .await
+                                        .get(&stream_server_id)
+                                        .is_some_and(|n| n.eq_ignore_ascii_case(&edit_sender));
+                                    let log_target = log_target_for(channel, &edit_sender, is_self_sender);
+                                    if let Err(error) = rewrite_log_message(
+                                        &app_clone,
+                                        &log_state_clone,
+                                        &stream_server_id,
+                                        &log_target,
+                                        &edit_of,
+                                        Some(&edit_sender),
+                                        Some(raw_content),
+                                    )
+                                    .await
+                                    {
+                                        log::error!("Failed to log message edit: {}", error);
+                                    }
+                                    let _ = app_clone.emit(
+                                        "irc_message_edit",
+                                        IrcMessageEditEvent {
+                                            server_id: stream_server_id.clone(),
+                                            channel: log_target,
+                                            sender: edit_sender,
+                                            msgid: edit_of,
+                                            content: raw_content.clone(),
+                                        },
+                                    );
+                                    continue;
+                                }
+                            }
                             if let Some(source) = message.prefix {
                                 let sender_name = match source.clone() {
                                     Prefix::Nickname(nick, user, host) => {
@@ -1812,11 +2087,16 @@ async fn connect_irc(
                                 }
                             }
                         }
-                        Command::JOIN(channel, _, _) => {
+                        Command::JOIN(channel, _, ref extended_realname) => {
                             if let Some(source) = message.prefix {
+                                // extended-join: `JOIN #chan account :realname` (account `*` = none)
+                                let join_realname = extended_realname
+                                    .as_ref()
+                                    .map(|r| r.trim().to_string())
+                                    .filter(|r| !r.is_empty());
                                 let sender_name = match source.clone() {
                                     Prefix::Nickname(nick, user, host) => {
-                                        emit_user_host(&app_clone, &stream_server_id, &nick, &user, &host, None);
+                                        emit_user_host(&app_clone, &stream_server_id, &nick, &user, &host, join_realname);
                                         nick
                                     }
                                     Prefix::ServerName(name) => name,
@@ -2029,46 +2309,64 @@ async fn connect_irc(
                         }
                         Command::Response(Response::RPL_NAMREPLY, ref args) => {
                             if args.len() >= 4 {
-                                let channel = &args[2];
-                                let users_str = &args[3];
-                                let mut users: Vec<String> = Vec::new();
-                                let mut ops: Vec<String> = Vec::new();
-
-                                for token in users_str.split_whitespace() {
-                                    let is_op = token.starts_with('@') || token.starts_with('%') || token.starts_with('~') || token.starts_with('&');
-                                    let clean = token.trim_start_matches(&['@', '+', '%', '~', '&'][..]).to_string();
-                                    users.push(token.to_string());
-                                    if is_op {
-                                        ops.push(clean);
+                                let channel = args[2].to_lowercase();
+                                let buf = names_buffer.entry(channel).or_default();
+                                for token in args[3].split_whitespace() {
+                                    // userhost-in-names sends `@nick!user@host`; keep only `@nick`
+                                    // in the roster and publish the host separately.
+                                    let (prefixes, nick, userhost) = parse_names_token(token);
+                                    if nick.is_empty() {
+                                        continue;
                                     }
+                                    if let Some((user, host)) = userhost {
+                                        emit_user_host(&app_clone, &stream_server_id, &nick, &user, &host, None);
+                                    }
+                                    buf.push(format!("{}{}", prefixes, nick));
                                 }
-                                let payload = IrcUserEvent {
-                                    server_id: stream_server_id.clone(),
-                                    channel: channel.to_string(),
-                                    users,
-                                    event_type: "NAMES".to_string(),
-                                };
-                                let _ = app_clone.emit("irc_user_event", payload);
+                            }
+                        }
+                        Command::Response(Response::RPL_ENDOFNAMES, ref args) => {
+                            let channel = match args.get(1) {
+                                Some(c) => c.clone(),
+                                None => continue,
+                            };
+                            let users = names_buffer.remove(&channel.to_lowercase()).unwrap_or_default();
+                            let strip = &['@', '+', '%', '~', '&'][..];
+                            let ops: Vec<String> = users
+                                .iter()
+                                .filter(|t| t.starts_with(&['@', '%', '~', '&'][..]))
+                                .map(|t| t.trim_start_matches(strip).to_string())
+                                .collect();
 
-                                // Populate backend membership tracking from NAMES list
+                            // Replace (not merge) backend membership so QUIT routing never
+                            // keeps nicks that disappeared while we weren't looking.
+                            {
                                 let cm_key = format!("{}\x00{}", stream_server_id, channel.to_lowercase());
                                 let mut cm = channel_members_clone.lock().await;
                                 let set = cm.entry(cm_key).or_default();
-                                for token in users_str.split_whitespace() {
-                                    let nick = token.trim_start_matches(&['@', '+', '%', '~', '&'][..]).to_lowercase();
-                                    set.insert(nick);
+                                set.clear();
+                                for token in &users {
+                                    set.insert(token.trim_start_matches(strip).to_lowercase());
                                 }
+                            }
 
-                                let ops_payload = IrcOpsEvent {
-                                    server_id: stream_server_id.clone(),
-                                    channel: channel.to_string(),
-                                    ops,
-                                };
-                                let _ = app_clone.emit("irc_ops_event", ops_payload);
+                            let payload = IrcUserEvent {
+                                server_id: stream_server_id.clone(),
+                                channel: channel.clone(),
+                                users,
+                                event_type: "NAMES".to_string(),
+                            };
+                            let _ = app_clone.emit("irc_user_event", payload);
 
-                                if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
-                                    let _ = sender.send(Command::WHO(Some(channel.to_string()), None));
-                                }
+                            let ops_payload = IrcOpsEvent {
+                                server_id: stream_server_id.clone(),
+                                channel: channel.clone(),
+                                ops,
+                            };
+                            let _ = app_clone.emit("irc_ops_event", ops_payload);
+
+                            if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
+                                let _ = sender.send(Command::WHO(Some(channel), None));
                             }
                         }
                         Command::Response(Response::RPL_WELCOME, ref args) => {
@@ -2594,6 +2892,12 @@ async fn connect_irc(
                                 event_type: "PART".to_string(),
                             };
                             let _ = app_clone.emit("irc_user_event", payload_users);
+
+                            // Keep QUIT routing accurate: a kicked user is no longer in this channel
+                            let cm_key = format!("{}\x00{}", stream_server_id, channel.to_lowercase());
+                            if let Some(set) = channel_members_clone.lock().await.get_mut(&cm_key) {
+                                set.remove(&target.to_lowercase());
+                            }
                         }
                         Command::ChannelMODE(ref channel, ref modes) => {
                             let sender_name = message.prefix.as_ref().map(|source| match source {
@@ -2785,12 +3089,83 @@ async fn connect_irc(
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
-                            let invite_payload = IrcInvitedEvent {
-                                server_id: stream_server_id.clone(),
-                                channel: channel.clone(),
-                                inviter: sender_name,
-                            };
-                            let _ = app_clone.emit("irc_invited", invite_payload);
+                            // invite-notify also delivers invites sent to *other* users; only
+                            // an invite addressed to us should raise the pending-invite prompt.
+                            let invited_is_us = nicknames_clone
+                                .lock()
+                                .await
+                                .get(&stream_server_id)
+                                .map_or(true, |own| own.eq_ignore_ascii_case(target));
+                            if invited_is_us {
+                                let invite_payload = IrcInvitedEvent {
+                                    server_id: stream_server_id.clone(),
+                                    channel: channel.clone(),
+                                    inviter: sender_name,
+                                };
+                                let _ = app_clone.emit("irc_invited", invite_payload);
+                            }
+                        }
+                        Command::Raw(ref cmd, ref args) if cmd.eq_ignore_ascii_case("CHGHOST") => {
+                            // :nick!old@oldhost CHGHOST newuser newhost
+                            if let (Some(Prefix::Nickname(nick, _, _)), Some(new_user), Some(new_host)) =
+                                (message.prefix.as_ref(), args.get(0), args.get(1))
+                            {
+                                emit_user_host(&app_clone, &stream_server_id, nick, new_user, new_host, None);
+                            }
+                        }
+                        Command::Raw(ref cmd, ref args) if cmd.eq_ignore_ascii_case("SETNAME") => {
+                            // :nick!user@host SETNAME :new realname
+                            if let (Some(Prefix::Nickname(nick, user, host)), Some(realname)) =
+                                (message.prefix.as_ref(), args.get(0))
+                            {
+                                let realname = Some(realname.trim().to_string()).filter(|r| !r.is_empty());
+                                emit_user_host(&app_clone, &stream_server_id, nick, user, host, realname);
+                            }
+                        }
+                        Command::Response(Response::RPL_ISUPPORT, ref args) => {
+                            apply_isupport(&app_clone, &server_caps_clone, &stream_server_id, args).await;
+                        }
+                        Command::Raw(ref cmd, ref args) if cmd == "005" => {
+                            apply_isupport(&app_clone, &server_caps_clone, &stream_server_id, args).await;
+                        }
+                        Command::Raw(ref cmd, ref args) if cmd.eq_ignore_ascii_case("REDACT") => {
+                            // :nick!user@host REDACT <target> <msgid> [:reason]
+                            if let (Some(Prefix::Nickname(nick, _, _)), Some(target), Some(msgid)) =
+                                (message.prefix.as_ref(), args.get(0), args.get(1))
+                            {
+                                let is_self_sender = nicknames_clone
+                                    .lock()
+                                    .await
+                                    .get(&stream_server_id)
+                                    .is_some_and(|n| n.eq_ignore_ascii_case(nick));
+                                let log_target = log_target_for(target, nick, is_self_sender);
+                                // The redactor may be an op, not the author, so match any sender.
+                                if let Err(error) = rewrite_log_message(
+                                    &app_clone,
+                                    &log_state_clone,
+                                    &stream_server_id,
+                                    &log_target,
+                                    msgid,
+                                    None,
+                                    None,
+                                )
+                                .await
+                                {
+                                    log::error!("Failed to remove redacted message from log: {}", error);
+                                }
+                                let _ = app_clone.emit(
+                                    "irc_message_redact",
+                                    IrcMessageRedactEvent {
+                                        server_id: stream_server_id.clone(),
+                                        channel: log_target,
+                                        sender: nick.clone(),
+                                        msgid: msgid.clone(),
+                                    },
+                                );
+                            }
+                        }
+                        Command::Raw(ref cmd, _) if cmd.eq_ignore_ascii_case("ACCOUNT") => {
+                            // account-notify: negotiated so servers send it; no UI for accounts.
                         }
                         Command::NICK(ref new_nick) => {
                             if let Some(source) = message.prefix {
@@ -3423,6 +3798,7 @@ async fn send_message(
                     .map(|value| value.trim().to_string())
                     .filter(|value| !value.is_empty()),
                 ro: reply_parent_offset,
+                e: None,
             }),
         )
         .await
@@ -3433,6 +3809,120 @@ async fn send_message(
     } else {
         Err(format!("Not connected to server {}", server_id))
     }
+}
+
+/// Which message-modification features this connection negotiated.
+#[derive(Serialize)]
+struct MessageCaps {
+    edit: bool,
+    redact: bool,
+}
+
+/// Sends an IRCv3 message edit: `@+draft/edit=<msgid> PRIVMSG <target> :<new text>`.
+#[tauri::command]
+async fn edit_message(
+    app: AppHandle,
+    state: State<'_, IrcState>,
+    log_state: State<'_, LogState>,
+    server_id: String,
+    channel: String,
+    msgid: String,
+    message: String,
+) -> Result<(), String> {
+    let msgid = msgid.trim().to_string();
+    if msgid.is_empty() {
+        return Err("Message has no msgid".to_string());
+    }
+    if message.trim().is_empty() {
+        return Err("Edited message is empty".to_string());
+    }
+    let (edit_supported, _) = message_caps_for(state.server_caps.lock().await.get(&server_id));
+    if !edit_supported {
+        return Err("Server does not support message editing".to_string());
+    }
+    let own_nick = state.nicknames.lock().await.get(&server_id).cloned();
+
+    let senders = state.senders.lock().await;
+    let Some(sender) = senders.get(&server_id) else {
+        return Err(format!("Not connected to server {}", server_id));
+    };
+    let tagged = Message::with_tags(
+        Some(vec![Tag("+draft/edit".to_string(), Some(msgid.clone()))]),
+        None,
+        "PRIVMSG",
+        vec![&channel, &message],
+    )
+    .map_err(|e| format!("Failed to build edit message: {e}"))?;
+    sender
+        .send(tagged)
+        .map_err(|e| format!("Failed to send edit: {e}"))?;
+    drop(senders);
+
+    if let Some(nick) = own_nick {
+        let _ = rewrite_log_message(
+            &app,
+            &log_state,
+            &server_id,
+            &channel,
+            &msgid,
+            Some(&nick),
+            Some(&message),
+        )
+        .await;
+    }
+    Ok(())
+}
+
+/// Deletes a message for everyone: `REDACT <target> <msgid> [:reason]`.
+#[tauri::command]
+async fn redact_message(
+    app: AppHandle,
+    state: State<'_, IrcState>,
+    log_state: State<'_, LogState>,
+    server_id: String,
+    channel: String,
+    msgid: String,
+    reason: Option<String>,
+) -> Result<(), String> {
+    let msgid = msgid.trim().to_string();
+    if msgid.is_empty() {
+        return Err("Message has no msgid".to_string());
+    }
+    let supports_redact = state
+        .server_caps
+        .lock()
+        .await
+        .get(&server_id)
+        .is_some_and(|caps| caps.contains("draft/message-redaction"));
+    if !supports_redact {
+        return Err("Server does not support message redaction".to_string());
+    }
+
+    let senders = state.senders.lock().await;
+    let Some(sender) = senders.get(&server_id) else {
+        return Err(format!("Not connected to server {}", server_id));
+    };
+    let mut args = vec![channel.clone(), msgid.clone()];
+    if let Some(reason) = reason.filter(|r| !r.trim().is_empty()) {
+        args.push(reason);
+    }
+    sender
+        .send(Command::Raw("REDACT".to_string(), args))
+        .map_err(|e| format!("Failed to send REDACT: {e}"))?;
+    drop(senders);
+
+    let _ = rewrite_log_message(&app, &log_state, &server_id, &channel, &msgid, None, None).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_message_caps(
+    state: State<'_, IrcState>,
+    server_id: String,
+) -> Result<MessageCaps, String> {
+    let caps = state.server_caps.lock().await;
+    let (edit, redact) = message_caps_for(caps.get(&server_id));
+    Ok(MessageCaps { edit, redact })
 }
 
 #[tauri::command]
@@ -3837,6 +4327,50 @@ fn toggle_devtools(window: tauri::WebviewWindow) {
     }
 }
 
+/// Applies a Windows 11 backdrop material (Mica / Acrylic / Tabbed) to the main window, or
+/// removes it with "none". Returns Err when the material is unsupported (e.g. Windows 10,
+/// non-Windows platforms) so the frontend can fall back to plain CSS surfaces.
+#[tauri::command]
+fn set_window_material(
+    window: tauri::WebviewWindow,
+    material: String,
+    dark: Option<bool>,
+) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use window_vibrancy::{
+            apply_acrylic, apply_mica, apply_tabbed, clear_acrylic, clear_mica, clear_tabbed,
+        };
+
+        // Only one material can be active; drop whatever was applied before.
+        let _ = clear_mica(&window);
+        let _ = clear_acrylic(&window);
+        let _ = clear_tabbed(&window);
+
+        match material.as_str() {
+            "none" => Ok(()),
+            "mica" => apply_mica(&window, dark).map_err(|e| e.to_string()),
+            "tabbed" => apply_tabbed(&window, dark).map_err(|e| e.to_string()),
+            // Slight tint so text stays readable over busy wallpapers.
+            "acrylic" => {
+                let tint = if dark.unwrap_or(true) {
+                    (32, 32, 32, 120)
+                } else {
+                    (243, 243, 243, 120)
+                };
+                apply_acrylic(&window, Some(tint)).map_err(|e| e.to_string())
+            }
+            other => Err(format!("Unknown window material: {}", other)),
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = (&window, &material, dark);
+        Err("Window materials are only supported on Windows 11".to_string())
+    }
+}
+
 /// Stores the D-Bus notification ID per tag, and reverse lookup for action clicks.
 #[cfg(target_os = "linux")]
 static TAG_TO_ID: std::sync::Mutex<Option<HashMap<String, u32>>> = std::sync::Mutex::new(None);
@@ -4117,6 +4651,12 @@ async fn create_app_backup(app: tauri::AppHandle) -> Result<String, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // The dependency graph enables both rustls providers (aws-lc-rs via irc's tokio-rustls,
+    // ring via reqwest), so rustls refuses to guess and panics on the first TLS handshake.
+    // Pick one explicitly before any connection is made. Ignoring the result is correct:
+    // Err only means a provider was already installed.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     tauri::Builder::default()
         .manage(IrcState {
             senders: Arc::new(Mutex::new(HashMap::new())),
@@ -4139,6 +4679,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             connect_irc,
             send_message,
+            edit_message,
+            redact_message,
+            get_message_caps,
             load_log_tail,
             load_log_page,
             find_log_message_by_msgid,
@@ -4155,6 +4698,7 @@ pub fn run() {
             refresh_channel_names,
             fetch_image_proxy,
             toggle_devtools,
+            set_window_material,
             send_os_notification,
             clear_os_notification,
             request_motd,
@@ -4253,6 +4797,29 @@ mod reply_compat_tests {
     }
 
     #[test]
+    fn clienttagdeny_semantics() {
+        let deny = "*,-draft/typing,-typing,-draft/channel-context,-draft/reply";
+        assert!(client_tag_denied(deny, "draft/edit"));
+        assert!(!client_tag_denied(deny, "draft/reply"));
+        assert!(!client_tag_denied("", "draft/edit"));
+        assert!(client_tag_denied("draft/edit", "draft/edit"));
+        assert!(!client_tag_denied("*,-draft/edit", "draft/edit"));
+    }
+
+    #[test]
+    fn message_edit_requires_cap_and_allowed_tag() {
+        let mut caps: HashSet<String> = ["message-tags", "echo-message"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(message_caps_for(Some(&caps)), (false, false));
+        caps.insert("draft/message-edit".to_string());
+        assert_eq!(message_caps_for(Some(&caps)), (true, false));
+        caps.insert(EDIT_TAG_DENIED.to_string());
+        assert_eq!(message_caps_for(Some(&caps)), (false, false));
+        caps.insert("draft/message-redaction".to_string());
+        assert_eq!(message_caps_for(Some(&caps)), (false, true));
+        assert_eq!(message_caps_for(None), (false, false));
+    }
+
+    #[test]
     fn strip_accepts_plain_legacy_quote() {
         let (body, nick, preview) = strip_compat_reply(
             "ben_vulpes: <does it have naughty dog> << nah this version",
@@ -4260,6 +4827,26 @@ mod reply_compat_tests {
         assert_eq!(body, "nah this version");
         assert_eq!(nick.as_deref(), Some("ben_vulpes"));
         assert_eq!(preview.as_deref(), Some("does it have naughty dog"));
+    }
+
+    #[test]
+    fn rewrite_log_line_keeps_header_and_meta() {
+        let line = "[2026-10-10 12:00:00] <alice> old text\u{001e}{\"m\":\"abc\",\"r\":\"parent\"}";
+        let updated = rewrite_log_line_content(line, "new text").unwrap();
+        assert!(updated.starts_with("[2026-10-10 12:00:00] <alice> new text\u{001e}"));
+        let entry = parse_log_line(&updated).unwrap();
+        assert_eq!(entry.content, "new text");
+        assert_eq!(entry.msgid.as_deref(), Some("abc"));
+        assert_eq!(entry.reply_to_msgid.as_deref(), Some("parent"));
+        assert_eq!(entry.edited, Some(true));
+    }
+
+    #[test]
+    fn rewrite_log_line_handles_line_without_meta() {
+        let updated = rewrite_log_line_content("[2026-10-10 12:00:00] <bob> hi", "yo\nthere").unwrap();
+        let entry = parse_log_line(&updated).unwrap();
+        assert_eq!(entry.content, "yo there");
+        assert_eq!(entry.edited, Some(true));
     }
 
     #[test]

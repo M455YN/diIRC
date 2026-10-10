@@ -46,6 +46,8 @@ import {
   AtSign,
   Smile,
   Reply,
+  Users,
+  Palette,
 } from "lucide-react";
 import { StatusDisplayMode, formatMessageDate, NickCompletionFormat, formatNickCompletion } from "@/lib/mock-store";
 import { MotdDisplayPolicy, UserDisplayNameMode, ReplyMode } from "@/types";
@@ -61,11 +63,49 @@ import {
 import { Update } from "@tauri-apps/plugin-updater";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
 import { MobileSettingsModal } from "@/components/mobile/mobile-settings";
+import { useTheme } from "next-themes";
+import { useAppearanceStyleStore, useIsWindows11, type AppearanceStyle, type MessageLayout, type WindowMaterial } from "@/hooks/use-appearance-style";
+
+const COLOR_MODES: { id: string; title: string; description: string }[] = [
+  { id: "system", title: "System", description: "Follow the OS setting" },
+  { id: "light", title: "Light", description: "Bright surfaces" },
+  { id: "dark", title: "Dark", description: "Default dark theme" },
+  { id: "oled", title: "OLED", description: "Pure black surfaces" },
+];
+
+const APPEARANCE_STYLES: { id: AppearanceStyle; title: string; description: string }[] = [
+  { id: "standard", title: "Standard", description: "Default diIRC look" },
+  { id: "fluent", title: "Fluent", description: "Windows 11 style: rounded, translucent surfaces" },
+];
+
+type SettingsTab = "notifications" | "appearance" | "chat" | "previews" | "uploads" | "auth" | "updates";
+
+// Same categories as the mobile settings screen, plus desktop-only "Updates".
+const SETTINGS_TABS: { id: SettingsTab; title: string; icon: typeof Bell }[] = [
+  { id: "notifications", title: "Notifications", icon: Bell },
+  { id: "appearance", title: "Appearance", icon: Palette },
+  { id: "chat", title: "Chat and messaging", icon: MessageSquare },
+  { id: "previews", title: "Link previews", icon: Link2 },
+  { id: "uploads", title: "Image uploads", icon: UploadCloud },
+  { id: "auth", title: "Authorization", icon: Key },
+  { id: "updates", title: "Updates", icon: DownloadCloud },
+];
 
 export const SettingsModal = () => {
   const { isOpen, onClose, type, onOpen } = useModal();
   const isMobile = useIsMobileShell();
+  const [tab, setTab] = useState<SettingsTab>("notifications");
+  const { theme: colorMode, setTheme: setColorMode } = useTheme();
+  const appearanceStyle = useAppearanceStyleStore((state) => state.style);
+  const setAppearanceStyle = useAppearanceStyleStore((state) => state.setStyle);
+  const isWindows11 = useIsWindows11();
+  const windowMaterial = useAppearanceStyleStore((state) => state.material);
+  const messageLayout = useAppearanceStyleStore((state) => state.layout);
+  const setMessageLayout = useAppearanceStyleStore((state) => state.setLayout);
+  const setWindowMaterial = useAppearanceStyleStore((state) => state.setMaterial);
   const compactMode = useMockStore((state) => state.compactMode);
+  const groupMembersByRole = useMockStore((state) => state.groupMembersByRole ?? true);
+  const setGroupMembersByRole = useMockStore((state) => state.setGroupMembersByRole);
   const setCompactMode = useMockStore((state) => state.setCompactMode);
 
   const confirmLeaveChannel = useMockStore((state) => state.confirmLeaveChannel ?? true);
@@ -241,948 +281,1076 @@ export const SettingsModal = () => {
 
   return (
     <Dialog open={isModalOpen} onOpenChange={handleClose}>
-      <DialogContent
-        className={cn(
-          "overflow-hidden p-0 shadow-2xl",
-          isMobile
-            ? "border-0 bg-background text-foreground sm:max-w-none"
-            : "rounded-xl border border-zinc-200 bg-white text-zinc-900 dark:border-zinc-800 dark:bg-[#313338] dark:text-zinc-100 sm:max-w-xl"
-        )}
-      >
-        <DialogHeader
-          className={cn(
-            "space-y-1 px-6",
-            isMobile ? "mobile-safe-top space-y-2 pb-2 pt-4 text-left" : "space-y-1 pt-6 text-center"
-          )}
-        >
-          <DialogTitle
-            className={cn(
-              "flex items-center gap-x-2 font-bold",
-              isMobile
-                ? "justify-start text-[28px] font-bold tracking-tight"
-                : "justify-center text-2xl text-zinc-900 dark:text-zinc-100"
-            )}
-          >
-            {!isMobile && <Settings className="h-6 w-6 text-indigo-500" />}
+      <DialogContent className="overflow-hidden rounded-xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl dark:border-zinc-800 dark:bg-[#313338] dark:text-zinc-100 sm:max-w-4xl">
+        <DialogHeader className="space-y-1 px-6 pb-4 pt-6 text-left">
+          <DialogTitle className="flex items-center gap-x-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+            <Settings className="h-6 w-6 text-indigo-500" />
             Settings
           </DialogTitle>
-          <DialogDescription
-            className={cn(
-              isMobile
-                ? "text-left text-[13px] text-muted-foreground"
-                : "text-center text-xs text-zinc-500 dark:text-zinc-400 sm:text-sm"
-            )}
-          >
-            {isMobile
-              ? "Notifications, appearance, and app preferences"
-              : "Manage application preferences, notifications, image servers, and authorization rules."}
+          <DialogDescription className="text-xs text-zinc-500 dark:text-zinc-400 sm:text-sm">
+            Manage application preferences, notifications, image servers, and authorization rules.
           </DialogDescription>
         </DialogHeader>
 
-        <div
-          className={cn(
-            "space-y-5 overflow-y-auto px-6 py-6",
-            isMobile ? "max-h-none space-y-3 pb-10" : "max-h-[75vh]"
+        <div className="flex h-[70vh] flex-col border-t border-zinc-200 dark:border-zinc-800 sm:flex-row">
+          <nav
+            aria-label="Settings categories"
+            className="flex shrink-0 gap-1 overflow-x-auto border-b border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-[#2b2d31] sm:w-56 sm:flex-col sm:overflow-y-auto sm:overflow-x-visible sm:border-b-0 sm:border-r sm:p-3"
+          >
+            {SETTINGS_TABS.map(({ id, title, icon: TabIcon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                aria-current={tab === id ? "page" : undefined}
+                className={cn(
+                  "flex shrink-0 items-center gap-x-2.5 rounded-md px-3 py-2 text-left text-sm font-medium transition cursor-pointer",
+                  tab === id
+                    ? "bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300"
+                    : "text-zinc-600 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-700/50"
+                )}
+              >
+                <TabIcon className="h-4 w-4 shrink-0" />
+                <span className="whitespace-nowrap">{title}</span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
+          {tab === "notifications" && (
+            <div className="space-y-5">
+              {/* SECTION: GLOBAL NOTIFICATIONS */}
+              <NotificationSettingsFields
+                mode="global"
+                values={{
+                  channelNotifications: notificationSettings.channelNotifications || "mentions",
+                  dmNotifications: notificationSettings.dmNotifications || "all",
+                  sound: notificationSettings.soundEnabled,
+                  soundPreset: notificationSettings.soundPreset || "chime",
+                  dmSoundPreset: notificationSettings.dmSoundPreset || "chime",
+                  customSoundUrl: notificationSettings.customSoundUrl,
+                  customDmSoundUrl: notificationSettings.customDmSoundUrl,
+                  soundCooldown: notificationSettings.soundCooldownMs ?? 3000,
+                  popup: notificationSettings.popupEnabled,
+                  taskbar: notificationSettings.taskbarHighlightEnabled,
+                }}
+                onChange={(field, val) => {
+                  if (field === "channelNotifications") setGlobalNotificationSettings({ channelNotifications: val });
+                  else if (field === "dmNotifications") setGlobalNotificationSettings({ dmNotifications: val });
+                  else if (field === "sound") setGlobalNotificationSettings({ soundEnabled: Boolean(val) });
+                  else if (field === "soundPreset") setGlobalNotificationSettings({ soundPreset: val });
+                  else if (field === "dmSoundPreset") setGlobalNotificationSettings({ dmSoundPreset: val });
+                  else if (field === "customSoundUrl") setGlobalNotificationSettings({ customSoundUrl: val });
+                  else if (field === "customDmSoundUrl") setGlobalNotificationSettings({ customDmSoundUrl: val });
+                  else if (field === "soundCooldown") setGlobalNotificationSettings({ soundCooldownMs: Number(val) });
+                  else if (field === "popup") setGlobalNotificationSettings({ popupEnabled: Boolean(val) });
+                  else if (field === "taskbar") setGlobalNotificationSettings({ taskbarHighlightEnabled: Boolean(val) });
+                }}
+              />
+            </div>
           )}
-        >
-          {/* SECTION: GLOBAL NOTIFICATIONS */}
-          <NotificationSettingsFields
-            mode="global"
-            values={{
-              channelNotifications: notificationSettings.channelNotifications || "mentions",
-              dmNotifications: notificationSettings.dmNotifications || "all",
-              sound: notificationSettings.soundEnabled,
-              soundPreset: notificationSettings.soundPreset || "chime",
-              dmSoundPreset: notificationSettings.dmSoundPreset || "chime",
-              customSoundUrl: notificationSettings.customSoundUrl,
-              customDmSoundUrl: notificationSettings.customDmSoundUrl,
-              soundCooldown: notificationSettings.soundCooldownMs ?? 3000,
-              popup: notificationSettings.popupEnabled,
-              taskbar: notificationSettings.taskbarHighlightEnabled,
-            }}
-            onChange={(field, val) => {
-              if (field === "channelNotifications") setGlobalNotificationSettings({ channelNotifications: val });
-              else if (field === "dmNotifications") setGlobalNotificationSettings({ dmNotifications: val });
-              else if (field === "sound") setGlobalNotificationSettings({ soundEnabled: Boolean(val) });
-              else if (field === "soundPreset") setGlobalNotificationSettings({ soundPreset: val });
-              else if (field === "dmSoundPreset") setGlobalNotificationSettings({ dmSoundPreset: val });
-              else if (field === "customSoundUrl") setGlobalNotificationSettings({ customSoundUrl: val });
-              else if (field === "customDmSoundUrl") setGlobalNotificationSettings({ customDmSoundUrl: val });
-              else if (field === "soundCooldown") setGlobalNotificationSettings({ soundCooldownMs: Number(val) });
-              else if (field === "popup") setGlobalNotificationSettings({ popupEnabled: Boolean(val) });
-              else if (field === "taskbar") setGlobalNotificationSettings({ taskbarHighlightEnabled: Boolean(val) });
-            }}
-          />
 
-          {/* SECTION: AUTOMATIC UPDATES */}
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-4 shadow-sm transition">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-x-2">
-                <DownloadCloud className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
-                <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  Software updates
-                </label>
-              </div>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
-                v{tauriConfig.version || "0.1.7"}
-              </span>
-            </div>
-
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Select automatic check and download preferences for new releases.
-            </p>
-
-            {/* Mode selector */}
-            <div className="grid grid-cols-1 gap-2">
-              <label
-                className={`flex items-start gap-x-3 p-3 rounded-lg border cursor-pointer transition text-xs ${autoUpdateMode === "auto"
-                  ? "border-indigo-500 bg-indigo-500/10 text-indigo-900 dark:text-indigo-100 font-semibold"
-                  : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1e1f22] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600"
-                  }`}
-              >
-                <input
-                  type="radio"
-                  name="autoUpdateMode"
-                  value="auto"
-                  checked={autoUpdateMode === "auto"}
-                  onChange={() => setAutoUpdateMode("auto")}
-                  className="mt-0.5 accent-indigo-500 cursor-pointer"
-                />
-                <div>
-                  <div className="font-bold flex items-center gap-x-1.5">
-                    🚀 Automatic update on startup
-                  </div>
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-normal mt-0.5">
-                    Check for new versions on app startup and notify when update is ready.
-                  </div>
-                </div>
-              </label>
-
-              <label
-                className={`flex items-start gap-x-3 p-3 rounded-lg border cursor-pointer transition text-xs ${autoUpdateMode === "ask"
-                  ? "border-indigo-500 bg-indigo-500/10 text-indigo-900 dark:text-indigo-100 font-semibold"
-                  : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1e1f22] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600"
-                  }`}
-              >
-                <input
-                  type="radio"
-                  name="autoUpdateMode"
-                  value="ask"
-                  checked={autoUpdateMode === "ask"}
-                  onChange={() => setAutoUpdateMode("ask")}
-                  className="mt-0.5 accent-indigo-500 cursor-pointer"
-                />
-                <div>
-                  <div className="font-bold flex items-center gap-x-1.5">
-                    ❓ Ask about update on startup (Popup prompt)
-                  </div>
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-normal mt-0.5">
-                    Show a dialog when a new version is detected with options: "Update now" or "Remind me later".
-                  </div>
-                </div>
-              </label>
-
-              <label
-                className={`flex items-start gap-x-3 p-3 rounded-lg border cursor-pointer transition text-xs ${autoUpdateMode === "disabled"
-                  ? "border-rose-500/50 bg-rose-500/10 text-rose-900 dark:text-rose-100 font-semibold"
-                  : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1e1f22] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600"
-                  }`}
-              >
-                <input
-                  type="radio"
-                  name="autoUpdateMode"
-                  value="disabled"
-                  checked={autoUpdateMode === "disabled"}
-                  onChange={() => setAutoUpdateMode("disabled")}
-                  className="mt-0.5 accent-rose-500 cursor-pointer"
-                />
-                <div>
-                  <div className="font-bold flex items-center gap-x-1.5 text-zinc-800 dark:text-zinc-200">
-                    ⛔ Disable automatic updates
-                  </div>
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-normal mt-0.5">
-                    Application will not check for updates automatically on startup.
-                  </div>
-                </div>
-              </label>
-            </div>
-
-            {/* Version source selector */}
-            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700/60 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-x-1.5">
-                    <Server className="w-3.5 h-3.5 text-indigo-500" />
-                    Update channel
-                  </div>
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Choose where updates come from. After switching, the next check offers that channel's latest build.
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-2 pt-1">
-                <select
-                  value={activeUpdateChannel}
-                  onChange={(e) =>
-                    setUpdateSourceMode(e.target.value as "official" | "skipahead" | "custom")
-                  }
-                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                >
-                  {Object.values(UPDATE_CHANNELS).map((channel) => (
-                    <option key={channel.id} value={channel.id}>
-                      {channel.label}
-                      {channel.id === BUILD_UPDATE_CHANNEL ? " (this build)" : ""}
-                    </option>
-                  ))}
-                  <option value="custom">Custom URL</option>
-                </select>
-
-                {activeUpdateChannel !== "custom" && (
-                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1">
-                    {UPDATE_CHANNELS[activeUpdateChannel].description}
-                  </div>
-                )}
-
-                {activeUpdateChannel === "custom" && (
-                  <div className="space-y-1 mt-1">
-                    <Input
-                      value={customUpdateUrl}
-                      onChange={(e) => setCustomUpdateUrl(e.target.value)}
-                      placeholder="https://your-custom-worker.workers.dev/latest.json"
-                      className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
-                    />
-                    <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1">
-                      Must be a valid HTTP(S) endpoint returning a Tauri update JSON manifest.
-                    </div>
-                    <Input
-                      value={customUpdatePubkey}
-                      onChange={(e) => setCustomUpdatePubkey(e.target.value)}
-                      placeholder="Public key (optional)"
-                      className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
-                    />
-                    <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1">
-                      Minisign public key the releases are signed with. Leave empty to use the official key.
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Check / Update action row */}
-            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700/60 flex items-center justify-between gap-x-3">
-              <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                {checkStatus === "idle" && (
-                  <span className="text-zinc-500">Installed version: v{tauriConfig.version || "0.1.7"}</span>
-                )}
-                {checkStatus === "checking" && (
-                  <span className="flex items-center gap-x-1.5 text-indigo-500 font-semibold">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Checking for updates...
-                  </span>
-                )}
-                {checkStatus === "upToDate" && (
-                  <span className="flex items-center gap-x-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    Luna IRC is up to date (v{tauriConfig.version || "0.1.7"})
-                  </span>
-                )}
-                {checkStatus === "available" && (
-                  <span className="flex items-center gap-x-1.5 text-indigo-600 dark:text-indigo-400 font-bold">
-                    <Sparkles className="w-4 h-4 text-indigo-500" />
-                    New version v{foundUpdate?.version} is available!
-                  </span>
-                )}
-                {checkStatus === "error" && (
-                  <span className="text-rose-500 text-[11px] block truncate max-w-[240px]">
-                    Error: {checkErrorMsg || "Failed to connect to update server."}
-                  </span>
-                )}
-              </div>
-
-              <div className="shrink-0">
-                {checkStatus === "available" ? (
-                  <Button
-                    size="sm"
-                    onClick={handleOpenUpdateModal}
-                    className="text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 flex items-center gap-x-1.5 shadow-sm"
-                  >
-                    <DownloadCloud className="w-3.5 h-3.5" />
-                    Update now (v{foundUpdate?.version})
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={checkStatus === "checking"}
-                    onClick={handleManualCheckUpdates}
-                    className="text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-x-1.5"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${checkStatus === "checking" ? "animate-spin" : ""}`} />
-                    Check for updates
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* SECTION: USER DISPLAY NAME FORMAT */}
-          <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
-            <div className="flex items-center gap-x-2">
-              <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                User display name format
-              </label>
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Select default member name format across chat messages, user lists, and hover cards.
-            </p>
-            <select
-              value={userDisplayNameMode}
-              onChange={(e) => setUserDisplayNameMode(e.target.value as UserDisplayNameMode)}
-              className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="nickname">Nickname</option>
-              <option value="realname">RealName (fallback to nickname)</option>
-              <option value="username">Username (fallback to nickname)</option>
-            </select>
-          </div>
-
-          {/* Compact Mode */}
-          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-            <div className="space-y-0.5 pr-4">
-              <div className="flex items-center gap-x-2">
-                <EyeOff className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                  Compact mode
-                </label>
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Hide all user avatars in the chat window.
-              </p>
-            </div>
-            <Switch
-              checked={compactMode}
-              onCheckedChange={(checked) => setCompactMode(checked)}
-            />
-          </div>
-
-          {/* Confirm Before Leaving Channel */}
-          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-            <div className="space-y-0.5 pr-4">
-              <div className="flex items-center gap-x-2">
-                <LogOut className="w-4 h-4 text-rose-500 dark:text-rose-400" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                  Confirm before leaving channel
-                </label>
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Show a confirmation dialog when leaving a channel.
-              </p>
-            </div>
-            <Switch
-              checked={confirmLeaveChannel}
-              onCheckedChange={(checked) => setConfirmLeaveChannel(checked)}
-            />
-          </div>
-
-          {/* Slash Command Autocomplete */}
-          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-            <div className="space-y-0.5 pr-4">
-              <div className="flex items-center gap-x-2">
-                <Command className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                  Slash command autocomplete
-                </label>
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Show suggestions popup when typing / in chat.
-              </p>
-            </div>
-            <Switch
-              checked={enableCommandSuggestions}
-              onCheckedChange={(checked) => setEnableCommandSuggestions(checked)}
-            />
-          </div>
-
-          {/* Markdown Rendering */}
-          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-            <div className="space-y-0.5 pr-4">
-              <div className="flex items-center gap-x-2">
-                <FileText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                  Markdown rendering
-                </label>
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Render <span className="font-mono">**bold**</span> <span className="font-mono">*italic*</span> <span className="font-mono">__underline__</span> <span className="font-mono">~~strike~~</span> <span className="font-mono">`code`</span> <span className="font-mono">```block```</span> <span className="font-mono">&gt;quote</span> <span className="font-mono">||spoiler||</span> and links.
-              </p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
-                Composer shortcuts: <span className="font-mono">Ctrl+B</span> bold, <span className="font-mono">Ctrl+I</span> italic, <span className="font-mono">Ctrl+U</span> underline, <span className="font-mono">Ctrl+Shift+X</span> strike, <span className="font-mono">Ctrl+Shift+E</span> inline code, <span className="font-mono">Ctrl+Shift+H</span> spoiler, <span className="font-mono">Ctrl+Z</span> undo, <span className="font-mono">Ctrl+Y</span> / <span className="font-mono">Ctrl+Shift+Z</span> redo.
-              </p>
-            </div>
-            <Switch
-              checked={enableMarkdown}
-              onCheckedChange={(checked) => setEnableMarkdown(checked)}
-            />
-          </div>
-
-          {/* Formatting Preview */}
-          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-            <div className="space-y-0.5 pr-4">
-              <div className="flex items-center gap-x-2">
-                <Eye className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                  Message formatting preview
-                </label>
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Show a live preview of bold, italic, underline, and strikethrough while composing messages.
-              </p>
-            </div>
-            <Switch
-              checked={enableFormattingPreview}
-              onCheckedChange={(checked) => setEnableFormattingPreview(checked)}
-              disabled={!enableMarkdown}
-            />
-          </div>
-
-          {/* Scroll to unread when returning to the app */}
-          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-            <div className="space-y-0.5 pr-4">
-              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Scroll to new messages on return
-              </label>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                When you come back to the app and the open chat has unread messages, jump straight to the first one.
-              </p>
-            </div>
-            <Switch
-              checked={scrollToUnreadOnFocus}
-              onCheckedChange={(checked) => setScrollToUnreadOnFocus(checked)}
-            />
-          </div>
-
-          {/* Jumboji Enlarged Emoji Size */}
-          <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-x-2">
-                <Smile className="w-4 h-4 text-amber-500" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  Enlarged emoji size (Jumboji)
-                </label>
-              </div>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono">
-                {jumbojiSize === 0 ? "Disabled (Normal size)" : `${jumbojiSize}px`}
-              </span>
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Adjust size for emoji-only messages. Set to 0 to disable enlarged emojis and display standard text font size.
-            </p>
-            <div className="flex items-center gap-x-4 pt-1">
-              <input
-                type="range"
-                min="0"
-                max="64"
-                step="2"
-                value={jumbojiSize}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  if (val > 0 && val < 14) {
-                    setJumbojiSize(14);
-                  } else {
-                    setJumbojiSize(val);
-                  }
-                }}
-                className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-              />
-            </div>
-          </div>
-
-          {/* Sort Private Messages by Unread */}
-          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-            <div className="space-y-0.5 pr-4">
-              <div className="flex items-center gap-x-2">
-                <MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                  Sort private messages by unread
-                </label>
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Move private messages with unread messages to the top of the list.
-              </p>
-            </div>
-            <Switch
-              checked={sortDmByUnread}
-              onCheckedChange={(checked) => setSortDmByUnread(checked)}
-            />
-          </div>
-
-          {/* Base Private Message Sorting */}
-          <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
-            <div className="flex items-center gap-x-2">
-              <ArrowUpDown className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Sort private messages
-              </label>
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Choose base sorting order for active private messages.
-            </p>
-            <select
-              value={dmSortOrder}
-              onChange={(e) => setDmSortOrder(e.target.value as "opening" | "alphabetical")}
-              className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="opening">By opening order</option>
-              <option value="alphabetical">Alphabetical</option>
-            </select>
-          </div>
-
-          {/* Status Indicator Display Mode */}
-          <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
-            <div className="flex items-center gap-x-2">
-              <Activity className="w-4 h-4 text-emerald-500" />
-              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Connection status indicator
-              </label>
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Configure when the connection status badge (IRC, resource server, internet) is displayed.
-            </p>
-            <select
-              value={statusDisplayMode}
-              onChange={(e) => setStatusDisplayMode(e.target.value as StatusDisplayMode)}
-              className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="always">Always show</option>
-              <option value="on_error">Only on error</option>
-              <option value="disabled">Disabled (hidden)</option>
-            </select>
-          </div>
-
-          {/* Message of the day (MOTD) */}
-          <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-x-2">
-                <ScrollText className="w-4 h-4 text-indigo-500" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  Message of the day (MOTD)
-                </label>
-              </div>
-              <Switch
-                checked={globalMotdPolicy !== "never"}
-                onCheckedChange={(checked) => {
-                  setGlobalMotdPolicy(checked ? "on_change" : "never");
-                }}
-              />
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Choose when to automatically display server MOTD popups upon connecting or joining.
-            </p>
-            {globalMotdPolicy !== "never" && (
-              <select
-                value={globalMotdPolicy}
-                onChange={(e) => setGlobalMotdPolicy(e.target.value as MotdDisplayPolicy)}
-                className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-              >
-                <option value="on_change">Only when changed (recommended)</option>
-                <option value="always">Always show on connect</option>
-                <option value="never">Never show automatically (all servers)</option>
-              </select>
-            )}
-          </div>
-
-          {/* Date Display Format */}
-          <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
-            <div className="flex items-center gap-x-2">
-              <Calendar className="w-4 h-4 text-indigo-500" />
-              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Date display format
-              </label>
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Choose how timestamps are displayed in chat messages.
-            </p>
-            <select
-              value={dateFormatPreset}
-              onChange={(e) => setDateFormatPreset(e.target.value)}
-              className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="d MMM yyyy, HH:mm">Default (20 Aug 2026, 23:30)</option>
-              <option value="yyyy-MM-dd HH:mm:ss">ISO 8601 (2026-08-20 23:30:00)</option>
-              <option value="MM/dd/yyyy, h:mm a">US format (08/20/2026, 11:30 PM)</option>
-              <option value="dd.MM.yyyy HH:mm">European format (20.08.2026 23:30)</option>
-              <option value="HH:mm:ss">Time only (23:30:00)</option>
-              <option value="custom">Custom format</option>
-            </select>
-
-            {dateFormatPreset === "custom" && (
-              <div className="space-y-1 pt-1">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Custom format pattern
-                </label>
-                <Input
-                  value={customDateFormat}
-                  onChange={(e) => setCustomDateFormat(e.target.value)}
-                  placeholder="e.g. yyyy/MM/dd HH:mm"
-                  className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100"
-                />
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Uses tokens based on <a href="https://unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns" target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline">Unicode Technical Standard #35 date format patterns</a> (e.g. yyyy/MM/dd HH:mm).
-                </p>
-              </div>
-            )}
-
-            <div className="pt-1 text-xs text-zinc-500 dark:text-zinc-400 font-mono flex items-center justify-between border-t border-zinc-200 dark:border-zinc-700/50 mt-1">
-              <span className="font-sans text-[11px]">Preview:</span>
-              <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                {formatMessageDate(new Date(), dateFormatPreset, customDateFormat)}
-              </span>
-            </div>
-          </div>
-
-          {/* Nickname Completion / Addressing Format */}
-          <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
-            <div className="flex items-center gap-x-2">
-              <AtSign className="w-4 h-4 text-indigo-500" />
-              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Nickname completion format
-              </label>
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Choose how member nicknames are formatted when completed using the Tab suggestions menu.
-            </p>
-            <select
-              value={nickCompletionFormat}
-              onChange={(e) => setNickCompletionFormat(e.target.value as NickCompletionFormat)}
-              className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="plain">Plain nickname (Nick )</option>
-              <option value="colon">Colon after nick (Nick: )</option>
-              <option value="comma">Comma after nick (Nick, )</option>
-              <option value="at">At-sign before nick (@Nick )</option>
-              <option value="arrow">Arrow after nick (Nick &gt; )</option>
-              <option value="hyphen">Hyphen after nick (Nick - )</option>
-              <option value="bracket">Square brackets around nick ([Nick] )</option>
-              <option value="custom">Custom format pattern</option>
-            </select>
-
-            {nickCompletionFormat === "custom" && (
-              <div className="space-y-1 pt-1">
-                <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Custom format pattern
-                </label>
-                <Input
-                  value={customNickCompletionFormat}
-                  onChange={(e) => setCustomNickCompletionFormat(e.target.value)}
-                  placeholder="e.g. {nick}: or >> {nick} "
-                  className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100"
-                />
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Use <code className="bg-zinc-200 dark:bg-zinc-700 px-1 py-0.5 rounded text-[10px] font-mono">{"{nick}"}</code> as placeholder for the member's nickname (e.g. <code className="font-mono">{"{nick}: "}</code> or <code className="font-mono">{"[{nick}] "}</code>).
-                </p>
-              </div>
-            )}
-
-            <div className="pt-1 text-xs text-zinc-500 dark:text-zinc-400 font-mono flex items-center justify-between border-t border-zinc-200 dark:border-zinc-700/50 mt-1">
-              <span className="font-sans text-[11px]">Preview:</span>
-              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                {formatNickCompletion("Alice", nickCompletionFormat, customNickCompletionFormat)}
-                <span className="text-zinc-500 dark:text-zinc-400 font-normal">hello there!</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Default Reply Format */}
-          <div className="flex flex-col gap-y-2 rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-            <div className="flex items-center gap-x-2">
-              <Reply className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Default reply format
-              </label>
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Choose how replies are sent to servers. Auto uses modern IRCv3 tags if supported and falls back to legacy inline quoting.
-            </p>
-            <select
-              value={defaultReplyMode}
-              onChange={(e) => setDefaultReplyMode(e.target.value as ReplyMode)}
-              className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            >
-              <option value="auto">Auto (recommended)</option>
-              <option value="modern">Modern IRCv3 only</option>
-              <option value="legacy">Legacy inline only</option>
-              <option value="hybrid">Hybrid (both)</option>
-            </select>
-          </div>
-
-          {/* Switch 1: Enable Link Previews (All embeds) */}
-          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-            <div className="space-y-0.5 pr-4">
-              <div className="flex items-center gap-x-2">
-                <Link2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                  Link previews (embeds)
-                </label>
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Show media previews (images, videos, YouTube, websites) in chat.
-              </p>
-            </div>
-            <Switch
-              checked={enableLinkPreviews}
-              onCheckedChange={(checked) => setEnableLinkPreviews(checked)}
-            />
-          </div>
-
-          {/* Switch 1b: Collapse Images by Default */}
-          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-            <div className="space-y-0.5 pr-4">
-              <div className="flex items-center gap-x-2">
-                <EyeOff className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                  Collapse images by default
-                </label>
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Automatically collapse image previews in chat messages into compact expandable cards.
-              </p>
-            </div>
-            <Switch
-              checked={autoCollapseImages}
-              onCheckedChange={(checked) => setAutoCollapseImages(checked)}
-            />
-          </div>
-
-          {/* Switch 1c: Render media embeds in MOTD */}
-          <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-            <div className="space-y-0.5 pr-4">
-              <div className="flex items-center gap-x-2">
-                <ScrollText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                  Render media embeds in MOTD
-                </label>
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Show rich media embeds (images, videos, YouTube) in Message of the Day dialogs.
-              </p>
-            </div>
-            <Switch
-              checked={enableMotdMediaPreviews}
-              onCheckedChange={(checked) => setEnableMotdMediaPreviews(checked)}
-            />
-          </div>
-
-          {/* Switch 2: Web Page Metadata API Previews */}
-          {enableLinkPreviews && (
-            <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-              <div className="space-y-0.5 pr-4">
+          {tab === "appearance" && (
+            <div className="space-y-5">
+              {/* SECTION: COLOUR MODE */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
                 <div className="flex items-center gap-x-2">
-                  <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                    Fetch web page metadata (API)
+                  <Palette className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Colors</label>
+                </div>
+                <div role="radiogroup" aria-label="Colors" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {COLOR_MODES.map(({ id, title, description }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="radio"
+                      aria-checked={colorMode === id}
+                      onClick={() => setColorMode(id)}
+                      className={cn(
+                        "flex flex-col items-start rounded-lg border p-3 text-left text-xs transition cursor-pointer",
+                        colorMode === id
+                          ? "border-indigo-500 bg-indigo-500/10 text-indigo-900 dark:text-indigo-100"
+                          : "border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/40"
+                      )}
+                    >
+                      <span className="font-semibold">{title}</span>
+                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{description}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* SECTION: MESSAGE LAYOUT */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Message layout</label>
+                </div>
+                <div role="radiogroup" aria-label="Message layout" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {([
+                    { id: "discord", title: "Discord", description: "Avatars, name above the text, grouped messages." },
+                    { id: "irc", title: "Compact (IRC)", description: "One dense line per message: [time] <nick> text." },
+                  ] as { id: MessageLayout; title: string; description: string }[]).map(({ id, title, description }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="radio"
+                      aria-checked={messageLayout === id}
+                      onClick={() => setMessageLayout(id)}
+                      className={cn(
+                        "flex flex-col items-start rounded-lg border p-3 text-left text-xs transition cursor-pointer",
+                        messageLayout === id
+                          ? "border-indigo-500 bg-indigo-500/10 text-indigo-900 dark:text-indigo-100"
+                          : "border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/40"
+                      )}
+                    >
+                      <span className="font-semibold">{title}</span>
+                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{description}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* SECTION: VISUAL STYLE (Windows 11+ only) */}
+              {isWindows11 && (
+                <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                  <div className="flex items-center gap-x-2">
+                    <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Style</label>
+                  </div>
+                  <div role="radiogroup" aria-label="Style" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {APPEARANCE_STYLES.map(({ id, title, description }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        role="radio"
+                        aria-checked={appearanceStyle === id}
+                        onClick={() => setAppearanceStyle(id)}
+                        className={cn(
+                          "flex flex-col items-start rounded-lg border p-3 text-left text-xs transition cursor-pointer",
+                          appearanceStyle === id
+                            ? "border-indigo-500 bg-indigo-500/10 text-indigo-900 dark:text-indigo-100"
+                            : "border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/40"
+                        )}
+                      >
+                        <span className="font-semibold">{title}</span>
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{description}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {appearanceStyle === "fluent" && (
+                    <div className="space-y-1.5 pt-1">
+                      <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        Window material
+                      </label>
+                      <select
+                        value={windowMaterial}
+                        onChange={(e) => setWindowMaterial(e.target.value as WindowMaterial)}
+                        className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                      >
+                        <option value="mica">Mica (Windows 11, recommended)</option>
+                        <option value="acrylic">Acrylic (blur of the desktop behind the window)</option>
+                        <option value="none">None (opaque)</option>
+                      </select>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Applied to the window background behind the translucent surfaces.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* SECTION: USER DISPLAY NAME FORMAT */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    User display name format
                   </label>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Use API to fetch title, description, and thumbnails for web pages. Direct images don't use the API.
+                  Select default member name format across chat messages, user lists, and hover cards.
                 </p>
+                <select
+                  value={userDisplayNameMode}
+                  onChange={(e) => setUserDisplayNameMode(e.target.value as UserDisplayNameMode)}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="nickname">Nickname</option>
+                  <option value="realname">RealName (fallback to nickname)</option>
+                  <option value="username">Username (fallback to nickname)</option>
+                </select>
               </div>
-              <Switch
-                checked={enableWebPagePreviews}
-                onCheckedChange={(checked) => setEnableWebPagePreviews(checked)}
-              />
-            </div>
-          )}
-
-          {/* Custom Link Preview API Endpoint Input */}
-          {enableLinkPreviews && enableWebPagePreviews && (
-            <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-2 shadow-sm transition">
-              <div className="flex items-center gap-x-2">
-                <Server className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  Preview API endpoint
-                </label>
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                Open-Source metadata API URL for fetching web page previews.
-              </p>
-              <Input
-                value={linkPreviewApiUrl}
-                onChange={(e) => setLinkPreviewApiUrl(e.target.value)}
-                placeholder="https://api.microlink.io"
-                className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 text-xs mt-2 focus-visible:ring-indigo-500"
-              />
-            </div>
-          )}
-
-          {/* SECTION: IMAGE UPLOADER SERVER */}
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-4 shadow-sm transition">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-x-2">
-                <UploadCloud className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
-                <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  Image upload provider
-                </label>
-              </div>
-              {uploadConfig.provider === "litterbox" && (
-                <span className="text-xs px-2 py-0.5 font-bold rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                  Temporary hosting
-                </span>
-              )}
-              {uploadConfig.provider === "pomf" && (
-                <span className="text-xs px-2 py-0.5 font-bold rounded bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
-                  POMF hosting
-                </span>
-              )}
-            </div>
-
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Select a service for uploading images pasted from clipboard or files. A direct link will be sent to the IRC chat.
-            </p>
-
-            {/* Provider Selection Dropdown */}
-            <select
-              value={uploadConfig.provider}
-              onChange={(e) => handleProviderChange(e.target.value as ImageUploadProvider)}
-              className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="disabled">🚫 Disabled (Upload disabled)</option>
-              <option value="litterbox" className="text-amber-600 font-bold">
-                ⚠️ Litterbox (public, expiration 1h - 72h)
-              </option>
-              <option value="pomf" className="text-indigo-600 font-bold">
-                🐱 POMF / Pomf.cat (public)
-              </option>
-            </select>
-
-            {/* Litterbox Warning & Retention Config */}
-            {uploadConfig.provider === "litterbox" && (
-              <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 space-y-2 text-xs text-amber-600 dark:text-amber-400">
-                <div className="flex items-center gap-x-1.5 font-bold">
-                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                  Information (Litterbox temporary):
-                </div>
-                <p className="text-[11px] leading-relaxed opacity-90">
-                  Images expire automatically after the selected duration. They remain public until deleted.
-                </p>
-
-                <div className="pt-1 flex items-center justify-between">
-                  <label className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                    Retention duration:
-                  </label>
-                  <select
-                    value={uploadConfig.litterboxTime || "24h"}
-                    onChange={(e) =>
-                      setUploadConfig({ ...uploadConfig, litterboxTime: e.target.value as LitterboxTime })
-                    }
-                    className="bg-white dark:bg-[#1e1f22] border border-amber-500/40 rounded px-2 py-1 text-xs font-semibold text-zinc-900 dark:text-zinc-100"
-                  >
-                    <option value="1h">1 hour</option>
-                    <option value="12h">12 hours</option>
-                    <option value="24h">24 hours (default)</option>
-                    <option value="72h">72 hours (3 days)</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* POMF Configuration */}
-            {uploadConfig.provider === "pomf" && (
-              <div className="space-y-3 pt-1">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                    POMF server address (upload URL)
-                  </label>
-                  <Input
-                    value={uploadConfig.pomfUrl || ""}
-                    onChange={(e) => setUploadConfig({ ...uploadConfig, pomfUrl: e.target.value })}
-                    placeholder="https://pomf.cat/upload.php"
-                    className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs"
-                  />
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    Leave default address <code className="text-indigo-400">https://pomf.cat/upload.php</code> or enter your custom POMF instance address.
+              {/* Compact Mode */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <EyeOff className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      Compact mode
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Hide all user avatars in the chat window.
                   </p>
                 </div>
+                <Switch
+                  checked={compactMode}
+                  onCheckedChange={(checked) => setCompactMode(checked)}
+                />
               </div>
-            )}
-          </div>
+              {/* Group users by role */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <Users className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      Group users by role
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Split the channel user list into owners, operators, voiced, users and away.
+                  </p>
+                </div>
+                <Switch
+                  checked={groupMembersByRole}
+                  onCheckedChange={(checked) => setGroupMembersByRole(checked)}
+                />
+              </div>
+              {/* Markdown Rendering */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <FileText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      Markdown rendering
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Render <span className="font-mono">**bold**</span> <span className="font-mono">*italic*</span> <span className="font-mono">__underline__</span> <span className="font-mono">~~strike~~</span> <span className="font-mono">`code`</span> <span className="font-mono">```block```</span> <span className="font-mono">&gt;quote</span> <span className="font-mono">||spoiler||</span> and links.
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
+                    Composer shortcuts: <span className="font-mono">Ctrl+B</span> bold, <span className="font-mono">Ctrl+I</span> italic, <span className="font-mono">Ctrl+U</span> underline, <span className="font-mono">Ctrl+Shift+X</span> strike, <span className="font-mono">Ctrl+Shift+E</span> inline code, <span className="font-mono">Ctrl+Shift+H</span> spoiler, <span className="font-mono">Ctrl+Z</span> undo, <span className="font-mono">Ctrl+Y</span> / <span className="font-mono">Ctrl+Shift+Z</span> redo.
+                  </p>
+                </div>
+                <Switch
+                  checked={enableMarkdown}
+                  onCheckedChange={(checked) => setEnableMarkdown(checked)}
+                />
+              </div>
+              {/* Formatting Preview */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <Eye className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      Message formatting preview
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Show a live preview of bold, italic, underline, and strikethrough while composing messages.
+                  </p>
+                </div>
+                <Switch
+                  checked={enableFormattingPreview}
+                  onCheckedChange={(checked) => setEnableFormattingPreview(checked)}
+                  disabled={!enableMarkdown}
+                />
+              </div>
+              {/* Scroll to unread when returning to the app */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Scroll to new messages on return
+                  </label>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    When you come back to the app and the open chat has unread messages, jump straight to the first one.
+                  </p>
+                </div>
+                <Switch
+                  checked={scrollToUnreadOnFocus}
+                  onCheckedChange={(checked) => setScrollToUnreadOnFocus(checked)}
+                />
+              </div>
+              {/* Jumboji Enlarged Emoji Size */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-x-2">
+                    <Smile className="w-4 h-4 text-amber-500" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      Enlarged emoji size (Jumboji)
+                    </label>
+                  </div>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono">
+                    {jumbojiSize === 0 ? "Disabled (Normal size)" : `${jumbojiSize}px`}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Adjust size for emoji-only messages. Set to 0 to disable enlarged emojis and display standard text font size.
+                </p>
+                <div className="flex items-center gap-x-4 pt-1">
+                  <input
+                    type="range"
+                    min="0"
+                    max="64"
+                    step="2"
+                    value={jumbojiSize}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      if (val > 0 && val < 14) {
+                        setJumbojiSize(14);
+                      } else {
+                        setJumbojiSize(val);
+                      }
+                    }}
+                    className="w-full h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+              </div>
+              {/* Date Display Format */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <Calendar className="w-4 h-4 text-indigo-500" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Date display format
+                  </label>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Choose how timestamps are displayed in chat messages.
+                </p>
+                <select
+                  value={dateFormatPreset}
+                  onChange={(e) => setDateFormatPreset(e.target.value)}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="d MMM yyyy, HH:mm">Default (20 Aug 2026, 23:30)</option>
+                  <option value="yyyy-MM-dd HH:mm:ss">ISO 8601 (2026-08-20 23:30:00)</option>
+                  <option value="MM/dd/yyyy, h:mm a">US format (08/20/2026, 11:30 PM)</option>
+                  <option value="dd.MM.yyyy HH:mm">European format (20.08.2026 23:30)</option>
+                  <option value="HH:mm:ss">Time only (23:30:00)</option>
+                  <option value="custom">Custom format</option>
+                </select>
 
-          {/* SECTION: READING AUTHORIZATION (URL RULES) */}
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
-            <div className="flex items-center gap-x-2">
-              <Key className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
-              <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                Image read authorization (URL headers)
-              </label>
+                {dateFormatPreset === "custom" && (
+                  <div className="space-y-1 pt-1">
+                    <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Custom format pattern
+                    </label>
+                    <Input
+                      value={customDateFormat}
+                      onChange={(e) => setCustomDateFormat(e.target.value)}
+                      placeholder="e.g. yyyy/MM/dd HH:mm"
+                      className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100"
+                    />
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Uses tokens based on <a href="https://unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns" target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline">Unicode Technical Standard #35 date format patterns</a> (e.g. yyyy/MM/dd HH:mm).
+                    </p>
+                  </div>
+                )}
+
+                <div className="pt-1 text-xs text-zinc-500 dark:text-zinc-400 font-mono flex items-center justify-between border-t border-zinc-200 dark:border-zinc-700/50 mt-1">
+                  <span className="font-sans text-[11px]">Preview:</span>
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                    {formatMessageDate(new Date(), dateFormatPreset, customDateFormat)}
+                  </span>
+                </div>
+              </div>
             </div>
+          )}
 
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Define HTTP headers (e.g., tokens) to be sent when fetching and previewing images from specified URL prefixes.
-            </p>
+          {tab === "chat" && (
+            <div className="space-y-5">
+              {/* Confirm Before Leaving Channel */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <LogOut className="w-4 h-4 text-rose-500 dark:text-rose-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      Confirm before leaving channel
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Show a confirmation dialog when leaving a channel.
+                  </p>
+                </div>
+                <Switch
+                  checked={confirmLeaveChannel}
+                  onCheckedChange={(checked) => setConfirmLeaveChannel(checked)}
+                />
+              </div>
+              {/* Slash Command Autocomplete */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <Command className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      Slash command autocomplete
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Show suggestions popup when typing / in chat.
+                  </p>
+                </div>
+                <Switch
+                  checked={enableCommandSuggestions}
+                  onCheckedChange={(checked) => setEnableCommandSuggestions(checked)}
+                />
+              </div>
+              {/* Sort Private Messages by Unread */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      Sort private messages by unread
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Move private messages with unread messages to the top of the list.
+                  </p>
+                </div>
+                <Switch
+                  checked={sortDmByUnread}
+                  onCheckedChange={(checked) => setSortDmByUnread(checked)}
+                />
+              </div>
+              {/* Base Private Message Sorting */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <ArrowUpDown className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Sort private messages
+                  </label>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Choose base sorting order for active private messages.
+                </p>
+                <select
+                  value={dmSortOrder}
+                  onChange={(e) => setDmSortOrder(e.target.value as "opening" | "alphabetical")}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="opening">By opening order</option>
+                  <option value="alphabetical">Alphabetical</option>
+                </select>
+              </div>
+              {/* Status Indicator Display Mode */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <Activity className="w-4 h-4 text-emerald-500" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Connection status indicator
+                  </label>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Configure when the connection status badge (IRC, resource server, internet) is displayed.
+                </p>
+                <select
+                  value={statusDisplayMode}
+                  onChange={(e) => setStatusDisplayMode(e.target.value as StatusDisplayMode)}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="always">Always show</option>
+                  <option value="on_error">Only on error</option>
+                  <option value="disabled">Disabled (hidden)</option>
+                </select>
+              </div>
+              {/* Default Reply Format */}
+              <div className="flex flex-col gap-y-2 rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <Reply className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Default reply format
+                  </label>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Choose how replies are sent to servers. Auto uses modern IRCv3 tags if supported and falls back to legacy inline quoting.
+                </p>
+                <select
+                  value={defaultReplyMode}
+                  onChange={(e) => setDefaultReplyMode(e.target.value as ReplyMode)}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="auto">Auto (recommended)</option>
+                  <option value="modern">Modern IRCv3 only</option>
+                  <option value="legacy">Legacy inline only</option>
+                  <option value="hybrid">Hybrid (both)</option>
+                </select>
+              </div>
+              {/* Nickname Completion / Addressing Format */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <AtSign className="w-4 h-4 text-indigo-500" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Nickname completion format
+                  </label>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Choose how member nicknames are formatted when completed using the Tab suggestions menu.
+                </p>
+                <select
+                  value={nickCompletionFormat}
+                  onChange={(e) => setNickCompletionFormat(e.target.value as NickCompletionFormat)}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="plain">Plain nickname (Nick )</option>
+                  <option value="colon">Colon after nick (Nick: )</option>
+                  <option value="comma">Comma after nick (Nick, )</option>
+                  <option value="at">At-sign before nick (@Nick )</option>
+                  <option value="arrow">Arrow after nick (Nick &gt; )</option>
+                  <option value="hyphen">Hyphen after nick (Nick - )</option>
+                  <option value="bracket">Square brackets around nick ([Nick] )</option>
+                  <option value="custom">Custom format pattern</option>
+                </select>
 
-            {/* List of rules */}
-            {urlAuthRules.length > 0 ? (
-              <div className="space-y-2">
-                {urlAuthRules.map((rule) => (
-                  <div
-                    key={rule.id}
-                    className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-[#1e1f22] border border-zinc-200 dark:border-zinc-700/80 text-xs"
+                {nickCompletionFormat === "custom" && (
+                  <div className="space-y-1 pt-1">
+                    <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Custom format pattern
+                    </label>
+                    <Input
+                      value={customNickCompletionFormat}
+                      onChange={(e) => setCustomNickCompletionFormat(e.target.value)}
+                      placeholder="e.g. {nick}: or >> {nick} "
+                      className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100"
+                    />
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Use <code className="bg-zinc-200 dark:bg-zinc-700 px-1 py-0.5 rounded text-[10px] font-mono">{"{nick}"}</code> as placeholder for the member's nickname (e.g. <code className="font-mono">{"{nick}: "}</code> or <code className="font-mono">{"[{nick}] "}</code>).
+                    </p>
+                  </div>
+                )}
+
+                <div className="pt-1 text-xs text-zinc-500 dark:text-zinc-400 font-mono flex items-center justify-between border-t border-zinc-200 dark:border-zinc-700/50 mt-1">
+                  <span className="font-sans text-[11px]">Preview:</span>
+                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                    {formatNickCompletion("Alice", nickCompletionFormat, customNickCompletionFormat)}
+                    <span className="text-zinc-500 dark:text-zinc-400 font-normal">hello there!</span>
+                  </span>
+                </div>
+              </div>
+              {/* Message of the day (MOTD) */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-x-2">
+                    <ScrollText className="w-4 h-4 text-indigo-500" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      Message of the day (MOTD)
+                    </label>
+                  </div>
+                  <Switch
+                    checked={globalMotdPolicy !== "never"}
+                    onCheckedChange={(checked) => {
+                      setGlobalMotdPolicy(checked ? "on_change" : "never");
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Choose when to automatically display server MOTD popups upon connecting or joining.
+                </p>
+                {globalMotdPolicy !== "never" && (
+                  <select
+                    value={globalMotdPolicy}
+                    onChange={(e) => setGlobalMotdPolicy(e.target.value as MotdDisplayPolicy)}
+                    className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                   >
-                    <div className="space-y-0.5 overflow-hidden pr-2">
-                      <div className="font-bold text-indigo-500 truncate">{rule.urlPrefix}</div>
-                      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
-                        {rule.headerName}: {rule.headerValue.slice(0, 15)}...
+                    <option value="on_change">Only when changed (recommended)</option>
+                    <option value="always">Always show on connect</option>
+                    <option value="never">Never show automatically (all servers)</option>
+                  </select>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === "previews" && (
+            <div className="space-y-5">
+              {/* Switch 1: Enable Link Previews (All embeds) */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <Link2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      Link previews (embeds)
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Show media previews (images, videos, YouTube, websites) in chat.
+                  </p>
+                </div>
+                <Switch
+                  checked={enableLinkPreviews}
+                  onCheckedChange={(checked) => setEnableLinkPreviews(checked)}
+                />
+              </div>
+              {/* Switch 1b: Collapse Images by Default */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <EyeOff className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      Collapse images by default
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Automatically collapse image previews in chat messages into compact expandable cards.
+                  </p>
+                </div>
+                <Switch
+                  checked={autoCollapseImages}
+                  onCheckedChange={(checked) => setAutoCollapseImages(checked)}
+                />
+              </div>
+              {/* Switch 1c: Render media embeds in MOTD */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <ScrollText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      Render media embeds in MOTD
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Show rich media embeds (images, videos, YouTube) in Message of the Day dialogs.
+                  </p>
+                </div>
+                <Switch
+                  checked={enableMotdMediaPreviews}
+                  onCheckedChange={(checked) => setEnableMotdMediaPreviews(checked)}
+                />
+              </div>
+              {/* Switch 2: Web Page Metadata API Previews */}
+              {enableLinkPreviews && (
+                <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                  <div className="space-y-0.5 pr-4">
+                    <div className="flex items-center gap-x-2">
+                      <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                      <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                        Fetch web page metadata (API)
+                      </label>
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      Use API to fetch title, description, and thumbnails for web pages. Direct images don't use the API.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={enableWebPagePreviews}
+                    onCheckedChange={(checked) => setEnableWebPagePreviews(checked)}
+                  />
+                </div>
+              )}
+              {/* Custom Link Preview API Endpoint Input */}
+              {enableLinkPreviews && enableWebPagePreviews && (
+                <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-2 shadow-sm transition">
+                  <div className="flex items-center gap-x-2">
+                    <Server className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      Preview API endpoint
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Open-Source metadata API URL for fetching web page previews.
+                  </p>
+                  <Input
+                    value={linkPreviewApiUrl}
+                    onChange={(e) => setLinkPreviewApiUrl(e.target.value)}
+                    placeholder="https://api.microlink.io"
+                    className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 text-xs mt-2 focus-visible:ring-indigo-500"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === "uploads" && (
+            <div className="space-y-5">
+              {/* SECTION: IMAGE UPLOADER SERVER */}
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-4 shadow-sm transition">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-x-2">
+                    <UploadCloud className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                      Image upload provider
+                    </label>
+                  </div>
+                  {uploadConfig.provider === "litterbox" && (
+                    <span className="text-xs px-2 py-0.5 font-bold rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                      Temporary hosting
+                    </span>
+                  )}
+                  {uploadConfig.provider === "pomf" && (
+                    <span className="text-xs px-2 py-0.5 font-bold rounded bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+                      POMF hosting
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Select a service for uploading images pasted from clipboard or files. A direct link will be sent to the IRC chat.
+                </p>
+
+                {/* Provider Selection Dropdown */}
+                <select
+                  value={uploadConfig.provider}
+                  onChange={(e) => handleProviderChange(e.target.value as ImageUploadProvider)}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="disabled">🚫 Disabled (Upload disabled)</option>
+                  <option value="litterbox" className="text-amber-600 font-bold">
+                    ⚠️ Litterbox (public, expiration 1h - 72h)
+                  </option>
+                  <option value="pomf" className="text-indigo-600 font-bold">
+                    🐱 POMF / Pomf.cat (public)
+                  </option>
+                </select>
+
+                {/* Litterbox Warning & Retention Config */}
+                {uploadConfig.provider === "litterbox" && (
+                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 space-y-2 text-xs text-amber-600 dark:text-amber-400">
+                    <div className="flex items-center gap-x-1.5 font-bold">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                      Information (Litterbox temporary):
+                    </div>
+                    <p className="text-[11px] leading-relaxed opacity-90">
+                      Images expire automatically after the selected duration. They remain public until deleted.
+                    </p>
+
+                    <div className="pt-1 flex items-center justify-between">
+                      <label className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                        Retention duration:
+                      </label>
+                      <select
+                        value={uploadConfig.litterboxTime || "24h"}
+                        onChange={(e) =>
+                          setUploadConfig({ ...uploadConfig, litterboxTime: e.target.value as LitterboxTime })
+                        }
+                        className="bg-white dark:bg-[#1e1f22] border border-amber-500/40 rounded px-2 py-1 text-xs font-semibold text-zinc-900 dark:text-zinc-100"
+                      >
+                        <option value="1h">1 hour</option>
+                        <option value="12h">12 hours</option>
+                        <option value="24h">24 hours (default)</option>
+                        <option value="72h">72 hours (3 days)</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* POMF Configuration */}
+                {uploadConfig.provider === "pomf" && (
+                  <div className="space-y-3 pt-1">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        POMF server address (upload URL)
+                      </label>
+                      <Input
+                        value={uploadConfig.pomfUrl || ""}
+                        onChange={(e) => setUploadConfig({ ...uploadConfig, pomfUrl: e.target.value })}
+                        placeholder="https://pomf.cat/upload.php"
+                        className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs"
+                      />
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Leave default address <code className="text-indigo-400">https://pomf.cat/upload.php</code> or enter your custom POMF instance address.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === "auth" && (
+            <div className="space-y-5">
+              {/* SECTION: READING AUTHORIZATION (URL RULES) */}
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <Key className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+                  <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Image read authorization (URL headers)
+                  </label>
+                </div>
+
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Define HTTP headers (e.g., tokens) to be sent when fetching and previewing images from specified URL prefixes.
+                </p>
+
+                {/* List of rules */}
+                {urlAuthRules.length > 0 ? (
+                  <div className="space-y-2">
+                    {urlAuthRules.map((rule) => (
+                      <div
+                        key={rule.id}
+                        className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-[#1e1f22] border border-zinc-200 dark:border-zinc-700/80 text-xs"
+                      >
+                        <div className="space-y-0.5 overflow-hidden pr-2">
+                          <div className="font-bold text-indigo-500 truncate">{rule.urlPrefix}</div>
+                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+                            {rule.headerName}: {rule.headerValue.slice(0, 15)}...
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeUrlAuthRule(rule.id)}
+                          className="h-7 w-7 text-rose-500 hover:bg-rose-500/10 shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">No read authorization rules configured.</p>
+                )}
+
+                {/* Form to add new rule */}
+                <form onSubmit={handleAddRule} className="pt-2 space-y-2 border-t border-zinc-200 dark:border-zinc-700/60">
+                  <div className="space-y-1">
+                    <Input
+                      value={newRulePrefix}
+                      onChange={(e) => setNewRulePrefix(e.target.value)}
+                      placeholder="URL Prefix (e.g. https://private-host.org/)"
+                      className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      value={newRuleHeaderName}
+                      onChange={(e) => setNewRuleHeaderName(e.target.value)}
+                      placeholder="Header (Authorization / X-Api-Key)"
+                      className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
+                    />
+                    <Input
+                      value={newRuleHeaderValue}
+                      onChange={(e) => setNewRuleHeaderValue(e.target.value)}
+                      placeholder="Value (Bearer token / key)"
+                      className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Add authorization rule
+                  </Button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {tab === "updates" && (
+            <div className="space-y-5">
+              {/* SECTION: AUTOMATIC UPDATES */}
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-4 shadow-sm transition">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-x-2">
+                    <DownloadCloud className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                      Software updates
+                    </label>
+                  </div>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
+                    v{tauriConfig.version || "0.1.7"}
+                  </span>
+                </div>
+
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Select automatic check and download preferences for new releases.
+                </p>
+
+                {/* Mode selector */}
+                <div className="grid grid-cols-1 gap-2">
+                  <label
+                    className={`flex items-start gap-x-3 p-3 rounded-lg border cursor-pointer transition text-xs ${autoUpdateMode === "auto"
+                      ? "border-indigo-500 bg-indigo-500/10 text-indigo-900 dark:text-indigo-100 font-semibold"
+                      : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1e1f22] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600"
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="autoUpdateMode"
+                      value="auto"
+                      checked={autoUpdateMode === "auto"}
+                      onChange={() => setAutoUpdateMode("auto")}
+                      className="mt-0.5 accent-indigo-500 cursor-pointer"
+                    />
+                    <div>
+                      <div className="font-bold flex items-center gap-x-1.5">
+                        🚀 Automatic update on startup
+                      </div>
+                      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-normal mt-0.5">
+                        Check for new versions on app startup and notify when update is ready.
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeUrlAuthRule(rule.id)}
-                      className="h-7 w-7 text-rose-500 hover:bg-rose-500/10 shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">No read authorization rules configured.</p>
-            )}
+                  </label>
 
-            {/* Form to add new rule */}
-            <form onSubmit={handleAddRule} className="pt-2 space-y-2 border-t border-zinc-200 dark:border-zinc-700/60">
-              <div className="space-y-1">
-                <Input
-                  value={newRulePrefix}
-                  onChange={(e) => setNewRulePrefix(e.target.value)}
-                  placeholder="URL Prefix (e.g. https://private-host.org/)"
-                  className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs"
-                />
+                  <label
+                    className={`flex items-start gap-x-3 p-3 rounded-lg border cursor-pointer transition text-xs ${autoUpdateMode === "ask"
+                      ? "border-indigo-500 bg-indigo-500/10 text-indigo-900 dark:text-indigo-100 font-semibold"
+                      : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1e1f22] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600"
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="autoUpdateMode"
+                      value="ask"
+                      checked={autoUpdateMode === "ask"}
+                      onChange={() => setAutoUpdateMode("ask")}
+                      className="mt-0.5 accent-indigo-500 cursor-pointer"
+                    />
+                    <div>
+                      <div className="font-bold flex items-center gap-x-1.5">
+                        ❓ Ask about update on startup (Popup prompt)
+                      </div>
+                      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-normal mt-0.5">
+                        Show a dialog when a new version is detected with options: "Update now" or "Remind me later".
+                      </div>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`flex items-start gap-x-3 p-3 rounded-lg border cursor-pointer transition text-xs ${autoUpdateMode === "disabled"
+                      ? "border-rose-500/50 bg-rose-500/10 text-rose-900 dark:text-rose-100 font-semibold"
+                      : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1e1f22] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600"
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="autoUpdateMode"
+                      value="disabled"
+                      checked={autoUpdateMode === "disabled"}
+                      onChange={() => setAutoUpdateMode("disabled")}
+                      className="mt-0.5 accent-rose-500 cursor-pointer"
+                    />
+                    <div>
+                      <div className="font-bold flex items-center gap-x-1.5 text-zinc-800 dark:text-zinc-200">
+                        ⛔ Disable automatic updates
+                      </div>
+                      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-normal mt-0.5">
+                        Application will not check for updates automatically on startup.
+                      </div>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Version source selector */}
+                <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-x-1.5">
+                        <Server className="w-3.5 h-3.5 text-indigo-500" />
+                        Update channel
+                      </div>
+                      <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        Choose where updates come from. After switching, the next check offers that channel's latest build.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 pt-1">
+                    <select
+                      value={activeUpdateChannel}
+                      onChange={(e) =>
+                        setUpdateSourceMode(e.target.value as "official" | "skipahead" | "custom")
+                      }
+                      className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      {Object.values(UPDATE_CHANNELS).map((channel) => (
+                        <option key={channel.id} value={channel.id}>
+                          {channel.label}
+                          {channel.id === BUILD_UPDATE_CHANNEL ? " (this build)" : ""}
+                        </option>
+                      ))}
+                      <option value="custom">Custom URL</option>
+                    </select>
+
+                    {activeUpdateChannel !== "custom" && (
+                      <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1">
+                        {UPDATE_CHANNELS[activeUpdateChannel].description}
+                      </div>
+                    )}
+
+                    {activeUpdateChannel === "custom" && (
+                      <div className="space-y-1 mt-1">
+                        <Input
+                          value={customUpdateUrl}
+                          onChange={(e) => setCustomUpdateUrl(e.target.value)}
+                          placeholder="https://your-custom-worker.workers.dev/latest.json"
+                          className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
+                        />
+                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1">
+                          Must be a valid HTTP(S) endpoint returning a Tauri update JSON manifest.
+                        </div>
+                        <Input
+                          value={customUpdatePubkey}
+                          onChange={(e) => setCustomUpdatePubkey(e.target.value)}
+                          placeholder="Public key (optional)"
+                          className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
+                        />
+                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1">
+                          Minisign public key the releases are signed with. Leave empty to use the official key.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Check / Update action row */}
+                <div className="pt-2 border-t border-zinc-200 dark:border-zinc-700/60 flex items-center justify-between gap-x-3">
+                  <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                    {checkStatus === "idle" && (
+                      <span className="text-zinc-500">Installed version: v{tauriConfig.version || "0.1.7"}</span>
+                    )}
+                    {checkStatus === "checking" && (
+                      <span className="flex items-center gap-x-1.5 text-indigo-500 font-semibold">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Checking for updates...
+                      </span>
+                    )}
+                    {checkStatus === "upToDate" && (
+                      <span className="flex items-center gap-x-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        Luna IRC is up to date (v{tauriConfig.version || "0.1.7"})
+                      </span>
+                    )}
+                    {checkStatus === "available" && (
+                      <span className="flex items-center gap-x-1.5 text-indigo-600 dark:text-indigo-400 font-bold">
+                        <Sparkles className="w-4 h-4 text-indigo-500" />
+                        New version v{foundUpdate?.version} is available!
+                      </span>
+                    )}
+                    {checkStatus === "error" && (
+                      <span className="text-rose-500 text-[11px] block truncate max-w-[240px]">
+                        Error: {checkErrorMsg || "Failed to connect to update server."}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="shrink-0">
+                    {checkStatus === "available" ? (
+                      <Button
+                        size="sm"
+                        onClick={handleOpenUpdateModal}
+                        className="text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 flex items-center gap-x-1.5 shadow-sm"
+                      >
+                        <DownloadCloud className="w-3.5 h-3.5" />
+                        Update now (v{foundUpdate?.version})
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={checkStatus === "checking"}
+                        onClick={handleManualCheckUpdates}
+                        className="text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-x-1.5"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${checkStatus === "checking" ? "animate-spin" : ""}`} />
+                        Check for updates
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  value={newRuleHeaderName}
-                  onChange={(e) => setNewRuleHeaderName(e.target.value)}
-                  placeholder="Header (Authorization / X-Api-Key)"
-                  className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
-                />
-                <Input
-                  value={newRuleHeaderValue}
-                  onChange={(e) => setNewRuleHeaderValue(e.target.value)}
-                  placeholder="Value (Bearer token / key)"
-                  className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
-                />
-              </div>
-              <Button
-                type="submit"
-                variant="secondary"
-                size="sm"
-                className="w-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60"
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" /> Add authorization rule
-              </Button>
-            </form>
+            </div>
+          )}
+
           </div>
         </div>
       </DialogContent>

@@ -6,6 +6,7 @@ import { useMockStore, getServerSelfMember, getServerActiveNick, isSystemMessage
 import { useModalStore } from "@/hooks/use-modal-store";
 import { useDraftStore } from "@/hooks/use-draft-store";
 import { stripCompatReply, useReplyStore } from "@/hooks/use-reply-store";
+import { useMessageCapsStore } from "@/hooks/use-message-caps";
 import { Server, ChannelType } from "@/types";
 import { extractFlag } from "@/lib/flag-tips";
 import {
@@ -1372,6 +1373,44 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
 
     setupAwayListener();
 
+    const messageEventUnlisteners: Array<() => void> = [];
+    const setupMessageModificationListeners = async () => {
+      try {
+        const unlistenCaps = await listen<{ serverId: string; edit: boolean; redact: boolean }>(
+          "irc_caps",
+          (event) => {
+            const { serverId, edit, redact } = event.payload;
+            useMessageCapsStore.getState().setCaps(serverId, { edit, redact });
+          }
+        );
+        const unlistenEdit = await listen<{
+          serverId: string;
+          sender: string;
+          msgid: string;
+          content: string;
+        }>("irc_message_edit", (event) => {
+          const { msgid, sender, content } = event.payload;
+          useMockStore.getState().applyMessageEdit(msgid, sender, content);
+        });
+        const unlistenRedact = await listen<{ serverId: string; msgid: string }>(
+          "irc_message_redact",
+          (event) => {
+            useMockStore.getState().applyMessageRedaction(event.payload.msgid);
+          }
+        );
+        const all = [unlistenCaps, unlistenEdit, unlistenRedact];
+        if (isCancelled) {
+          all.forEach((fn) => fn());
+        } else {
+          messageEventUnlisteners.push(...all);
+        }
+      } catch (error) {
+        console.error("Failed to setup message edit/redact listeners:", error);
+      }
+    };
+
+    setupMessageModificationListeners();
+
     let unlistenSelfMsgidFn: (() => void) | null = null;
     const setupSelfMsgidListener = async () => {
       try {
@@ -1427,13 +1466,13 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => {
       isCancelled = true;
+      messageEventUnlisteners.forEach((fn) => fn());
       if (unlistenFn) unlistenFn();
       if (unlistenUsersFn) unlistenUsersFn();
       if (unlistenHostFn) unlistenHostFn();
       if (unlistenStatusFn) unlistenStatusFn();
       if (unlistenWelcomeNickFn) unlistenWelcomeNickFn();
-      if (unlistenNickChangeFn) unlistenNickChangeFn();
-      if (unlistenTopicFn) unlistenTopicFn();
+      if (unlistenNickChangeFn) unlistenNickChangeFn();      if (unlistenTopicFn) unlistenTopicFn();
       if (unlistenOpsFn) unlistenOpsFn();
       if (unlistenTopicErrorFn) unlistenTopicErrorFn();
       if (unlistenBadKeyFn) unlistenBadKeyFn();
