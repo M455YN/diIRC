@@ -2,7 +2,7 @@ import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useNavigate } from "react-router-dom";
 
 import {
   Dialog,
@@ -90,18 +90,24 @@ const FIELD_TAB: Record<string, ServerTab> = {
 };
 
 export const EditServerModal = () =>
-  useIsMobileShell() ? <MobileServerFormModal mode="edit" /> : <DesktopEditServerModal />;
+  useIsMobileShell() ? <MobileServerFormModal mode="edit" /> : <DesktopServerFormModal mode="edit" />;
 
-const DesktopEditServerModal = () => {
+/** One desktop form for both "Add IRC server" and "Edit server settings". */
+export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) => {
+  const isCreate = mode === "create";
   const { isOpen, onClose, type, data } = useModal();
+  const navigate = useNavigate();
+  const addServer = useMockStore((state) => state.addServer);
   const updateServer = useMockStore((state) => state.updateServer);
+  const currentProfile = useMockStore((state) => state.currentProfile);
 
-  const isModalOpen = isOpen && type === "editServer";
+  const isModalOpen = isOpen && type === (isCreate ? "createServer" : "editServer");
   const { server: initialServer } = data;
 
-  const server = useMockStore((state) =>
+  const existingServer = useMockStore((state) =>
     state.servers.find((s) => s.id === initialServer?.id)
   ) || initialServer;
+  const server = isCreate ? undefined : existingServer;
 
   const globalNotif = useMockStore((state) => state.notificationSettings);
   const globalMotdPolicy = useMockStore((state) => state.globalMotdPolicy) || "on_change";
@@ -179,44 +185,45 @@ const DesktopEditServerModal = () => {
     if (isModalOpen) setTab("connection");
   }, [isModalOpen]);
 
+  // For a new server every field starts from its default (`server` is undefined).
   useEffect(() => {
-    if (server && isModalOpen) {
-      const defaultNicks = server.nicknames && server.nicknames.length > 0 
+    if (isModalOpen && (isCreate || server)) {
+      const defaultNicks = server?.nicknames && server.nicknames.length > 0
         ? server.nicknames.map(n => ({ value: n }))
-        : [{ value: server.nicknames?.[0] || "ReactUser" }];
+        : [{ value: currentProfile.name.replace(/\s+/g, "") || "ReactUser" }];
 
-      setChannelNotificationsOverride(server.notificationSettings?.channelNotifications || "default");
-      setDmNotificationsOverride(server.notificationSettings?.dmNotifications || "default");
-      setSoundOverride(server.notificationSettings?.sound || "default");
-      setPopupOverride(server.notificationSettings?.popup || "default");
-      setTaskbarOverride(server.notificationSettings?.taskbar || "default");
-      setSoundCooldownOverride(server.notificationSettings?.soundCooldown ?? "default");
-      setSoundPresetOverride(server.notificationSettings?.soundPreset || "default");
-      setDmSoundPresetOverride(server.notificationSettings?.dmSoundPreset || "default");
-      setCustomSoundUrlOverride(server.notificationSettings?.customSoundUrl);
-      setCustomDmSoundUrlOverride(server.notificationSettings?.customDmSoundUrl);
+      setChannelNotificationsOverride(server?.notificationSettings?.channelNotifications || "default");
+      setDmNotificationsOverride(server?.notificationSettings?.dmNotifications || "default");
+      setSoundOverride(server?.notificationSettings?.sound || "default");
+      setPopupOverride(server?.notificationSettings?.popup || "default");
+      setTaskbarOverride(server?.notificationSettings?.taskbar || "default");
+      setSoundCooldownOverride(server?.notificationSettings?.soundCooldown ?? "default");
+      setSoundPresetOverride(server?.notificationSettings?.soundPreset || "default");
+      setDmSoundPresetOverride(server?.notificationSettings?.dmSoundPreset || "default");
+      setCustomSoundUrlOverride(server?.notificationSettings?.customSoundUrl);
+      setCustomDmSoundUrlOverride(server?.notificationSettings?.customDmSoundUrl);
       setMotdPolicyOverride(
-        server.id && serverMotdPolicies[server.id]
+        server?.id && serverMotdPolicies[server.id]
           ? serverMotdPolicies[server.id]
-          : server.motdPolicy || "default"
+          : server?.motdPolicy || "default"
       );
-      setDisplayNameModeOverride(server.displayNameMode || "default");
-      setMediaCollapseOverride(server.autoCollapseImages || "default");
+      setDisplayNameModeOverride(server?.displayNameMode || "default");
+      setMediaCollapseOverride(server?.autoCollapseImages || "default");
 
       form.reset({
-        name: server.name || "",
-        host: server.host || "127.0.0.1",
-        port: server.port || 6667,
+        name: server?.name || "",
+        host: server?.host || "127.0.0.1",
+        port: server?.port || 6667,
         nicknames: defaultNicks,
-        username: server.username || "",
-        realname: server.realname || "",
-        password: server.password || "",
-        useTls: server.useTls ?? false,
-        autoConnect: server.autoConnect ?? true,
-        autoReconnect: server.autoReconnect ?? true,
-        parseLegacyZncTimestamps: server.parseLegacyZncTimestamps ?? false,
-        replyMode: server.replyMode ?? "inherit",
-        customCommands: (server.customCommands || []).map((c) => ({
+        username: server?.username || "",
+        realname: server?.realname || "",
+        password: server?.password || "",
+        useTls: server?.useTls ?? false,
+        autoConnect: server?.autoConnect ?? true,
+        autoReconnect: server?.autoReconnect ?? true,
+        parseLegacyZncTimestamps: server?.parseLegacyZncTimestamps ?? false,
+        replyMode: server?.replyMode ?? "inherit",
+        customCommands: (server?.customCommands || []).map((c) => ({
           trigger: c.trigger,
           message: c.message,
           description: c.description || "",
@@ -224,18 +231,31 @@ const DesktopEditServerModal = () => {
         })),
       });
     }
-  }, [server, isModalOpen, form]);
+  }, [server, isCreate, isModalOpen, form, currentProfile]);
 
   const isLoading = form.formState.isSubmitting;
 
   const saveServer = async (values: z.infer<typeof formSchema>) => {
-    if (!server?.id) return;
+    if (!isCreate && !server?.id) return;
     try {
       const nickArray = values.nicknames
         .map(n => n.value.trim())
         .filter(Boolean);
 
-      updateServer(server.id, {
+      // addServer only seeds the connection basics; the shared updateServer below applies the rest.
+      const serverId = isCreate
+        ? addServer({
+            name: values.name,
+            host: values.host,
+            port: values.port,
+            nicknames: nickArray,
+            useTls: values.useTls,
+            autoConnect: values.autoConnect,
+            autoReconnect: values.autoReconnect,
+          }).id
+        : server!.id;
+
+      updateServer(serverId, {
         name: values.name,
         host: values.host,
         port: values.port,
@@ -266,11 +286,12 @@ const DesktopEditServerModal = () => {
         },
       });
 
-      setServerMotdPolicy(server.id, motdPolicyOverride);
-      setServerMediaCollapsePolicy(server.id, mediaCollapseOverride);
+      setServerMotdPolicy(serverId, motdPolicyOverride);
+      setServerMediaCollapsePolicy(serverId, mediaCollapseOverride);
       setConfirmCloseOpen(false);
       form.reset();
       onClose();
+      if (isCreate) navigate(`/servers/${serverId}`);
     } catch (error) {
       console.log(error);
     }
@@ -289,7 +310,7 @@ const DesktopEditServerModal = () => {
   };
 
   const handleAttemptClose = () => {
-    if (form.formState.isDirty) {
+    if (!isCreate && form.formState.isDirty) {
       setConfirmCloseOpen(true);
     } else {
       handleForceClose();
@@ -311,10 +332,12 @@ const DesktopEditServerModal = () => {
         >
           <DialogHeader className="pt-6 pb-4 px-6 space-y-1 shrink-0">
             <DialogTitle className="text-2xl text-center font-bold text-zinc-900 dark:text-zinc-100">
-              Edit server settings
+              {isCreate ? "Add IRC server" : "Edit server settings"}
             </DialogTitle>
             <DialogDescription className="text-center text-zinc-500 dark:text-zinc-400 text-xs sm:text-sm">
-              Update connection parameters and configuration for your IRC server.
+              {isCreate
+                ? "Configure host, port, and nickname to connect to your IRC server."
+                : "Update connection parameters and configuration for your IRC server."}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -356,7 +379,7 @@ const DesktopEditServerModal = () => {
                       <Input
                         disabled={isLoading}
                         className="bg-zinc-100 dark:bg-[#1e1f22] border border-zinc-300/80 dark:border-zinc-700/60 focus-visible:ring-2 focus-visible:ring-indigo-500 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-medium h-10"
-                        placeholder="e.g. Local Ergo"
+                        placeholder="e.g. Local Ergo or Libera Chat"
                         {...field}
                       />
                     </FormControl>
@@ -805,7 +828,7 @@ const DesktopEditServerModal = () => {
                   Cancel
                 </Button>
                 <Button variant="primary" disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 shadow-sm">
-                  Save changes
+                  {isCreate ? "Connect & add" : "Save changes"}
                 </Button>
               </DialogFooter>
             </form>
