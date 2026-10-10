@@ -19,6 +19,7 @@ import { InvitePreviewPage } from "@/pages/invite-preview-page";
 
 import { useAutoUpdateCheck } from "@/hooks/use-auto-update-check";
 import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { useAppearanceStyleSync } from "@/hooks/use-appearance-style";
 
 function AppRoutes() {
   const isMobileShell = useIsMobileShell();
@@ -39,6 +40,12 @@ function AppRoutes() {
       </Route>
     </Routes>
   );
+}
+
+// Needs next-themes context (resolved colour mode), so it lives inside ThemeProvider.
+function AppearanceSync() {
+  useAppearanceStyleSync();
+  return null;
 }
 
 export function App() {
@@ -81,10 +88,11 @@ export function App() {
       <ThemeProvider
         attribute="class"
         defaultTheme="dark"
-        enableSystem={false}
+        enableSystem
         storageKey="discord-theme"
         themes={["light", "dark", "oled"]}
       >
+      <AppearanceSync />
       <SocketProvider>
         <BrowserRouter>
           <IrcProvider>

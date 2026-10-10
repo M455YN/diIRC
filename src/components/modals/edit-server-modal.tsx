@@ -23,7 +23,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff, Reply } from "lucide-react";
+import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff, Reply, Server, Zap, MessageSquare, Command } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
 import { useIsMobileShell } from "@/hooks/use-mobile-platform";
@@ -69,6 +70,25 @@ const formSchema = z.object({
   ).default([]),
 });
 
+type ServerTab = "connection" | "behavior" | "chat" | "notifications" | "commands";
+
+const SERVER_TABS: { id: ServerTab; title: string; icon: typeof Bell }[] = [
+  { id: "connection", title: "Connection", icon: Server },
+  { id: "behavior", title: "Behavior", icon: Zap },
+  { id: "chat", title: "Chat and display", icon: MessageSquare },
+  { id: "notifications", title: "Notifications", icon: Bell },
+  { id: "commands", title: "Custom commands", icon: Command },
+];
+
+// Which tab hosts each form field, so a validation error can bring the user to it.
+const FIELD_TAB: Record<string, ServerTab> = {
+  name: "connection", host: "connection", port: "connection", password: "connection",
+  username: "connection", realname: "connection", nicknames: "connection", useTls: "connection",
+  autoConnect: "behavior", autoReconnect: "behavior", parseLegacyZncTimestamps: "behavior",
+  replyMode: "chat",
+  customCommands: "commands",
+};
+
 export const EditServerModal = () =>
   useIsMobileShell() ? <MobileServerFormModal mode="edit" /> : <DesktopEditServerModal />;
 
@@ -92,6 +112,7 @@ const DesktopEditServerModal = () => {
   const setGlobalMotdPolicy = useMockStore((state) => state.setGlobalMotdPolicy);
 
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [tab, setTab] = useState<ServerTab>("connection");
   const [motdPolicyOverride, setMotdPolicyOverride] = useState<ServerMotdDisplayPolicy>("default");
   const [displayNameModeOverride, setDisplayNameModeOverride] = useState<ServerUserDisplayNameMode>("default");
   const [mediaCollapseOverride, setMediaCollapseOverride] = useState<ServerMediaCollapseMode>("default");
@@ -152,6 +173,11 @@ const DesktopEditServerModal = () => {
     name: "nicknames",
     control: form.control,
   });
+
+  // Start on the first tab each time the modal opens (not on every store update).
+  useEffect(() => {
+    if (isModalOpen) setTab("connection");
+  }, [isModalOpen]);
 
   useEffect(() => {
     if (server && isModalOpen) {
@@ -254,6 +280,14 @@ const DesktopEditServerModal = () => {
     await saveServer(values);
   };
 
+  const onFormInvalid = (errors: Record<string, unknown>) => {
+    const firstField = Object.keys(errors)[0];
+    if (firstField && FIELD_TAB[firstField]) {
+      setTab(FIELD_TAB[firstField]);
+    }
+    setConfirmCloseOpen(false);
+  };
+
   const handleAttemptClose = () => {
     if (form.formState.isDirty) {
       setConfirmCloseOpen(true);
@@ -273,9 +307,9 @@ const DesktopEditServerModal = () => {
       <Dialog open={isModalOpen} onOpenChange={handleAttemptClose}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
-          className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 p-0 overflow-hidden sm:max-w-lg max-h-[90vh] flex flex-col border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl"
+          className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 p-0 overflow-hidden sm:max-w-4xl h-[80vh] max-h-[90vh] flex flex-col border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl"
         >
-          <DialogHeader className="pt-6 px-6 space-y-1 shrink-0">
+          <DialogHeader className="pt-6 pb-4 px-6 space-y-1 shrink-0">
             <DialogTitle className="text-2xl text-center font-bold text-zinc-900 dark:text-zinc-100">
               Edit server settings
             </DialogTitle>
@@ -284,8 +318,32 @@ const DesktopEditServerModal = () => {
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onFormSubmit)} className="flex flex-col flex-1 min-h-0">
-              <div className="space-y-4 flex-1 overflow-y-auto px-6 py-2 min-h-0">
+            <form onSubmit={form.handleSubmit(onFormSubmit, onFormInvalid)} className="flex flex-col flex-1 min-h-0">
+              <div className="flex min-h-0 flex-1 flex-col border-t border-zinc-200 dark:border-zinc-800 sm:flex-row">
+              <nav
+                aria-label="Server settings categories"
+                className="flex shrink-0 gap-1 overflow-x-auto border-b border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-[#2b2d31] sm:w-52 sm:flex-col sm:overflow-y-auto sm:overflow-x-visible sm:border-b-0 sm:border-r sm:p-3"
+              >
+                {SERVER_TABS.map(({ id, title, icon: TabIcon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setTab(id)}
+                    aria-current={tab === id ? "page" : undefined}
+                    className={cn(
+                      "flex shrink-0 items-center gap-x-2.5 rounded-md px-3 py-2 text-left text-sm font-medium transition cursor-pointer",
+                      tab === id
+                        ? "bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300"
+                        : "text-zinc-600 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-700/50"
+                    )}
+                  >
+                    <TabIcon className="h-4 w-4 shrink-0" />
+                    <span className="whitespace-nowrap">{title}</span>
+                  </button>
+                ))}
+              </nav>
+              <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-6 py-4">
+              <div role="tabpanel" className={tab === "connection" ? "space-y-4" : "hidden"}>
               <FormField
                 control={form.control}
                 name="name"
@@ -471,8 +529,6 @@ const DesktopEditServerModal = () => {
                 ))}
               </div>
 
-              <CustomCommandsFields control={form.control} disabled={isLoading} />
-
               <FormField
                 control={form.control}
                 name="useTls"
@@ -502,7 +558,8 @@ const DesktopEditServerModal = () => {
                   </FormItem>
                 )}
               />
-
+              </div>
+              <div role="tabpanel" className={tab === "behavior" ? "space-y-4" : "hidden"}>
               <FormField
                 control={form.control}
                 name="autoConnect"
@@ -571,7 +628,8 @@ const DesktopEditServerModal = () => {
                   </FormItem>
                 )}
               />
-
+              </div>
+              <div role="tabpanel" className={tab === "chat" ? "space-y-4" : "hidden"}>
               {/* SECTION: MOTD POLICY */}
               <div className="flex flex-col rounded-xl border border-zinc-300/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-3.5 space-y-2.5 shadow-sm">
                 <div className="flex items-center gap-x-2">
@@ -689,7 +747,8 @@ const DesktopEditServerModal = () => {
                   </FormItem>
                 )}
               />
-
+              </div>
+              <div role="tabpanel" className={tab === "notifications" ? "space-y-4" : "hidden"}>
               {/* SECTION: SERVER NOTIFICATION OVERRIDES */}
               <NotificationSettingsFields
                 mode="server"
@@ -728,6 +787,11 @@ const DesktopEditServerModal = () => {
                   else if (field === "taskbar") setTaskbarOverride(val);
                 }}
               />
+              </div>
+              <div role="tabpanel" className={tab === "commands" ? "space-y-4" : "hidden"}>
+              <CustomCommandsFields control={form.control} disabled={isLoading} />
+              </div>
+              </div>
               </div>
 
               <DialogFooter className="bg-zinc-100/90 dark:bg-[#2b2d31] border-t border-zinc-200 dark:border-zinc-800/80 px-6 py-4 flex items-center justify-between shrink-0">
@@ -789,7 +853,7 @@ const DesktopEditServerModal = () => {
             </Button>
             <Button
               type="button"
-              onClick={form.handleSubmit(saveServer)}
+              onClick={form.handleSubmit(saveServer, onFormInvalid)}
               disabled={isLoading}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 shadow-sm text-xs transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]"
             >

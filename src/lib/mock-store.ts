@@ -328,6 +328,7 @@ const mapLogEntries = (
       ircMsgid: entry.msgid,
       replyToMsgid: entry.replyToMsgid,
       replyTo,
+      edited: entry.edited || undefined,
     } as Message | DirectMessage;
   });
 
@@ -463,6 +464,10 @@ interface MockState {
   historyLoadToken: number;
   historyWindow: HistoryWindow;
   compactMode: boolean;
+  /** Split the channel user list into role groups (owners, ops, ..., away). */
+  groupMembersByRole: boolean;
+  /** `${serverId}:${groupId}` -> collapsed */
+  collapsedMemberGroups: Record<string, boolean>;
   enableMarkdown: boolean;
   enableFormattingPreview: boolean;
   scrollToUnreadOnFocus: boolean;
@@ -543,6 +548,8 @@ interface MockState {
 
   // Settings Actions
   setCompactMode: (enabled: boolean) => void;
+  setGroupMembersByRole: (enabled: boolean) => void;
+  toggleMemberGroupCollapsed: (key: string) => void;
   setEnableMarkdown: (enabled: boolean) => void;
   setEnableFormattingPreview: (enabled: boolean) => void;
   setScrollToUnreadOnFocus: (enabled: boolean) => void;
@@ -629,6 +636,10 @@ interface MockState {
   addMessage: (channelId: string, member: Member, content: string, fileUrl?: string | null, isSystem?: boolean, extras?: IncomingMessageMeta) => Message;
   deleteMessage: (channelId: string, messageId: string) => void;
   updateMessageMsgid: (localId: string, msgid: string) => void;
+  /** Applies an IRCv3 edit to the message with this msgid (author must match `sender`). */
+  applyMessageEdit: (msgid: string, sender: string, content: string) => void;
+  /** Marks the message with this msgid as deleted (IRCv3 REDACT). */
+  applyMessageRedaction: (msgid: string) => void;
 
   activeConversations: Record<string, string[]>;
   historicalConversations: Record<string, string[]>;
@@ -688,6 +699,8 @@ export const useMockStore = create<MockState>()(
       activeConversations: {},
       historicalConversations: {},
       compactMode: false,
+      groupMembersByRole: true,
+      collapsedMemberGroups: {},
       enableMarkdown: true,
       enableFormattingPreview: true,
       scrollToUnreadOnFocus: false,
@@ -837,20 +850,38 @@ export const useMockStore = create<MockState>()(
       setDmSortOrder: (order) => set({ dmSortOrder: order }),
 
       setIrcConnected: (serverId: string, isConnected: boolean, error: string | null = null) =>
-        set((state) => ({
-          ircConnectedServers: {
-            ...state.ircConnectedServers,
-            [serverId]: isConnected,
-          },
-          ircConnectingServers: {
-            ...state.ircConnectingServers,
-            [serverId]: false,
-          },
-          ircConnectionErrors: {
-            ...state.ircConnectionErrors,
-            [serverId]: isConnected ? null : (error ?? state.ircConnectionErrors[serverId] ?? null),
-          },
-        })),
+        set((state) => {
+          const base = {
+            ircConnectedServers: {
+              ...state.ircConnectedServers,
+              [serverId]: isConnected,
+            },
+            ircConnectingServers: {
+              ...state.ircConnectingServers,
+              [serverId]: false,
+            },
+            ircConnectionErrors: {
+              ...state.ircConnectionErrors,
+              [serverId]: isConnected ? null : (error ?? state.ircConnectionErrors[serverId] ?? null),
+            },
+          };
+          // A fresh (re)connection is about to re-send JOIN/NAMES/WHO for every channel,
+          // so drop whatever presence data was left over from the previous session.
+          if (!isConnected || state.ircConnectedServers[serverId]) return base;
+
+          const server = state.servers.find((s) => s.id === serverId);
+          const channelIds = new Set((server?.channels ?? []).map((c) => c.id));
+          const omit = <T,>(map: Record<string, T>) =>
+            Object.fromEntries(Object.entries(map).filter(([id]) => !channelIds.has(id))) as Record<string, T>;
+          return {
+            ...base,
+            channelMembers: omit(state.channelMembers),
+            channelOps: omit(state.channelOps),
+            channelUserModes: omit(state.channelUserModes),
+            awayUsers: { ...state.awayUsers, [serverId]: {} },
+            awayReasons: { ...state.awayReasons, [serverId]: {} },
+          };
+        }),
 
       setIrcConnecting: (serverId: string, isConnecting: boolean) =>
         set((state) => ({
@@ -1007,7 +1038,13 @@ export const useMockStore = create<MockState>()(
           const nextChannelOps = { ...state.channelOps };
           const nextChannelUserModes = { ...state.channelUserModes };
 
-          Object.keys(nextChannelMembers).forEach((chanId) => {
+          // Channel ids are global; only touch channels that belong to this server so a nick
+          // change on one network doesn't rename the same nick on another.
+          const serverChannelIds = new Set(
+            (state.servers.find((s) => s.id === serverId)?.channels ?? []).map((c) => c.id)
+          );
+
+          Object.keys(nextChannelMembers).filter((id) => serverChannelIds.has(id)).forEach((chanId) => {
             const chanMembers = nextChannelMembers[chanId] || [];
             if (chanMembers.some((n) => n.toLowerCase() === oldNickLower)) {
               nextChannelMembers[chanId] = chanMembers.map((n) =>
@@ -1016,7 +1053,7 @@ export const useMockStore = create<MockState>()(
             }
           });
 
-          Object.keys(nextChannelOps).forEach((chanId) => {
+          Object.keys(nextChannelOps).filter((id) => serverChannelIds.has(id)).forEach((chanId) => {
             const ops = nextChannelOps[chanId] || [];
             if (ops.some((n) => n.toLowerCase() === oldNickLower)) {
               nextChannelOps[chanId] = ops.map((n) =>
@@ -1025,7 +1062,7 @@ export const useMockStore = create<MockState>()(
             }
           });
 
-          Object.keys(nextChannelUserModes).forEach((chanId) => {
+          Object.keys(nextChannelUserModes).filter((id) => serverChannelIds.has(id)).forEach((chanId) => {
             const modesMap = { ...nextChannelUserModes[chanId] };
             if (modesMap[oldNickLower]) {
               modesMap[newNickLower] = modesMap[oldNickLower];
@@ -1117,6 +1154,15 @@ export const useMockStore = create<MockState>()(
         })),
 
       setCompactMode: (enabled: boolean) => set({ compactMode: enabled }),
+      setGroupMembersByRole: (enabled: boolean) => set({ groupMembersByRole: enabled }),
+
+      toggleMemberGroupCollapsed: (key) =>
+        set((state) => ({
+          collapsedMemberGroups: {
+            ...state.collapsedMemberGroups,
+            [key]: !state.collapsedMemberGroups[key],
+          },
+        })),
       setEnableMarkdown: (enabled: boolean) => set({ enableMarkdown: enabled }),
       setEnableFormattingPreview: (enabled: boolean) => set({ enableFormattingPreview: enabled }),
       setScrollToUnreadOnFocus: (enabled: boolean) => set({ scrollToUnreadOnFocus: enabled }),
@@ -1999,6 +2045,17 @@ export const useMockStore = create<MockState>()(
                 updatedChannelMembers[chId] = Array.from(new Set([...currentUsers, ...plainUsers]));
               } else if (eventType === "PART") {
                 const toRemove = new Set(users.map((u) => u.toLowerCase()));
+                if (toRemove.has(getServerActiveNick(targetServer).toLowerCase())) {
+                  // We left (or were kicked): nothing in this channel is visible to us any more.
+                  updatedChannelMembers[chId] = [];
+                  updatedChannelOps[chId] = [];
+                  updatedChannelUserModes[chId] = {};
+                  return {
+                    channelMembers: updatedChannelMembers,
+                    channelOps: updatedChannelOps,
+                    channelUserModes: updatedChannelUserModes,
+                  };
+                }
                 updatedChannelMembers[chId] = currentUsers.filter((u) => !toRemove.has(u.toLowerCase()));
                 if (updatedChannelOps[chId]) {
                   updatedChannelOps[chId] = updatedChannelOps[chId].filter((u) => !toRemove.has(u.toLowerCase()));
@@ -2030,10 +2087,28 @@ export const useMockStore = create<MockState>()(
             });
           }
 
+          // A quitting user is gone from the network, so any away flag is stale by definition.
+          let nextAwayUsers = state.awayUsers;
+          let nextAwayReasons = state.awayReasons;
+          if (eventType === "QUIT") {
+            const lowered = users.map((u) => u.toLowerCase());
+            const dropNicks = (map: Record<string, Record<string, any>>) => {
+              const current = map[serverId];
+              if (!current || !lowered.some((n) => n in current)) return map;
+              const copy = { ...current };
+              lowered.forEach((n) => delete copy[n]);
+              return { ...map, [serverId]: copy };
+            };
+            nextAwayUsers = dropNicks(state.awayUsers);
+            nextAwayReasons = dropNicks(state.awayReasons);
+          }
+
           return {
             channelMembers: updatedChannelMembers,
             channelOps: updatedChannelOps,
             channelUserModes: updatedChannelUserModes,
+            awayUsers: nextAwayUsers,
+            awayReasons: nextAwayReasons,
           };
         });
       },
@@ -2687,6 +2762,61 @@ export const useMockStore = create<MockState>()(
         }));
       },
 
+      applyMessageEdit: (msgid, sender, content) => {
+        const nextContent = content.replace(/\u0085/g, "\n");
+        const patchList = <T extends Message | DirectMessage>(
+          lists: Record<string, T[]>
+        ): Record<string, T[]> | null => {
+          for (const [key, msgs] of Object.entries(lists)) {
+            const idx = msgs.findIndex(
+              (m) =>
+                m.ircMsgid === msgid &&
+                !m.deleted &&
+                m.member?.profile?.name?.toLowerCase() === sender.toLowerCase()
+            );
+            if (idx === -1) continue;
+            const next = msgs.slice();
+            next[idx] = { ...msgs[idx], content: nextContent, edited: true };
+            return { ...lists, [key]: next };
+          }
+          return null;
+        };
+        set((state) => {
+          const messages = patchList(state.messages);
+          if (messages) return { messages };
+          const directMessages = patchList(state.directMessages);
+          if (directMessages) return { directMessages };
+          return state;
+        });
+      },
+
+      applyMessageRedaction: (msgid) => {
+        const patchList = <T extends Message | DirectMessage>(
+          lists: Record<string, T[]>
+        ): Record<string, T[]> | null => {
+          for (const [key, msgs] of Object.entries(lists)) {
+            const idx = msgs.findIndex((m) => m.ircMsgid === msgid && !m.deleted);
+            if (idx === -1) continue;
+            const next = msgs.slice();
+            next[idx] = {
+              ...msgs[idx],
+              content: "This message has been deleted.",
+              fileUrl: null,
+              deleted: true,
+            };
+            return { ...lists, [key]: next };
+          }
+          return null;
+        };
+        set((state) => {
+          const messages = patchList(state.messages);
+          if (messages) return { messages };
+          const directMessages = patchList(state.directMessages);
+          if (directMessages) return { directMessages };
+          return state;
+        });
+      },
+
       updateMessageMsgid: (localId, msgid) => {
         set((state) => {
           let updatedChannel: string | null = null;
@@ -3042,6 +3172,14 @@ export const useMockStore = create<MockState>()(
         activeChatKey: null,
         unreadState: {},
         manuallyDisconnectedServers: state.manuallyDisconnectedServers,
+        // Live channel presence is owned by the IRC connection; never restore a stale snapshot.
+        channelMembers: {},
+        channelOps: {},
+        channelUserModes: {},
+        channelModes: {},
+        awayUsers: {},
+        awayReasons: {},
+        selfAway: {},
         ircConnectedServers: {},
         ircConnectingServers: {},
         ircConnectionErrors: {},

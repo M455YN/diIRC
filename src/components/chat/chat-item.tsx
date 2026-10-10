@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, memo } from "react";
 import { Member, Profile } from "@/types";
-import { Reply, AlertTriangle } from "lucide-react";
+import { Reply, AlertTriangle, Pencil, Trash2 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { UserAvatar } from "@/components/user-avatar";
@@ -10,6 +12,10 @@ import { cn } from "@/lib/utils";
 import { useMockStore } from "@/lib/mock-store";
 import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 import { focusChatMessage, useReplyStore } from "@/hooks/use-reply-store";
+import { useEditStore } from "@/hooks/use-edit-store";
+import { useAppearanceStyleStore } from "@/hooks/use-appearance-style";
+import { nickColor } from "@/lib/nick-color";
+import { useMessageCaps } from "@/hooks/use-message-caps";
 import { ChatItemAttachment } from "./chat-item-attachment";
 import { LinkPreview } from "./link-preview";
 
@@ -37,6 +43,7 @@ interface ChatItemProps {
   compact?: boolean;
   isSystem?: boolean;
   ircMsgid?: string;
+  edited?: boolean;
   messageOffset?: number;
   replyTo?: {
     messageId: string;
@@ -62,6 +69,7 @@ const ChatItemInner = ({
   compact = false,
   isSystem = false,
   ircMsgid,
+  edited = false,
   messageOffset,
   replyTo,
   onContentSizeChange,
@@ -71,6 +79,8 @@ const ChatItemInner = ({
   const isMobile = useIsMobileShell();
 
   const compactMode = useMockStore((state) => state.compactMode);
+  const messageLayout = useAppearanceStyleStore((state) => state.layout);
+  const ircLayout = messageLayout === "irc" && !isMobile;
   const enableLinkPreviews = useMockStore((state) => state.enableLinkPreviews);
   const enableMarkdown = useMockStore((state) => state.enableMarkdown ?? true);
   const jumbojiSize = useMockStore((state) => state.jumbojiSize ?? 42);
@@ -177,6 +187,51 @@ const ChatItemInner = ({
     if (isSystem || deleted || isSelf || !content) return false;
     return checkIsMention(content, myNicks);
   }, [content, isSystem, deleted, isSelf, myNicks]);
+
+  const messageCaps = useMessageCaps(activeServer?.id);
+  const canEdit = isSelf && !deleted && !isSystem && !!ircMsgid && messageCaps.edit && !fileUrl;
+  const canDelete = isSelf && !deleted && !isSystem && !!ircMsgid && messageCaps.redact;
+
+  // IRC target the message was sent to: channel name, or the peer's nick for a DM.
+  const messageTarget = useMemo(() => {
+    if (channelId) return activeServer?.channels.find((c) => c.id === channelId)?.name ?? null;
+    if (conversationId) {
+      return activeServer?.members.find((m) => m.id === conversationId)?.profile.name ?? null;
+    }
+    return null;
+  }, [activeServer, channelId, conversationId]);
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!chatId || !ircMsgid) return;
+    useEditStore.getState().setPending(chatId, { messageId: id, msgid: ircMsgid, original: content });
+    window.dispatchEvent(
+      new CustomEvent("restore_unsent_message", { detail: { id: chatId, content } })
+    );
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!activeServer || !ircMsgid || !messageTarget) return;
+    const confirmed = await ask("Delete this message for everyone? This cannot be undone.", {
+      title: "Delete message",
+      kind: "warning",
+    }).catch(() => false);
+    if (!confirmed) return;
+    try {
+      await invoke("redact_message", {
+        serverId: activeServer.id,
+        channel: messageTarget,
+        msgid: ircMsgid,
+        reason: null,
+      });
+      useMockStore.getState().applyMessageRedaction(ircMsgid);
+    } catch (err) {
+      console.error("Failed to delete message:", err);
+    }
+  };
 
   const hasBrokenHeader = isBrokenHeader(content);
   const cleanContent = stripSteganography(content).replace(/\u0085/g, "\n");
@@ -398,6 +453,11 @@ const ChatItemInner = ({
             </p>
           )
         )}
+        {edited && !deleted && (
+          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 select-none" title="This message was edited">
+            (edited)
+          </span>
+        )}
         {!fileUrl &&
           extractedUrls.map((url) => (
             <LinkPreview
@@ -487,13 +547,30 @@ const ChatItemInner = ({
   return (
     <div className={cn(
       "relative group flex items-center px-4 transition w-full border-l-[3px]",
-      compact ? "py-[2px]" : "pt-2.5 pb-[2px]",
+      ircLayout ? "py-[1px] px-3" : compact ? "py-[2px]" : "pt-2.5 pb-[2px]",
       isMention
         ? "bg-amber-500/10 hover:bg-amber-500/15 dark:bg-amber-500/15 dark:hover:bg-amber-500/20 border-amber-500"
         : "border-transparent"
     )}>
       <div className="group flex gap-x-2 items-start w-full min-w-0">
-        {!compactMode && !compact ? (
+        {ircLayout ? (
+          <div className="flex shrink-0 items-baseline gap-x-1.5 font-mono text-[13px] leading-snug">
+            <span className="select-none text-zinc-400 dark:text-zinc-500">
+              [{compactTime ?? timestamp}]
+            </span>
+            {!isAction && (
+              <UserHoverCard member={member} server={activeServer} side="right">
+                <span
+                  onClick={onMemberClick}
+                  style={{ color: nickColor(member.profile.name) }}
+                  className="cursor-pointer font-semibold hover:underline"
+                >
+                  &lt;{displayName}&gt;
+                </span>
+              </UserHoverCard>
+            )}
+          </div>
+        ) : !compactMode && !compact ? (
           <UserHoverCard member={member} server={activeServer} side="right">
             <div onClick={onMemberClick} className="cursor-pointer hover:drop-shadow-md transition shrink-0">
               <UserAvatar src={member.profile.imageUrl} name={displayName} className="h-10 w-10 md:h-10 md:w-10" />
@@ -528,7 +605,7 @@ const ChatItemInner = ({
               </div>
             </button>
           )}
-          {!compact && (
+          {!compact && !ircLayout && (
             <div className="flex items-center gap-x-2">
               {!isAction && (
                 <div className="flex items-center">
@@ -601,6 +678,11 @@ const ChatItemInner = ({
                   </p>
                 )
               )}
+              {edited && !deleted && (
+                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 select-none" title="This message was edited">
+                  (edited)
+                </span>
+              )}
               {extractedUrls.map((url) => (
                 <LinkPreview
                   key={url}
@@ -614,6 +696,28 @@ const ChatItemInner = ({
       </div>
       {!deleted && !isSystem && (
         <div className="hidden group-hover:flex items-center gap-x-2 absolute p-1 -top-2 right-5 bg-white dark:bg-zinc-800 border rounded-sm">
+          {canEdit && (
+            <ActionTooltip label="Edit">
+              <button
+                type="button"
+                onClick={handleEdit}
+                className="p-0.5 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 transition"
+              >
+                <Pencil className="cursor-pointer w-4 h-4 text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition" />
+              </button>
+            </ActionTooltip>
+          )}
+          {canDelete && (
+            <ActionTooltip label="Delete">
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="p-0.5 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 transition"
+              >
+                <Trash2 className="cursor-pointer w-4 h-4 text-zinc-500 hover:text-rose-500 transition" />
+              </button>
+            </ActionTooltip>
+          )}
           <ActionTooltip label="Answer">
             <button
               type="button"
@@ -641,6 +745,7 @@ export const ChatItem = memo(ChatItemInner, (prev, next) =>
   prev.timestamp === next.timestamp &&
   prev.compactTime === next.compactTime &&
   prev.ircMsgid === next.ircMsgid &&
+  prev.edited === next.edited &&
   prev.messageOffset === next.messageOffset &&
   prev.replyTo?.messageId === next.replyTo?.messageId &&
   prev.replyTo?.nick === next.replyTo?.nick &&

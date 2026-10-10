@@ -2,7 +2,6 @@ import { useState, useRef } from "react";
 import { Settings, ShieldCheck } from "lucide-react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ModeToggle } from "@/components/mode-toggle";
 import { Separator } from "@/components/ui/separator";
 import { ActionTooltip } from "@/components/action-tooltip";
 import { useMockStore } from "@/lib/mock-store";
@@ -233,7 +232,6 @@ export const NavigationSidebar = () => {
           </div>
         </ScrollArea>
         <div className="pb-3 mt-auto flex items-center flex-col gap-y-4">
-          <ModeToggle />
           <ActionTooltip side="right" align="center" label="Role icons">
             <button
               onClick={() => onOpen("roleIcons")}

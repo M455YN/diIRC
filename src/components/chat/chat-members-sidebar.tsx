@@ -8,8 +8,9 @@ import { UserRoleIcon, getHighestChannelRole } from "@/components/user-role-icon
 import { useUIStore } from "@/hooks/use-ui-store";
 import { useModal } from "@/hooks/use-modal-store";
 import { ActionTooltip } from "@/components/action-tooltip";
-import { MoreHorizontal } from "lucide-react";
+import { ChevronRight, MoreHorizontal } from "lucide-react";
 import { MobileMembersList, type MobileMemberRow } from "@/components/mobile/mobile-members-list";
+import { buildMemberGroups, collapsedKey } from "@/lib/member-groups";
 
 interface ChatMembersSidebarProps {
   server: Server;
@@ -36,6 +37,9 @@ export const ChatMembersSidebar = ({
   const awayUsersMap = useMockStore((state) => state.awayUsers);
   const awayReasonsMap = useMockStore((state) => state.awayReasons);
   const selfAwayMap = useMockStore((state) => state.selfAway);
+  const groupMembersByRole = useMockStore((state) => state.groupMembersByRole);
+  const collapsedGroups = useMockStore((state) => state.collapsedMemberGroups);
+  const toggleGroupCollapsed = useMockStore((state) => state.toggleMemberGroupCollapsed);
 
   const showMembersSidebar = useUIStore((state) => state.showMembersSidebar);
 
@@ -72,15 +76,12 @@ export const ChatMembersSidebar = ({
   // in PM mode: show active conversation partners
   let otherMembers: Member[];
   if (channel) {
-    const channelUserNicks = channelMembersMap[channel.id];
-    if (channelUserNicks && channelUserNicks.length > 0) {
-      const channelUsersSet = new Set(channelUserNicks.map((u) => u.toLowerCase()));
-      otherMembers = server.members.filter(
-        (m) => channelUsersSet.has(m.profile.name.toLowerCase()) && isNotSelf(m)
-      );
-    } else {
-      otherMembers = server.members.filter(isNotSelf);
-    }
+    // Only ever show who is actually in this channel. server.members is a network-wide
+    // cache of everyone ever seen, so it must not be used as a fallback.
+    const channelUsersSet = new Set((channelMembersMap[channel.id] ?? []).map((u) => u.toLowerCase()));
+    otherMembers = server.members.filter(
+      (m) => channelUsersSet.has(m.profile.name.toLowerCase()) && isNotSelf(m)
+    );
   } else {
     const activeMemberIds = (historicalConversations[server.id] || []).filter(
       (memberId) => memberId !== selfMember?.id
@@ -126,20 +127,52 @@ export const ChatMembersSidebar = ({
 
   const totalCount = 1 + otherMembers.length;
 
+  const isMemberAway = (member: Member, isSelf: boolean) => {
+    const nickLower = member.profile.name.toLowerCase();
+    return isSelf
+      ? !!selfAwayMap[server.id] ||
+          !!awayUsersMap[server.id]?.[ourNick.toLowerCase()] ||
+          !!awayUsersMap[server.id]?.[nickLower]
+      : !!awayUsersMap[server.id]?.[nickLower];
+  };
+  const getMemberRole = (member: Member) =>
+    channel
+      ? getHighestChannelRole(channelUserModesMap[channel.id]?.[member.profile.name.toLowerCase()] || [])
+      : null;
+
+  const useGroups = !!channel && groupMembersByRole;
+  const memberGroups = useGroups
+    ? buildMemberGroups(
+        [selfMember, ...otherMembers],
+        (m) => ({
+          role: getMemberRole(m),
+          isAway: isMemberAway(m, m.id === selfMember.id),
+        }),
+        (a, b) =>
+          getMemberDisplayName(a, server).localeCompare(getMemberDisplayName(b, server), undefined, {
+            sensitivity: "base",
+          })
+      )
+    : [];
+
   const onMemberClick = (memberId: string) => {
     openConversation(server.id, memberId);
     navigate(`/servers/${server.id}/conversations/${memberId}`);
   };
 
-  const renderMember = (member: Member, isSelf: boolean = false) => {
+  // A lone plain-Users group would only repeat the "Users — N" title. Any other lone group
+  // (e.g. everyone is an operator, or everyone is away) keeps its header: it carries info.
+  const hideGroupHeaders =
+    memberGroups.length === 1 && memberGroups[0].kind === "role" && !memberGroups[0].role;
+
+  // `showRoleIcon` is off inside role groups: the group header already states the role.
+  const renderMember = (member: Member, isSelf: boolean = false, showRoleIcon: boolean = true) => {
     const displayName = getMemberDisplayName(member, server);
     const userModes = channel ? channelUserModesMap[channel.id]?.[member.profile.name.toLowerCase()] || [] : [];
     const highestRole = getHighestChannelRole(userModes);
 
     const memberNickLower = member.profile.name.toLowerCase();
-    const isAway = isSelf
-      ? !!selfAwayMap[server.id] || !!awayUsersMap[server.id]?.[ourNick.toLowerCase()] || !!awayUsersMap[server.id]?.[memberNickLower]
-      : !!awayUsersMap[server.id]?.[memberNickLower];
+    const isAway = isMemberAway(member, isSelf);
     const awayReason = isSelf
       ? awayReasonsMap[server.id]?.[ourNick.toLowerCase()] || awayReasonsMap[server.id]?.[memberNickLower]
       : awayReasonsMap[server.id]?.[memberNickLower];
@@ -169,7 +202,7 @@ export const ChatMembersSidebar = ({
               {displayName}
             </p>
           </div>
-          {highestRole && (
+          {showRoleIcon && highestRole && (
             <UserRoleIcon role={highestRole} showTooltip={false} className="ml-auto" />
           )}
         </div>
@@ -192,15 +225,52 @@ export const ChatMembersSidebar = ({
             </p>
           )}
           <div className={cn("space-y-[2px] transition-all duration-300", !isConnected && "grayscale opacity-60")}>
-            {selfMember && (
+            {useGroups ? (
+              memberGroups.map((group) => {
+                const key = collapsedKey(server.id, group.id);
+                const collapsed = !hideGroupHeaders && !!collapsedGroups[key];
+                const header = hideGroupHeaders ? null : (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroupCollapsed(key)}
+                    className="w-full flex items-center gap-x-1.5 px-2 pt-3 pb-1 text-left uppercase text-xs font-semibold text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition cursor-pointer"
+                  >
+                    <ChevronRight
+                      className={cn("w-3 h-3 shrink-0 transition-transform", !collapsed && "rotate-90")}
+                    />
+                    {group.role && (
+                      <UserRoleIcon role={group.role} showTooltip={false} className="w-3.5 h-3.5" />
+                    )}
+                    <span className="truncate">
+                      {group.title} — {group.items.length}
+                    </span>
+                  </button>
+                );
+                return (
+                  <div key={group.id}>
+                    {header}
+                    {!collapsed &&
+                      group.items.map((member) => (
+                        <div key={member.id} className={cn(group.kind === "away" && "opacity-60")}>
+                          {renderMember(member, member.id === selfMember.id, group.kind !== "role")}
+                        </div>
+                      ))}
+                  </div>
+                );
+              })
+            ) : (
               <>
-                <div key={selfMember.id}>{renderMember(selfMember, true)}</div>
-                <div className="my-1.5 border-b border-zinc-200 dark:border-zinc-700/60" />
+                {selfMember && (
+                  <>
+                    <div key={selfMember.id}>{renderMember(selfMember, true)}</div>
+                    <div className="my-1.5 border-b border-zinc-200 dark:border-zinc-700/60" />
+                  </>
+                )}
+                {otherMembers.map((member) => (
+                  <div key={member.id}>{renderMember(member, false)}</div>
+                ))}
               </>
             )}
-            {otherMembers.map((member) => (
-              <div key={member.id}>{renderMember(member, false)}</div>
-            ))}
           </div>
         </div>
       </div>
@@ -244,6 +314,7 @@ export const ChatMembersSidebar = ({
     return (
       <MobileMembersList
         rows={[toRow(selfMember, true), ...otherMembers.map((m) => toRow(m, false))]}
+        serverId={server.id}
         isChannel={!!channel}
         isConnected={isConnected}
         onMemberClick={onMemberClick}

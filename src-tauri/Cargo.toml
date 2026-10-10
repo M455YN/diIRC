@@ -36,6 +36,9 @@ regex = "1"
 tokio = "1.53.1"
 futures = "0.3.34"
 reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false }
+# Direct dependency only to install a process-wide CryptoProvider in run(): both ring and
+# aws-lc-rs end up enabled transitively, which rustls cannot disambiguate on its own.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 base64 = "0.22"
 tauri-plugin-clipboard-manager = "2.3.2"
 tauri-plugin-fs = "2.5.1"
@@ -46,3 +49,7 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tauri-plugin-os = "2.3.2"
 
+
+# Windows 11 Mica / Acrylic window materials (Fluent style)
+[target.'cfg(windows)'.dependencies]
+window-vibrancy = "0.8"

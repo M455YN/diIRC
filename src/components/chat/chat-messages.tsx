@@ -961,6 +961,7 @@ export const ChatMessages = ({
                   compact={isCompact}
                   isSystem={message.isSystem}
                   ircMsgid={message.ircMsgid}
+                  edited={message.edited}
                   messageOffset={message.offset}
                   replyTo={message.replyTo}
                   onContentSizeChange={getRemeasureCallback(message.id)}

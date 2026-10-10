@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Paperclip, Loader2, X, FileIcon, Command, Radio, User, Users, Bold, Italic, Underline, Strikethrough, GripHorizontal, EyeOff, MoreHorizontal, Code, SquareCode, Heading, Quote, List, ListOrdered } from "lucide-react";
+import { Pencil, Paperclip, Loader2, X, FileIcon, Command, Radio, User, Users, Bold, Italic, Underline, Strikethrough, GripHorizontal, EyeOff, MoreHorizontal, Code, SquareCode, Heading, Quote, List, ListOrdered } from "lucide-react";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useModal } from "@/hooks/use-modal-store";
+import { useEditStore } from "@/hooks/use-edit-store";
+import { useMessageCaps } from "@/hooks/use-message-caps";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { Member, Message, DirectMessage } from "@/types";
 import { useMockStore, getServerSelfMember, getServerActiveNick, formatNickCompletion } from "@/lib/mock-store";
@@ -118,6 +120,12 @@ export const ChatInput = ({
     activeId ? state.pendingByChatId[activeId] : undefined
   );
   const clearPendingReply = useReplyStore((state) => state.clearPending);
+  const pendingEdit = useEditStore((state) =>
+    activeId ? state.pendingByChatId[activeId] : undefined
+  );
+  const clearPendingEdit = useEditStore((state) => state.clearPending);
+  const setPendingEdit = useEditStore((state) => state.setPending);
+  const messageCaps = useMessageCaps(query?.serverId);
   const rememberSentReply = useReplyStore((state) => state.rememberSent);
 
   const initialDraft = activeId ? getDraft(activeId) : { content: "", attachedImages: [] };
@@ -1135,9 +1143,44 @@ export const ChatInput = ({
       return;
     }
 
+    if (e.key === "Escape" && pendingEdit && activeId) {
+      e.preventDefault();
+      clearPendingEdit(activeId);
+      form.reset({ content: "" });
+      return;
+    }
+
     if (e.key === "Escape" && pendingReply && activeId) {
       e.preventDefault();
       clearPendingReply(activeId);
+      return;
+    }
+
+    // ArrowUp in an empty composer edits your most recent message (Discord-style).
+    if (
+      e.key === "ArrowUp" &&
+      !e.shiftKey &&
+      !e.ctrlKey &&
+      !e.altKey &&
+      !e.metaKey &&
+      activeId &&
+      !pendingEdit &&
+      messageCaps.edit &&
+      !(form.getValues("content") || "")
+    ) {
+      const store = useMockStore.getState();
+      const list: Array<Message | DirectMessage> =
+        (type === "channel" ? store.messages[activeId] : store.directMessages[activeId]) || [];
+      const ownNick = (primaryNick || currentProfile.name).toLowerCase();
+      for (let i = list.length - 1; i >= 0; i--) {
+        const m = list[i];
+        if (m.isSystem || m.deleted || !m.ircMsgid) continue;
+        if (m.member?.profile?.name?.toLowerCase() !== ownNick) continue;
+        e.preventDefault();
+        setPendingEdit(activeId, { messageId: m.id, msgid: m.ircMsgid, original: m.content });
+        form.setValue("content", m.content, { shouldDirty: true });
+        break;
+      }
       return;
     }
 
@@ -1238,6 +1281,35 @@ export const ChatInput = ({
             },
             serverId: activeServer.id,
           };
+
+      const editTarget = activeId ? useEditStore.getState().pendingByChatId[activeId] : undefined;
+      if (editTarget && activeId) {
+        const editChannel = type === "channel" ? (name.startsWith("#") ? name : `#${name}`) : name;
+        if (!textContent || textContent === editTarget.original) {
+          clearPendingEdit(activeId);
+          form.reset({ content: "" });
+          focusInput();
+          return;
+        }
+        try {
+          await invoke("edit_message", {
+            serverId: activeServer.id,
+            channel: editChannel,
+            msgid: editTarget.msgid,
+            message: textContent.replace(/\r?\n/g, "\u0085"),
+          });
+          useMockStore
+            .getState()
+            .applyMessageEdit(editTarget.msgid, senderMember.profile.name, textContent);
+          clearPendingEdit(activeId);
+          clearDraft(activeId);
+          form.reset({ content: "" });
+          focusInput();
+        } catch (err) {
+          console.error("Failed to edit message:", err);
+        }
+        return;
+      }
 
       if (textContent.startsWith("/")) {
         let inputUpdated = false;
@@ -1482,6 +1554,31 @@ export const ChatInput = ({
                       : "relative p-4 pb-6"
                   )}
                 >
+                  {pendingEdit && (
+                    <div className="mb-2 flex items-center gap-x-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+                      <Pencil className="h-4 w-4 shrink-0 text-amber-500" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                          Editing message
+                        </p>
+                        <p className="text-xs italic text-zinc-500 dark:text-zinc-400 truncate">
+                          {pendingEdit.original}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!activeId) return;
+                          clearPendingEdit(activeId);
+                          form.reset({ content: "" });
+                        }}
+                        className="h-6 w-6 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70 flex items-center justify-center transition"
+                        title="Cancel edit (Esc)"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                   {pendingReply && (
                     <div className="mb-2 flex items-center gap-x-3 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2">
                       <div className="w-0.5 self-stretch rounded-full bg-indigo-500 shrink-0" />
