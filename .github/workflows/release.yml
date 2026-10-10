@@ -83,9 +83,28 @@ jobs:
           tagName: 'v__VERSION__'
           releaseName: 'diIRC v__VERSION__'
           releaseBody: ${{ steps.notes.outputs.body || format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, github.ref_name) }}
-          # Forks publish straight away: the updater reads /releases/latest, which skips drafts and prereleases.
-          releaseDraft: ${{ github.repository == 'TheStami/diIRC' }}
+          # Always a draft while the matrix builds: a published release becomes /releases/latest at once, and
+          # until the slowest job (Windows) uploads its part, latest.json would lack that platform and the
+          # updater would fail with "None of the fallback platforms ... were found". See the publish job.
+          releaseDraft: true
           prerelease: ${{ github.repository == 'TheStami/diIRC' }}
           includeUpdaterJson: true
           updaterJsonKeepSignatures: true
           args: ${{ matrix.args }}
+
+  # Forks publish only once every platform has been uploaded; the updater reads /releases/latest,
+  # which skips drafts and prereleases. The upstream repo keeps its draft for manual review.
+  publish-release:
+    if: github.repository != 'TheStami/diIRC'
+    needs: build-tauri
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          gh release edit "v${version}" --draft=false --repo "$GITHUB_REPOSITORY"
