@@ -137,6 +137,11 @@ export const ChatInput = ({
   const undoStackRef = useRef<string[]>([]);
   const redoStackRef = useRef<string[]>([]);
   const isUndoRedoRef = useRef(false);
+  // Sent-message recall (ArrowUp/Down). Browsing stays active only while the textarea
+  // still holds exactly the text recall put there; any edit drops back to normal arrows.
+  const sentHistoryRef = useRef<string[]>([]);
+  const historyIndexRef = useRef(-1);
+  const historyShownRef = useRef("");
 
   const [showCommands, setShowCommands] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
@@ -1156,6 +1161,54 @@ export const ChatInput = ({
       return;
     }
 
+    if (
+      (e.key === "ArrowUp" || e.key === "ArrowDown") &&
+      !e.shiftKey &&
+      !e.ctrlKey &&
+      !e.altKey &&
+      !e.metaKey
+    ) {
+      const history = sentHistoryRef.current;
+      const text = form.getValues("content") || "";
+      const ta = e.currentTarget;
+      const browsing = historyIndexRef.current >= 0 && text === historyShownRef.current;
+      const up = e.key === "ArrowUp";
+      // Only hijack the arrow when the caret can't move further inside a multi-line entry.
+      const atEdge = up
+        ? !text.slice(0, ta.selectionStart).includes("\n")
+        : !text.slice(ta.selectionEnd).includes("\n");
+      let next: string | null = null;
+      if (atEdge && history.length > 0) {
+        if (browsing) {
+          const idx = historyIndexRef.current + (up ? -1 : 1);
+          if (up) {
+            historyIndexRef.current = Math.max(0, idx);
+            next = history[historyIndexRef.current];
+          } else if (idx >= history.length) {
+            historyIndexRef.current = -1;
+            next = "";
+          } else {
+            historyIndexRef.current = idx;
+            next = history[idx];
+          }
+        } else if (up && !text) {
+          historyIndexRef.current = history.length - 1;
+          next = history[historyIndexRef.current];
+        }
+      }
+      if (next !== null) {
+        e.preventDefault();
+        historyShownRef.current = next;
+        form.setValue("content", next, { shouldDirty: true });
+        setTimeout(() => {
+          ta.setSelectionRange(next!.length, next!.length);
+          setSelectionRange({ start: next!.length, end: next!.length });
+          autoResize();
+        }, 0);
+        return;
+      }
+    }
+
     // ArrowUp in an empty composer edits your most recent message (Discord-style).
     if (
       e.key === "ArrowUp" &&
@@ -1310,6 +1363,13 @@ export const ChatInput = ({
         }
         return;
       }
+
+      const history = sentHistoryRef.current;
+      if (textContent && history[history.length - 1] !== textContent) {
+        history.push(textContent);
+        if (history.length > 50) history.shift();
+      }
+      historyIndexRef.current = -1;
 
       if (textContent.startsWith("/")) {
         let inputUpdated = false;
