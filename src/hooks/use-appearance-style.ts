@@ -11,8 +11,9 @@ import { invoke } from "@tauri-apps/api/core";
 export type AppearanceStyle = "standard" | "fluent";
 
 /**
- * How a message row is laid out: Discord-style (avatar, name above text, grouped runs) or
- * classic IRC (one dense `[time] <nick> text` line per message, no avatars).
+ * How a message row is laid out. "discord" is the modern layout (avatar, name above text,
+ * grouped runs); the settings label is "Modern". The stored value stays "discord" so
+ * existing preferences are not reset. "irc" is one dense `[time] <nick> text` line.
  */
 export type MessageLayout = "discord" | "irc";
 

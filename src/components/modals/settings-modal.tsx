@@ -387,7 +387,8 @@ export const SettingsModal = () => {
                 </div>
                 <div role="radiogroup" aria-label="Message layout" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {([
-                    { id: "discord", title: "Discord", description: "Avatars, name above the text, grouped messages." },
+                    // Persisted id stays "discord" so an already saved layout is not reset.
+                    { id: "discord", title: "Modern", description: "Avatars, name above the text, grouped messages." },
                     { id: "irc", title: "Compact (IRC)", description: "One dense line per message: [time] <nick> text." },
                   ] as { id: MessageLayout; title: string; description: string }[]).map(({ id, title, description }) => (
                     <button
