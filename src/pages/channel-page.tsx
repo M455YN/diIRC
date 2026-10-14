@@ -1,4 +1,5 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { useMockStore } from "@/lib/mock-store";
 import { useUIStore } from "@/hooks/use-ui-store";
@@ -17,6 +18,7 @@ import { MobileMessageSearch } from "@/components/mobile/mobile-message-search";
 export const ChannelPage = () => {
   const { serverId, channelId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const isMobile = useIsMobileShell();
   const servers = useMockStore((state) => state.servers);
   const currentProfile = useMockStore((state) => state.currentProfile);
@@ -38,12 +40,20 @@ export const ChannelPage = () => {
   const server = servers.find((s) => s.id === serverId);
   const channel = server?.channels.find((c) => c.id === channelId);
   const setLastActiveChat = useMockStore((state) => state.setLastActiveChat);
+  const isServerConnected = useMockStore((state) => !!(serverId && state.ircConnectedServers[serverId]));
 
   useEffect(() => {
     if (serverId && channel?.id) {
       setLastActiveChat(serverId, { type: "channel", id: channel.id });
     }
   }, [serverId, channel?.id, setLastActiveChat]);
+
+  // Every visit to a channel (including re-clicking it, which gives a new location key) asks for a fresh roster.
+  useEffect(() => {
+    if (!serverId || !channel?.name || !isServerConnected) return;
+    invoke("refresh_channel_names", { serverId, channel: channel.name }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key, serverId, channel?.name, isServerConnected]);
 
   useEffect(() => {
     if (channelId && !isMobile) {

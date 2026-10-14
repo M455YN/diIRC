@@ -925,6 +925,15 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             updateChannelMembers(server_id, channel, users, event_type as any);
           }, 100);
 
+          // Our own JOIN: the roster that follows can be dropped by the connect-time presence reset,
+          // so ask for a fresh NAMES once the join has settled (same as the manual refresh button).
+          const joinedNick = useMockStore.getState().servers.find((s) => s.id === server_id);
+          if (event_type === "JOIN" && joinedNick && channel && users.some((u) => u.trim().replace(/^[~&@%+]+/, "").toLowerCase() === getServerActiveNick(joinedNick).toLowerCase())) {
+            setTimeout(() => {
+              invoke("refresh_channel_names", { serverId: server_id, channel }).catch(() => {});
+            }, 500);
+          }
+
           if (event_type === "JOIN" || event_type === "NAMES") {
             const store = useMockStore.getState();
             const pending = store.pendingJoin;
