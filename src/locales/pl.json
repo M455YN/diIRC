@@ -1133,6 +1133,19 @@
     "sendsMessage": "Wysyła: {{message}}",
     "sendsPresets": "Wysyła: {{message}} · {{presets}}",
     "desc": {
+      "me": "Wysyła wiadomość w formie akcji: /me [tekst]",
+      "join": "Dołącza do kanału: /join #kanał [hasło]",
+      "invite": "Zaprasza użytkownika na kanał: /invite <nick> [#kanał]",
+      "mode": "Ustawia lub sprawdza tryby kanału: /mode [#kanał] [flagi] [parametry]",
+      "op": "Nadaje użytkownikowi status operatora: /op [#kanał] <nick...>",
+      "deop": "Odbiera użytkownikowi status operatora: /deop [#kanał] <nick...>",
+      "voice": "Nadaje użytkownikowi głos: /voice [#kanał] <nick...>",
+      "devoice": "Odbiera użytkownikowi głos: /devoice [#kanał] <nick...>",
+      "query": "Otwiera rozmowę prywatną: /query [nick] [wiadomość]",
+      "code": "Wysyła kod w bloku kodu: /code [kod]",
+      "motd": "Pokazuje komunikat dnia serwera (MOTD): /motd",
+      "away": "Ustawia status nieobecności lub pokazuje błąd, gdy już jesteś nieobecny: /away [powód]",
+      "back": "Wraca z nieobecności: /back",
       "list": "Pokazuje listę kanałów serwera: /list"
     }
   },

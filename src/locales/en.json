@@ -1127,6 +1127,19 @@
     "sendsMessage": "Sends: {{message}}",
     "sendsPresets": "Sends: {{message}} · {{presets}}",
     "desc": {
+      "me": "Sends an action message: /me [text]",
+      "join": "Joins a channel: /join #channel [password]",
+      "invite": "Invites a user to a channel: /invite <nickname> [#channel]",
+      "mode": "Sets or queries channel modes: /mode [#channel] [flags] [params]",
+      "op": "Gives channel operator status to a user: /op [#channel] <nick...>",
+      "deop": "Removes channel operator status from a user: /deop [#channel] <nick...>",
+      "voice": "Gives voice status to a user: /voice [#channel] <nick...>",
+      "devoice": "Removes voice status from a user: /devoice [#channel] <nick...>",
+      "query": "Opens a private message conversation: /query [nickname] [message]",
+      "code": "Sends code wrapped in a code block: /code [code]",
+      "motd": "Displays the server's Message of the Day (MOTD): /motd",
+      "away": "Sets away status or displays error if already away: /away [reason]",
+      "back": "Returns from away status: /back",
       "list": "Shows the server's channel list: /list"
     }
   },
