@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { FileIcon, ExternalLink, ImageIcon, ChevronRight, ChevronDown } from "lucide-react";
@@ -25,6 +26,7 @@ export const ChatItemAttachment = ({
   content,
   onContentSizeChange,
 }: ChatItemAttachmentProps) => {
+  const { t: tr } = useTranslation();
   const { onOpen } = useModal();
   const params = useParams();
   const activeServerId = params?.serverId;
@@ -74,7 +76,7 @@ export const ChatItemAttachment = ({
             onClick={toggleCollapse}
             className="h-6 px-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 dark:hover:bg-indigo-500/20 rounded flex items-center gap-x-1 shrink-0 transition"
           >
-            <span>Show</span>
+            <span>{tr("cb.show")}</span>
             <ChevronDown className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -104,8 +106,8 @@ export const ChatItemAttachment = ({
             e.stopPropagation();
             toggleCollapse();
           }}
-          title="Collapse image"
-          aria-label="Collapse image"
+          title={tr("cb.collapseImage")}
+          aria-label={tr("cb.collapseImage")}
           className="absolute top-2 right-2 p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white/90 hover:text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition shadow-md z-10 cursor-pointer"
         >
           <ChevronDown className="w-3.5 h-3.5" />

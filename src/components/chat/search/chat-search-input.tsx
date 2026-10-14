@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, Hash, Search, User, X } from "lucide-react";
 
@@ -33,11 +34,11 @@ interface OperatorSuggestion {
 // (timestamp / sender / content). `has:*` removed — content-type detection
 // proved unreliable; bare regexes cover power users instead.
 const OPERATOR_SUGGESTIONS: OperatorSuggestion[] = [
-  { insert: "from:", label: "from:", description: "From user (nick or real name)", icon: "user" },
-  { insert: "mentions:", label: "mentions:", description: "User mentioned in message", icon: "user" },
-  { insert: "before:", label: "before:", description: "Older than date — pick from calendar", icon: "calendar" },
-  { insert: "after:", label: "after:", description: "Newer than date — pick from calendar", icon: "calendar" },
-  { insert: "during:", label: "during:", description: "Specific day — pick from calendar", icon: "calendar" },
+  { insert: "from:", label: "from:", description: "cb.fromUser", icon: "user" },
+  { insert: "mentions:", label: "mentions:", description: "cb.mentionsUser", icon: "user" },
+  { insert: "before:", label: "before:", description: "cb.olderThan", icon: "calendar" },
+  { insert: "after:", label: "after:", description: "cb.newerThan", icon: "calendar" },
+  { insert: "during:", label: "during:", description: "cb.specificDay", icon: "calendar" },
 ];
 
 type ActivePopup =
@@ -51,6 +52,7 @@ const getTokenAtCaret = (
   text: string,
   caret: number
 ): { start: number; token: string } => {
+  const { t: tr } = useTranslation();
   const safeCaret = Math.max(0, Math.min(caret, text.length));
   const start = text.lastIndexOf(" ", Math.max(0, safeCaret - 1)) + 1;
   return { start, token: text.slice(start, safeCaret) };
@@ -64,6 +66,7 @@ const getTokenAtCaret = (
  * for date filters.
  */
 export const ChatSearchInput = ({ context, members = [] }: ChatSearchInputProps) => {
+  const { t: tr } = useTranslation();
   const open = useSearchStore((state) => state.open);
   const rawQuery = useSearchStore((state) => state.rawQuery);
   const openSearch = useSearchStore((state) => state.openSearch);
@@ -177,7 +180,7 @@ export const ChatSearchInput = ({ context, members = [] }: ChatSearchInputProps)
       const query = token.toLowerCase();
       const items = OPERATOR_SUGGESTIONS.filter((suggestion) =>
         !existingKeys.has(suggestion.insert) && suggestion.label.startsWith(query)
-      );
+      ).map((suggestion) => ({ ...suggestion, description: tr(suggestion.description) }));
       setPopup(items.length > 0 ? { kind: "operators", items } : null);
       return;
     }
@@ -272,7 +275,7 @@ export const ChatSearchInput = ({ context, members = [] }: ChatSearchInputProps)
 
   if (!open) {
     return (
-      <ActionTooltip side="bottom" label="Szukaj">
+      <ActionTooltip side="bottom" label={tr("cb.search")}>
         <button
           onClick={openSearch}
           className="flex items-center justify-center p-1.5 rounded-lg hover:bg-zinc-200/60 dark:hover:bg-zinc-700/50 transition"
@@ -345,13 +348,13 @@ export const ChatSearchInput = ({ context, members = [] }: ChatSearchInputProps)
               return;
             }
           }}
-          placeholder="Szukaj"
+          placeholder={tr("cb.search")}
           spellCheck={false}
           className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-black dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
         />
         <button
           onClick={closeSearch}
-          title="Close search (Escape)"
+          title={tr("cb.closeSearch")}
           className="shrink-0 p-0.5 rounded hover:bg-zinc-200/70 dark:hover:bg-zinc-700/60 transition"
         >
           <X className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
@@ -390,7 +393,7 @@ export const ChatSearchInput = ({ context, members = [] }: ChatSearchInputProps)
               </p>
               {popup.items.length === 0 ? (
                 <p className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                  Type manually — search matches nick and real name.
+                  {tr("cb.typeManually")}
                 </p>
               ) : (
                 popup.items.map((member, index) => (

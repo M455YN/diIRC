@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useMockStore } from "@/lib/mock-store";
 
 export const DeleteServerModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const navigate = useNavigate();
   const deleteServer = useMockStore((state) => state.deleteServer);
@@ -43,7 +45,7 @@ export const DeleteServerModal = () => {
       <DialogContent className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 p-0 overflow-hidden max-w-md border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl">
         <DialogHeader className="pt-6 px-6 space-y-2">
           <DialogTitle className="text-2xl text-center font-bold text-zinc-900 dark:text-zinc-100">
-            Delete server
+            {tr("rest.deleteServer")}
           </DialogTitle>
           <DialogDescription className="text-center text-zinc-500 dark:text-zinc-400">
             Are you sure you want to do this? <br />
@@ -64,7 +66,7 @@ export const DeleteServerModal = () => {
             onClick={onClick}
             className="bg-rose-600 hover:bg-rose-700 text-white font-medium px-6 shadow-sm"
           >
-            Delete server
+            {tr("rest.deleteServer")}
           </Button>
         </DialogFooter>
       </DialogContent>

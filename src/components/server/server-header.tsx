@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ServerWithMembersWithProfiles } from "@/types";
 import { 
   ChevronDown, 
@@ -25,6 +26,7 @@ interface ServerHeaderProps {
 export const ServerHeader = ({
   server
 }: ServerHeaderProps) => {
+  const { t } = useTranslation();
   const { onOpen } = useModal();
   const isIrcConnected = useMockStore((state) => !!state.ircConnectedServers[server.id]);
   const connectServer = useMockStore((state) => state.connectServer);
@@ -49,14 +51,14 @@ export const ServerHeader = ({
           onSelect={() => setTimeout(() => onOpen("editServer", { server }), 0)}
           className="px-3 py-2 text-sm cursor-pointer"
         >
-          Server settings
+          {t("srv.serverSettings")}
           <Settings className="h-4 w-4 ml-auto" />
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => setTimeout(() => onOpen("createChannel", { server }), 0)}
           className="px-3 py-2 text-sm cursor-pointer"
         >
-          Join channel
+          {t("srv.joinChannel")}
           <PlusCircle className="h-4 w-4 ml-auto" />
         </DropdownMenuItem>
         {isIrcConnected ? (
@@ -64,7 +66,7 @@ export const ServerHeader = ({
             onSelect={() => setTimeout(() => onOpen("leaveServer", { server }), 0)}
             className="px-3 py-2 text-sm cursor-pointer text-amber-600 dark:text-amber-400"
           >
-            Disconnect from server
+            {t("srv.disconnect")}
             <Unplug className="h-4 w-4 ml-auto" />
           </DropdownMenuItem>
         ) : (
@@ -72,7 +74,7 @@ export const ServerHeader = ({
             onSelect={() => connectServer(server.id)}
             className="px-3 py-2 text-sm cursor-pointer text-emerald-600 dark:text-emerald-400 font-semibold"
           >
-            Connect to server
+            {t("srv.connect")}
             <Radio className="h-4 w-4 ml-auto" />
           </DropdownMenuItem>
         )}
@@ -81,7 +83,7 @@ export const ServerHeader = ({
           onSelect={() => setTimeout(() => onOpen("deleteServer", { server }), 0)}
           className="text-rose-500 px-3 py-2 text-sm cursor-pointer"
         >
-          Remove server
+          {t("srv.removeServer")}
           <Trash className="h-4 w-4 ml-auto" />
         </DropdownMenuItem>
       </DropdownMenuContent>

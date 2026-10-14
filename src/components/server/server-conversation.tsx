@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Member, Profile, Server } from "@/types";
 import { X, Settings } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -17,6 +18,7 @@ export const ServerConversation = ({
   member,
   server,
 }: ServerConversationProps) => {
+  const { t } = useTranslation();
   const params = useParams();
   const navigate = useNavigate();
   const { onOpen } = useModal();
@@ -103,7 +105,7 @@ export const ServerConversation = ({
             )}
           />
           {isAway && (
-            <ActionTooltip label={awayReason ? `Away: ${awayReason}` : "Away"} side="right">
+            <ActionTooltip label={awayReason ? `${t("srv.away")}: ${awayReason}` : t("srv.away")} side="right">
               <span
                 className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-yellow-500 dark:bg-yellow-400 rounded-full ring-2 ring-[#F2F3F5] dark:ring-[#2B2D31] cursor-pointer"
               />
@@ -129,13 +131,13 @@ export const ServerConversation = ({
         </span>
       )}
       <div className="ml-auto flex items-center gap-x-1 shrink-0">
-        <ActionTooltip label="PM Settings">
+        <ActionTooltip label={t("srv.pmSettings")}>
           <Settings
             onClick={onSettings}
             className="hidden group-hover:block w-4 h-4 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition"
           />
         </ActionTooltip>
-        <ActionTooltip label="Close PM">
+        <ActionTooltip label={t("srv.closePm")}>
           <X
             onClick={onClose}
             className="hidden group-hover:block w-4 h-4 text-zinc-500 hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-400 transition"

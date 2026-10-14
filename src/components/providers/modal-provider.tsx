@@ -22,6 +22,7 @@ import { UpdateModal } from "@/components/modals/update-modal";
 import { MotdModal } from "@/components/modals/motd-modal";
 import { AlreadyAwayModal } from "@/components/modals/already-away-modal";
 import { ChangelogModal } from "@/components/modals/changelog-modal";
+import { BookmarksModal } from "@/components/modals/bookmarks-modal";
 
 export const ModalProvider = () => {
   const [isMounted, setIsMounted] = useState(false);
@@ -58,6 +59,7 @@ export const ModalProvider = () => {
       <MotdModal />
       <AlreadyAwayModal />
       <ChangelogModal />
+      <BookmarksModal />
     </>
   );
 };

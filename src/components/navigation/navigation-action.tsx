@@ -1,9 +1,11 @@
+import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 
 import { ActionTooltip } from "@/components/action-tooltip";
 import { useModal } from "@/hooks/use-modal-store";
 
 export const NavigationAction = () => {
+  const { t } = useTranslation();
   const { onOpen } = useModal();
 
   return (
@@ -11,7 +13,7 @@ export const NavigationAction = () => {
       <ActionTooltip
         side="right"
         align="center"
-        label="Add a server"
+        label={t("nav.addServer")}
       >
         <button
           onClick={() => onOpen("createServer")}

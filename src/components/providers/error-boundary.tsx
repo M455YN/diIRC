@@ -1,3 +1,4 @@
+import i18n from "@/lib/i18n";
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
@@ -30,9 +31,9 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div style={{ padding: '20px', background: '#313338', color: 'white', height: '100vh', overflow: 'auto' }}>
-          <h2>Something went wrong</h2>
+          <h2>{i18n.t("eb.title")}</h2>
           <details style={{ whiteSpace: 'pre-wrap' }}>
-            <summary>Error details (click to expand)</summary>
+            <summary>{i18n.t("eb.details")}</summary>
             {this.state.error && this.state.error.toString()}
             <br />
             {this.state.errorInfo && this.state.errorInfo.componentStack}

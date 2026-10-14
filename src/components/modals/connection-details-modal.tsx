@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useParams } from "react-router-dom";
@@ -21,6 +22,7 @@ export const ConnectionDetailsModal = () =>
   useIsMobileShell() ? <MobileConnectionDetailsModal /> : <DesktopConnectionDetailsModal />;
 
 const DesktopConnectionDetailsModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const isMobile = useIsMobileShell();
   const { serverId: routeServerId } = useParams();
@@ -83,7 +85,7 @@ const DesktopConnectionDetailsModal = () => {
             )}
           >
             {!isMobile && <Wifi className="h-5 w-5 text-indigo-500" />}
-            Connection details
+            {tr("rest.connectionDetails")}
           </DialogTitle>
           {isMobile && (
             <DialogDescription className="text-left text-[13px] text-muted-foreground">
@@ -168,7 +170,7 @@ const DesktopConnectionDetailsModal = () => {
               <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs space-y-1">
                 <div className="font-semibold flex items-center gap-x-1.5">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  Connection error details
+                  {tr("rest.connectionErrorDetails")}
                 </div>
                 <p className="font-mono text-[11px] break-all opacity-90 pl-5">
                   {ircError}
@@ -183,7 +185,7 @@ const DesktopConnectionDetailsModal = () => {
             <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#2b2d31] flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                  Resource server
+                  {tr("rest.resourceServer")}
                 </p>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 capitalize">
                   {uploadConfig.provider}
@@ -237,7 +239,7 @@ const DesktopConnectionDetailsModal = () => {
             variant="secondary"
             className={cn("px-5", isMobile && "h-11 w-full rounded-full")}
           >
-            Close
+            {tr("common.close")}
           </Button>
         </div>
       </DialogContent>

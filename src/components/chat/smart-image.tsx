@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,6 +75,7 @@ const SmartImageInner: React.FC<SmartImageProps> = ({
   style,
   ...props
 }) => {
+  const { t: tr } = useTranslation();
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [hasError, setHasError] = useState<boolean>(false);
   const [ratio, setRatio] = useState<number | undefined>(initialAspectRatio);
@@ -161,7 +163,7 @@ const SmartImageInner: React.FC<SmartImageProps> = ({
       {hasError ? (
         <div className="flex flex-col items-center justify-center p-4 text-zinc-400 dark:text-zinc-500 gap-1.5 text-xs text-center w-full h-full min-h-[120px] bg-zinc-100 dark:bg-zinc-900/60 rounded-lg border border-zinc-200 dark:border-zinc-800">
           <ImageOff className="w-6 h-6 opacity-60" />
-          <span>Failed to load image</span>
+          <span>{tr("cb.imageFailed")}</span>
         </div>
       ) : (
         /* Actual Image with Fade-in Effect */

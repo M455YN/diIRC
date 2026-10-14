@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { ShieldAlert } from "lucide-react";
 
@@ -24,6 +25,7 @@ import { ComingSoonModal } from "@/components/modals/coming-soon-modal";
 const SHOW_COMING_SOON = true;
 
 export const EditTopicModal = () => {
+  const { t } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const updateChannelTopic = useMockStore((state) => state.updateChannelTopic);
   const ircConnectedServers = useMockStore((state) => state.ircConnectedServers);
@@ -91,10 +93,10 @@ export const EditTopicModal = () => {
       console.error("Failed to update channel topic:", error);
       const errText = typeof error === "string" 
         ? error 
-        : error?.message || "Failed to update topic due to insufficient permissions.";
+        : error?.message || t("topic.failedPermissions");
       setErrorMessage(errText);
       useModal.getState().onOpen("ircError", {
-        title: "Topic update failed",
+        title: t("topic.failedTitle"),
         description: errText,
       });
     } finally {
@@ -107,8 +109,8 @@ export const EditTopicModal = () => {
       <ComingSoonModal
         isOpen={isModalOpen}
         onClose={handleClose}
-        title="Coming soon"
-        description="Channel topic editing is temporarily disabled while undergoing maintenance and code restructuring."
+        title={t("topic.comingSoon")}
+        description={t("topic.disabledDesc")}
       />
     );
   }
@@ -118,7 +120,7 @@ export const EditTopicModal = () => {
       <DialogContent className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 p-0 overflow-hidden max-w-md border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl">
         <DialogHeader className="pt-6 px-6 space-y-2">
           <DialogTitle className="text-2xl text-center font-bold text-zinc-900 dark:text-zinc-100">
-            Edit channel topic
+            {t("topic.edit")}
           </DialogTitle>
         </DialogHeader>
 
@@ -128,7 +130,7 @@ export const EditTopicModal = () => {
               <div className="flex items-start gap-x-2 p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs border border-amber-500/20">
                 <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Operator required:</strong> You are not listed as a channel operator (@). If topic mode (+t) is active, your topic update may be rejected by the IRC server.
+                  <strong>{t("topic.operatorRequired")}</strong> You are not listed as a channel operator (@). If topic mode (+t) is active, your topic update may be rejected by the IRC server.
                 </span>
               </div>
             )}
@@ -147,7 +149,7 @@ export const EditTopicModal = () => {
               <Input
                 disabled={isLoading}
                 className="bg-zinc-100 dark:bg-zinc-800/60 border-0 focus-visible:ring-1 focus-visible:ring-indigo-500 text-zinc-800 dark:text-zinc-100 mt-2"
-                placeholder="Set a topic for this channel..."
+                placeholder={t("topic.placeholder")}
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 autoFocus
@@ -170,7 +172,7 @@ export const EditTopicModal = () => {
               disabled={isLoading}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 shadow-sm"
             >
-              Save topic
+              {t("topic.save")}
             </Button>
           </DialogFooter>
         </form>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
@@ -18,6 +19,7 @@ import {
 } from "@/components/mobile/m3";
 
 const MoreBody = () => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   const { serverId } = useParams();
   const servers = useMockStore((state) => state.servers);
@@ -27,9 +29,9 @@ const MoreBody = () => {
   const { irc, resourceServer, internet } = useConnectionStatus(activeServer?.id);
 
   const status = [
-    { label: "IRC", ok: irc },
-    { label: "Resources", ok: resourceServer },
-    { label: "Internet", ok: internet },
+    { label: tr("mi.ircGroup"), ok: irc },
+    { label: tr("mi.resourcesGroup"), ok: resourceServer },
+    { label: tr("mi.internet"), ok: internet },
   ];
 
   return (
@@ -48,7 +50,7 @@ const MoreBody = () => {
         component="h1"
         sx={{ m: 0, px: 2.5, pt: 4, pb: 2, fontSize: "2.25rem", fontWeight: 400, lineHeight: "44px" }}
       >
-        More
+        {tr("mi.more2")}
       </Box>
 
       <Box sx={{ display: "flex", gap: 1, px: 2, pb: 2, overflowX: "auto" }}>
@@ -66,18 +68,18 @@ const MoreBody = () => {
         <M3ListGroup>
           <M3ListItem
             leading={<SettingsOutlinedIcon />}
-            headline="Settings"
-            supporting="Notifications, theme, chat, and more"
+            headline={tr("mi.settings")}
+            supporting={tr("mi.settingsDesc")}
             onClick={() => onOpen("settings")}
             divider
           />
           <M3ListItem
             leading={<WifiIcon />}
-            headline="Connection details"
+            headline={tr("mi.connectionDetails")}
             supporting={
               activeServer
-                ? `${activeServer.name} · ${irc ? "Connected" : "Disconnected"}`
-                : "No server selected"
+                ? `${activeServer.name} · ${irc ? tr("mi.connected") : tr("mi.disconnected")}`
+                : tr("mi.noServerSelected")
             }
             onClick={
               activeServer
@@ -92,8 +94,8 @@ const MoreBody = () => {
           />
           <M3ListItem
             leading={<HistoryIcon />}
-            headline="Changelog"
-            supporting={hasCurrentVersion ? "What's new in this version" : "Release notes"}
+            headline={tr("mi.changelog")}
+            supporting={hasCurrentVersion ? tr("mi.whatsNew") : tr("mi.releaseNotes")}
             onClick={() => onOpen("changelog")}
           />
         </M3ListGroup>

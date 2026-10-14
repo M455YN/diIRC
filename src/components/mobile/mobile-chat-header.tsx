@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, Hash, MoreHorizontal, Search, Users } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ export const MobileChatHeader = ({
   onSearch,
   showMembers,
 }: MobileChatHeaderProps) => {
+  const { t: tr } = useTranslation();
   return (
     <div
       className={cn(
@@ -72,7 +74,7 @@ export const MobileChatHeader = ({
             type="button"
             onClick={onSearch}
             className="flex h-10 w-10 shrink-0 items-center justify-center text-blue-500 active:opacity-60"
-            aria-label="Search"
+            aria-label={tr("mi.search")}
           >
             <Search className="h-[18px] w-[18px]" />
           </button>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { getFlagTip } from "@/lib/flag-tips";
 
 export const IrcErrorModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type, data, errorData } = useModal();
 
   const isModalOpen = (isOpen && type === "ircError") || errorData !== null;
@@ -55,7 +57,7 @@ export const IrcErrorModal = () => {
 
         <div className="p-6 flex justify-center mt-2">
           <Button onClick={handleClose} variant="primary" className="w-full">
-            Got it
+            {tr("rest.gotIt")}
           </Button>
         </div>
       </DialogContent>

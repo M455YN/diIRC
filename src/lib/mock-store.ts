@@ -35,8 +35,10 @@ import {
   MOCK_PROFILE
 } from "./mock-data";
 import { v4 as uuidv4 } from "uuid";
+import { dateLocale } from "./date-locale";
 import { ImageUploadConfig, UrlAuthRule } from "./upload/types";
 import { MESSAGE_DEDUPLICATION_MODE } from "./config";
+import { DEFAULT_SERVER_IMAGE } from "./server-logo";
 
 type IncomingMessageMeta = {
   createdAt?: string;
@@ -189,11 +191,11 @@ export const formatMessageDate = (
   try {
     const d = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
     if (isNaN(d.getTime())) return String(date);
-    return format(d, pattern);
+    return format(d, pattern, dateLocale());
   } catch {
     try {
       const d = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
-      return format(d, "d MMM yyyy, HH:mm");
+      return format(d, "d MMM yyyy, HH:mm", dateLocale());
     } catch {
       return String(date);
     }
@@ -1199,7 +1201,7 @@ export const useMockStore = create<MockState>()(
         let useTls = false;
         let autoConnect = true;
         let autoReconnect = true;
-        let imageUrl = imageUrlParam || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80";
+        let imageUrl = imageUrlParam || DEFAULT_SERVER_IMAGE;
         let customCommands: CustomCommand[] = [];
 
         if (typeof optionsOrName === "object") {

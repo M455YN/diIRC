@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Clock } from "lucide-react";
 import {
   Dialog,
@@ -21,6 +22,7 @@ export const ComingSoonModal = ({
   title = "Coming soon",
   description = "This feature is temporarily disabled while undergoing maintenance and code restructuring.",
 }: ComingSoonModalProps) => {
+  const { t: tr } = useTranslation();
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 p-0 overflow-hidden max-w-md border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl">
@@ -43,7 +45,7 @@ export const ComingSoonModal = ({
               onClick={onClose}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-5 text-xs shadow-sm"
             >
-              Close
+              {tr("common.close")}
             </Button>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMockStore } from "@/lib/mock-store";
 import { ChatHeader } from "@/components/chat/chat-header";
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Hash, Check, X, Sparkles } from "lucide-react";
 
 export const InvitePreviewPage = () => {
+  const { t: tr } = useTranslation();
   const { serverId, channelName } = useParams();
   const navigate = useNavigate();
   const servers = useMockStore((state) => state.servers);
@@ -65,7 +67,7 @@ export const InvitePreviewPage = () => {
 
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              You have been invited
+              {tr("rest.invitedTitle")}
             </h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto">
               <span className="font-semibold text-zinc-700 dark:text-zinc-200">
@@ -86,7 +88,7 @@ export const InvitePreviewPage = () => {
               className="flex-1 border-zinc-300 dark:border-zinc-700 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-500/30 gap-x-2 text-xs font-semibold py-5"
             >
               <X className="w-4 h-4" />
-              Ignore invite
+              {tr("rest.ignoreInvite")}
             </Button>
 
             <Button
@@ -94,7 +96,7 @@ export const InvitePreviewPage = () => {
               className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white gap-x-2 text-xs font-semibold py-5 shadow-md"
             >
               <Check className="w-4 h-4" />
-              Join channel
+              {tr("rest.joinChannel")}
             </Button>
           </div>
         </div>

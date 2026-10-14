@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -29,6 +30,7 @@ export const ServerSearch = ({
   serverId,
   data
 }: ServerSearchProps) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const params = useParams();
@@ -80,10 +82,10 @@ export const ServerSearch = ({
         </kbd>
       </button>
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Search all channels and members" />
+        <CommandInput placeholder={t("srv.searchAll")} />
         <CommandList>
           <CommandEmpty>
-            No results found
+            {t("srv.noResults")}
           </CommandEmpty>
           {data.map(({ label, type, data: items }) => {
             if (!items?.length) return null;

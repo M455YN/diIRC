@@ -1,4 +1,5 @@
 import { useModal } from "@/hooks/use-modal-store";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,7 @@ import { openExternalUrl, saveImageToFile } from "@/lib/system-utils";
 import { SmartImage } from "@/components/chat/smart-image";
 
 export const ImagePreviewModal = () => {
+  const { t } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
 
   const isModalOpen = isOpen && type === "imagePreview";
@@ -30,7 +32,7 @@ export const ImagePreviewModal = () => {
             type="button"
             onClick={() => saveImageToFile(url)}
             className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 hover:text-white transition shadow-md"
-            title="Save image..."
+            title={t("image.saveImage")}
           >
             <Download className="w-4 h-4" />
           </button>
@@ -38,7 +40,7 @@ export const ImagePreviewModal = () => {
             type="button"
             onClick={() => openExternalUrl(url)}
             className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 hover:text-white transition shadow-md"
-            title="Open in browser"
+            title={t("image.openInBrowser")}
           >
             <ExternalLink className="w-4 h-4" />
           </button>
@@ -46,7 +48,7 @@ export const ImagePreviewModal = () => {
             type="button"
             onClick={onClose}
             className="p-2 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 hover:text-white transition shadow-md"
-            title="Close"
+            title={t("image.close")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -57,7 +59,7 @@ export const ImagePreviewModal = () => {
           <ImageContextMenu url={url}>
             <SmartImage
               src={url}
-              alt="Expanded preview"
+              alt={t("image.expandedPreview")}
               className="max-h-[82vh] max-w-full object-contain rounded-lg shadow-2xl select-none cursor-pointer"
               containerClassName="max-h-[82vh] max-w-full"
             />

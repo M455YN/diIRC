@@ -1,3 +1,4 @@
+import i18n from "@/lib/i18n";
 import { useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
@@ -323,6 +324,19 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => clearInterval(interval);
   }, [attemptConnect]);
+
+  // Android: hold a foreground service while any server is connected, so the OS does not drop the sockets in background.
+  useEffect(() => {
+    let keepAlive = false;
+    return useMockStore.subscribe((state) => {
+      const anyConnected = Object.values(state.ircConnectedServers).some(Boolean);
+      if (anyConnected === keepAlive) return;
+      keepAlive = anyConnected;
+      invoke("plugin:keep-alive|set_keep_alive", { payload: { enabled: anyConnected } }).catch((e) =>
+        console.error("Failed to toggle keep-alive service:", e)
+      );
+    });
+  }, []);
 
   const multilineAccumulatorRef = useRef<IrcMultilineAccumulator | null>(null);
 
@@ -1137,7 +1151,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
 
             useModalStore.getState().onOpen("ircError", {
               title: "Permission Denied",
-              description: `Cannot perform operation on ${chanName}: ${error || "You do not have channel operator (@) permissions."}`,
+              description: i18n.t("err.cannotOperate", { channel: chanName, error: error || i18n.t("err.operatorNeeded") }),
             });
           }
         );

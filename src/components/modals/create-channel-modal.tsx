@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import * as z from "zod";
+import { useTranslation } from "react-i18next";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { ChannelType } from "@/types";
@@ -35,17 +37,20 @@ import { useMockStore } from "@/lib/mock-store";
 import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 import { MobileCreateChannelModal } from "@/components/mobile/mobile-channel-modals";
 
-const formSchema = z.object({
+const buildFormSchema = (t: (key: string) => string) => z.object({
   name: z.string().min(1, {
-    message: "Channel name is required."
+    message: t("channel.nameRequired")
   }),
   joinTemporary: z.boolean().default(false)
 });
+
+type FormValues = z.infer<ReturnType<typeof buildFormSchema>>;
 
 export const CreateChannelModal = () =>
   useIsMobileShell() ? <MobileCreateChannelModal /> : <DesktopCreateChannelModal />;
 
 const DesktopCreateChannelModal = () => {
+  const { t } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const navigate = useNavigate();
   const params = useParams();
@@ -57,6 +62,7 @@ const DesktopCreateChannelModal = () => {
 
   const activeServerId = params?.serverId || modalServer?.id || servers[0]?.id;
 
+  const formSchema = useMemo(() => buildFormSchema(t), [t]);
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -67,7 +73,7 @@ const DesktopCreateChannelModal = () => {
 
   const isLoading = form.formState.isSubmitting;
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: FormValues) => {
     try {
       if (activeServerId) {
         const cleanChannelName = values.name.trim().replace(/^#/, "");
@@ -106,7 +112,7 @@ const DesktopCreateChannelModal = () => {
       <DialogContent className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 p-0 overflow-hidden max-w-md border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl">
         <DialogHeader className="pt-6 px-6">
           <DialogTitle className="text-2xl text-center font-bold text-zinc-900 dark:text-zinc-100">
-            Join channel
+            {t("join.joinChannel")}
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
@@ -120,12 +126,12 @@ const DesktopCreateChannelModal = () => {
                     <FormLabel
                       className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider"
                     >
-                      Channel name
+                      {t("channel.name")}
                     </FormLabel>
                     <FormControl>
                       <ChannelInput
                         disabled={isLoading}
-                        placeholder="Enter channel name"
+                        placeholder={t("channel.namePlaceholder")}
                         {...field}
                       />
                     </FormControl>
@@ -140,7 +146,7 @@ const DesktopCreateChannelModal = () => {
                   <FormItem className="flex flex-row items-center justify-between rounded-xl border border-zinc-300/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-3.5 shadow-sm">
                     <div className="flex items-center gap-x-2">
                       <FormLabel className="text-sm font-semibold text-zinc-900 dark:text-zinc-200 cursor-pointer">
-                        Join temporarily
+                        {t("channel.joinTemporarily")}
                       </FormLabel>
                       <TooltipProvider>
                         <Tooltip delayDuration={50}>
@@ -148,7 +154,7 @@ const DesktopCreateChannelModal = () => {
                             <HelpCircle className="w-4 h-4 text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition cursor-pointer" />
                           </TooltipTrigger>
                           <TooltipContent side="top" className="max-w-xs text-xs">
-                            When checked, you will NOT automatically rejoin this channel after restarting the application.
+                            {t("channel.temporaryDesc")}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>

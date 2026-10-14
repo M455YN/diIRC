@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Bell, Volume2, Monitor, Clock, Play, FolderOpen, Music, AlertTriangle, AlertCircle, MessageSquare, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
   inherited = {},
   onChange,
 }) => {
+  const { t } = useTranslation();
   const channelFileInputRef = useRef<HTMLInputElement>(null);
   const dmFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -193,18 +195,18 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
         <Bell className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
         <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
           {isGlobal
-            ? "Global notification settings"
+            ? t("settings.notifications.globalTitle")
             : isServer
-              ? "Server notification overrides"
-              : "Notification overrides"}
+              ? t("settings.notifications.serverTitle")
+              : t("settings.notifications.overridesTitle")}
         </span>
       </div>
       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
         {isGlobal
-          ? "Configure default audio alerts, desktop popups, and taskbar indicators. You can override these per server or channel."
+          ? t("settings.notifications.globalDesc")
           : isServer
-            ? "Customize notification rules for messages on this server. Select \"Default\" to inherit from client settings."
-            : "Customize notification rules for this chat. Select \"Default\" to inherit from parent settings."}
+            ? t("settings.notifications.serverDesc")
+            : t("settings.notifications.channelDesc")}
       </p>
 
       {/* CHANNEL NOTIFICATIONS CONTROL */}
@@ -212,7 +214,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
         <div className="flex items-center justify-between gap-x-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
           <div className="flex items-center gap-x-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
             <Hash className="w-3.5 h-3.5 text-zinc-500" />
-            Channel notifications
+            {t("settings.notifications.channelNotifications")}
           </div>
           {isGlobal ? (
             <select
@@ -220,9 +222,9 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
               onChange={(e) => onChange("channelNotifications", e.target.value as ChannelNotificationMode)}
               className="bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
-              <option value="mentions">📣 Mentions only</option>
-              <option value="all">💬 All messages</option>
-              <option value="off">🚫 Disabled</option>
+              <option value="mentions">{t("settings.notifications.mentionsOnlyOpt")}</option>
+              <option value="all">{t("settings.notifications.allMessagesOpt")}</option>
+              <option value="off">{t("settings.notifications.disabledOpt")}</option>
             </select>
           ) : (
             <select
@@ -230,10 +232,10 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
               onChange={(e) => onChange("channelNotifications", e.target.value as ChannelNotificationOverrideValue)}
               className="bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
-              <option value="default">🌐 Default ({inherited.channelNotificationsStr || "Mentions only"})</option>
-              <option value="mentions">📣 Mentions only</option>
-              <option value="all">💬 All messages</option>
-              <option value="off">🚫 Disabled</option>
+              <option value="default">{t("settings.notifications.defaultOpt")} ({inherited.channelNotificationsStr || t("settings.notifications.mentionsOnly")})</option>
+              <option value="mentions">{t("settings.notifications.mentionsOnlyOpt")}</option>
+              <option value="all">{t("settings.notifications.allMessagesOpt")}</option>
+              <option value="off">{t("settings.notifications.disabledOpt")}</option>
             </select>
           )}
         </div>
@@ -244,7 +246,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
         <div className="flex items-center justify-between gap-x-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
           <div className="flex items-center gap-x-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
             <MessageSquare className="w-3.5 h-3.5 text-zinc-500" />
-            Private message notifications
+            {t("settings.notifications.dmNotifications")}
           </div>
           {isGlobal ? (
             <select
@@ -252,8 +254,8 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
               onChange={(e) => onChange("dmNotifications", e.target.value as DmNotificationMode)}
               className="bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
-              <option value="all">✅ Enabled (all messages)</option>
-              <option value="off">🚫 Disabled</option>
+              <option value="all">{t("settings.notifications.enabledAllOpt")}</option>
+              <option value="off">{t("settings.notifications.disabledOpt")}</option>
             </select>
           ) : (
             <select
@@ -261,9 +263,9 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
               onChange={(e) => onChange("dmNotifications", e.target.value as DmNotificationOverrideValue)}
               className="bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
-              <option value="default">🌐 Default ({inherited.dmNotificationsStr || "Enabled"})</option>
-              <option value="all">✅ Enabled</option>
-              <option value="off">🚫 Disabled</option>
+              <option value="default">{t("settings.notifications.defaultOpt")} ({inherited.dmNotificationsStr || t("settings.notifications.enabled")})</option>
+              <option value="all">{t("settings.notifications.enabledOpt")}</option>
+              <option value="off">{t("settings.notifications.disabledOpt")}</option>
             </select>
           )}
         </div>
@@ -273,7 +275,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
       <div className="flex items-center justify-between gap-x-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
         <div className="flex items-center gap-x-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
           <Volume2 className="w-3.5 h-3.5 text-zinc-500" />
-          Sound alert
+          {t("settings.notifications.soundAlert")}
         </div>
         {isGlobal ? (
           <Switch
@@ -286,9 +288,9 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
             onChange={(e) => onChange("sound", e.target.value as NotificationOverrideValue)}
             className="bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
           >
-            <option value="default">🌐 Default ({inherited.soundStr || "Enabled"})</option>
-            <option value="enabled">✅ Enabled</option>
-            <option value="disabled">🚫 Disabled (Mute)</option>
+            <option value="default">{t("settings.notifications.defaultOpt")} ({inherited.soundStr || t("settings.notifications.enabled")})</option>
+            <option value="enabled">{t("settings.notifications.enabledOpt")}</option>
+            <option value="disabled">{t("settings.notifications.disabledMuteOpt")}</option>
           </select>
         )}
       </div>
@@ -318,10 +320,10 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
               <div className="flex items-center gap-x-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100 shrink-0">
                 <Volume2 className="w-3.5 h-3.5 text-zinc-500" />
                 {isChannelOrDm
-                  ? "Sound Tone"
+                  ? t("settings.notifications.soundTone")
                   : isServer || isGlobal
-                    ? "Channel Sound Tone"
-                    : "Sound Tone"}
+                    ? t("settings.notifications.channelSoundTone")
+                    : t("settings.notifications.soundTone")}
               </div>
 
               <div className="flex items-center gap-x-1.5 shrink-0">
@@ -333,7 +335,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
                     const preset = (values.soundPreset === "default" ? inherited.soundPresetStr : values.soundPreset) as SoundPreset || "chime";
                     playNotificationSound(preset, values.customSoundUrl);
                   }}
-                  title="Test Sound"
+                  title={t("settings.notifications.testSound")}
                   className="h-8 px-2.5 bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-x-1"
                 >
                   <Play className="w-3.5 h-3.5 fill-current text-indigo-500" />
@@ -349,7 +351,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
                     className="h-8 text-[11px] px-2 font-semibold bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   >
                     <FolderOpen className="w-3.5 h-3.5 mr-1 text-indigo-500" />
-                    Browse...
+                    {t("settings.notifications.browse")}
                   </Button>
                 )}
 
@@ -368,13 +370,15 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
                   className="h-8 bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
                   {!isGlobal && (
-                    <option value="default">🌐 Default ({inherited.soundPresetStr || "chime"})</option>
+                    <option value="default">{t("settings.notifications.defaultOpt")} ({inherited.soundPresetStr || "chime"})</option>
                   )}
-                  <option value="chime">🎵 Harmonic Chime</option>
-                  <option value="ping">⚡ Crisp Ping</option>
-                  <option value="bell">🔔 Warm Bell</option>
-                  <option value="pop">🫧 Bubble Pop</option>
-                  <option value="custom">📁 Custom Audio File...</option>
+                  <option value="chime">{t("settings.notifications.harmonicChime")}</option>
+                  <option value="ping">{t("settings.notifications.crispPing")}</option>
+                  <option value="bell">{t("settings.notifications.warmBell")}</option>
+                  <option value="pop">{t("settings.notifications.bubblePop")}</option>
+                  <option value="marimba">{t("settings.notifications.marimbaOpt")}</option>
+                  <option value="glass">{t("settings.notifications.glassOpt")}</option>
+                  <option value="custom">{t("settings.notifications.customAudioOpt")}</option>
                 </select>
               </div>
             </div>
@@ -391,7 +395,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
                 <div className="flex items-center gap-x-2 truncate">
                   <Music className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                   <span className="truncate text-zinc-700 dark:text-zinc-300 font-medium">
-                    {values.customSoundUrl ? "Custom audio file loaded" : "No file selected"}
+                    {values.customSoundUrl ? t("settings.notifications.customLoaded") : t("settings.notifications.noFile")}
                   </span>
                 </div>
                 <Button
@@ -401,7 +405,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
                   onClick={() => triggerFileSelection("customSoundUrl", "soundPreset", channelFileInputRef, setChannelFileError)}
                   className="h-6 text-[11px] px-2 font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
                 >
-                  Change file
+                  {t("settings.notifications.changeFile")}
                 </Button>
               </div>
             )}
@@ -413,7 +417,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
               <div className="flex items-center justify-between gap-x-2">
                 <div className="flex items-center gap-x-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100 shrink-0">
                   <Volume2 className="w-3.5 h-3.5 text-zinc-500" />
-                  Private Message Tone
+                  {t("settings.notifications.dmSoundTone")}
                 </div>
 
                 <div className="flex items-center gap-x-1.5 shrink-0">
@@ -425,7 +429,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
                       const preset = (values.dmSoundPreset === "default" ? inherited.dmSoundPresetStr : values.dmSoundPreset) as SoundPreset || "chime";
                       playNotificationSound(preset, values.customDmSoundUrl || values.customSoundUrl);
                     }}
-                    title="Test DM Sound"
+                    title={t("settings.notifications.testDmSound")}
                     className="h-8 px-2.5 bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-x-1"
                   >
                     <Play className="w-3.5 h-3.5 fill-current text-indigo-500" />
@@ -441,7 +445,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
                       className="h-8 text-[11px] px-2 font-semibold bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     >
                       <FolderOpen className="w-3.5 h-3.5 mr-1 text-indigo-500" />
-                      Browse...
+                      {t("settings.notifications.browse")}
                     </Button>
                   )}
 
@@ -460,13 +464,15 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
                     className="h-8 bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                   >
                     {!isGlobal && (
-                      <option value="default">🌐 Default ({inherited.dmSoundPresetStr || "chime"})</option>
+                      <option value="default">{t("settings.notifications.defaultOpt")} ({inherited.dmSoundPresetStr || "chime"})</option>
                     )}
-                    <option value="chime">🎵 Harmonic Chime</option>
-                    <option value="ping">⚡ Crisp Ping</option>
-                    <option value="bell">🔔 Warm Bell</option>
-                    <option value="pop">🫧 Bubble Pop</option>
-                    <option value="custom">📁 Custom Audio File...</option>
+                    <option value="chime">{t("settings.notifications.harmonicChime")}</option>
+                    <option value="ping">{t("settings.notifications.crispPing")}</option>
+                    <option value="bell">{t("settings.notifications.warmBell")}</option>
+                    <option value="pop">{t("settings.notifications.bubblePop")}</option>
+                    <option value="marimba">{t("settings.notifications.marimbaOpt")}</option>
+                    <option value="glass">{t("settings.notifications.glassOpt")}</option>
+                    <option value="custom">{t("settings.notifications.customAudioOpt")}</option>
                   </select>
                 </div>
               </div>
@@ -483,7 +489,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
                   <div className="flex items-center gap-x-2 truncate">
                     <Music className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                     <span className="truncate text-zinc-700 dark:text-zinc-300 font-medium">
-                      {values.customDmSoundUrl ? "Custom DM audio loaded" : "No file selected"}
+                      {values.customDmSoundUrl ? t("settings.notifications.customDmLoaded") : t("settings.notifications.noFile")}
                     </span>
                   </div>
                   <Button
@@ -493,7 +499,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
                     onClick={() => triggerFileSelection("customDmSoundUrl", "dmSoundPreset", dmFileInputRef, setDmFileError)}
                     className="h-6 text-[11px] px-2 font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
                   >
-                    Change file
+                    {t("settings.notifications.changeFile")}
                   </Button>
                 </div>
               )}
@@ -505,7 +511,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
             <div className="flex items-center justify-between gap-x-2">
               <div className="flex items-center gap-x-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                 <Clock className="w-3.5 h-3.5 text-zinc-500" />
-                Notification cooldown / rate limit
+                {t("settings.notifications.cooldownTitle")}
               </div>
               {!isGlobal && (
                 <select
@@ -522,8 +528,8 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
                   }}
                   className="bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
-                  <option value="default">🌐 Default ({inherited.cooldownSec || "2.5"}s)</option>
-                  <option value="custom">⚡ Custom Cooldown</option>
+                  <option value="default">{t("settings.notifications.defaultOpt")} ({inherited.cooldownSec || "2.5"}s)</option>
+                  <option value="custom">{t("settings.notifications.customCooldownOpt")}</option>
                 </select>
               )}
             </div>
@@ -563,7 +569,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
       <div className="flex items-center justify-between gap-x-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
         <div className="flex items-center gap-x-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
           <Bell className="w-3.5 h-3.5 text-zinc-500" />
-          System Desktop Popup
+          {t("settings.notifications.desktopPopup")}
         </div>
         {isGlobal ? (
           <Switch
@@ -576,9 +582,9 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
             onChange={(e) => onChange("popup", e.target.value as NotificationOverrideValue)}
             className="bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
           >
-            <option value="default">🌐 Default ({inherited.popupStr || "Enabled"})</option>
-            <option value="enabled">✅ Enabled</option>
-            <option value="disabled">🚫 Disabled</option>
+            <option value="default">{t("settings.notifications.defaultOpt")} ({inherited.popupStr || t("settings.notifications.enabled")})</option>
+            <option value="enabled">{t("settings.notifications.enabledOpt")}</option>
+            <option value="disabled">{t("settings.notifications.disabledOpt")}</option>
           </select>
         )}
       </div>
@@ -587,7 +593,7 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
       <div className="flex items-center justify-between gap-x-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
         <div className="flex items-center gap-x-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
           <Monitor className="w-3.5 h-3.5 text-zinc-500" />
-          Taskbar Alert
+          {t("settings.notifications.taskbarAlert")}
         </div>
         {isGlobal ? (
           <Switch
@@ -600,9 +606,9 @@ export const NotificationSettingsFields: React.FC<NotificationSettingsFieldsProp
             onChange={(e) => onChange("taskbar", e.target.value as NotificationOverrideValue)}
             className="bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
           >
-            <option value="default">🌐 Default ({inherited.taskbarStr || "Enabled"})</option>
-            <option value="enabled">✅ Enabled</option>
-            <option value="disabled">🚫 Disabled</option>
+            <option value="default">{t("settings.notifications.defaultOpt")} ({inherited.taskbarStr || t("settings.notifications.enabled")})</option>
+            <option value="enabled">{t("settings.notifications.enabledOpt")}</option>
+            <option value="disabled">{t("settings.notifications.disabledOpt")}</option>
           </select>
         )}
       </div>

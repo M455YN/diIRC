@@ -1,7 +1,8 @@
 import * as z from "zod";
+import { useTranslation } from "react-i18next";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useState , useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -40,16 +41,18 @@ import {
 } from "@/types";
 import { NotificationSettingsFields } from "@/components/notifications/notification-settings-fields";
 import { CustomCommandsFields, normalizeCustomCommandsFromForm } from "@/components/server/custom-commands-fields";
+import { ServerLogoField } from "@/components/server/server-logo-field";
 
-const formSchema = z.object({
-  name: z.string().min(1, { message: "Server name is required." }),
-  host: z.string().min(1, { message: "Server address is required." }),
+const buildFormSchema = (t: (key: string) => string) => z.object({
+  imageUrl: z.string().optional(),
+  name: z.string().min(1, { message: t("server.validation.nameRequired") }),
+  host: z.string().min(1, { message: t("server.validation.addressRequired") }),
   port: z.coerce.number().min(1).max(65535),
   nicknames: z.array(
     z.object({
       value: z.string()
-        .min(1, { message: "Nickname is required." })
-        .refine((val) => !/\s/.test(val), { message: "Nickname cannot contain spaces." }),
+        .min(1, { message: t("server.validation.nickRequired") })
+        .refine((val) => !/\s/.test(val), { message: t("server.validation.nickSpaces") }),
     })
   ).min(1),
   username: z.string().optional(),
@@ -70,14 +73,16 @@ const formSchema = z.object({
   ).default([]),
 });
 
+type ServerFormValues = z.infer<ReturnType<typeof buildFormSchema>>;
+
 type ServerTab = "connection" | "behavior" | "chat" | "notifications" | "commands";
 
 const SERVER_TABS: { id: ServerTab; title: string; icon: typeof Bell }[] = [
-  { id: "connection", title: "Connection", icon: Server },
-  { id: "behavior", title: "Behavior", icon: Zap },
-  { id: "chat", title: "Chat and display", icon: MessageSquare },
-  { id: "notifications", title: "Notifications", icon: Bell },
-  { id: "commands", title: "Custom commands", icon: Command },
+  { id: "connection", title: "server.tabs.connection", icon: Server },
+  { id: "behavior", title: "server.tabs.behavior", icon: Zap },
+  { id: "chat", title: "server.tabs.chat", icon: MessageSquare },
+  { id: "notifications", title: "server.tabs.notifications", icon: Bell },
+  { id: "commands", title: "server.tabs.commands", icon: Command },
 ];
 
 // Which tab hosts each form field, so a validation error can bring the user to it.
@@ -94,6 +99,7 @@ export const EditServerModal = () =>
 
 /** One desktop form for both "Add IRC server" and "Edit server settings". */
 export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) => {
+  const { t } = useTranslation();
   const isCreate = mode === "create";
   const { isOpen, onClose, type, data } = useModal();
   const navigate = useNavigate();
@@ -137,29 +143,31 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
 
   const inheritedChannelNotifStr =
     globalNotif?.channelNotifications === "all"
-      ? "All messages"
+      ? t("server.opt.allMessages")
       : globalNotif?.channelNotifications === "off"
-      ? "Disabled"
-      : "Mentions only";
-  const inheritedDmNotifStr = globalNotif?.dmNotifications === "off" ? "Disabled" : "Enabled";
-  const inheritedSoundStr = globalNotif?.soundEnabled ? "Enabled" : "Muted";
-  const inheritedPopupStr = globalNotif?.popupEnabled ? "Enabled" : "Off";
-  const inheritedTaskbarStr = globalNotif?.taskbarHighlightEnabled ? "Enabled" : "Off";
+      ? t("server.opt.disabled")
+      : t("server.opt.mentionsOnly");
+  const inheritedDmNotifStr = globalNotif?.dmNotifications === "off" ? t("server.opt.disabled") : t("server.opt.enabled");
+  const inheritedSoundStr = globalNotif?.soundEnabled ? t("server.opt.enabled") : t("server.opt.muted");
+  const inheritedPopupStr = globalNotif?.popupEnabled ? t("server.opt.enabled") : t("server.opt.off");
+  const inheritedTaskbarStr = globalNotif?.taskbarHighlightEnabled ? t("server.opt.enabled") : t("server.opt.off");
   const inheritedCooldownSec = ((globalNotif?.soundCooldownMs ?? 3000) / 1000).toFixed(1);
   const inheritedSoundPresetStr = globalNotif?.soundPreset || "chime";
   const inheritedDmSoundPresetStr = globalNotif?.dmSoundPreset || "chime";
   const inheritedReplyModeStr =
     defaultReplyMode === "modern"
-      ? "Modern IRCv3 only"
+      ? t("server.opt.modernOnly")
       : defaultReplyMode === "legacy"
-      ? "Legacy inline only"
+      ? t("server.opt.legacyOnly")
       : defaultReplyMode === "hybrid"
-      ? "Hybrid (both)"
-      : "Auto (recommended)";
+      ? t("server.opt.hybrid")
+      : t("server.opt.autoRecommended");
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const formSchema = useMemo(() => buildFormSchema(t), [t]);
+  const form = useForm<ServerFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      imageUrl: "",
       name: "",
       host: "127.0.0.1",
       port: 6667,
@@ -211,6 +219,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
       setMediaCollapseOverride(server?.autoCollapseImages || "default");
 
       form.reset({
+        imageUrl: server?.imageUrl || "",
         name: server?.name || "",
         host: server?.host || "127.0.0.1",
         port: server?.port || 6667,
@@ -235,7 +244,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
 
   const isLoading = form.formState.isSubmitting;
 
-  const saveServer = async (values: z.infer<typeof formSchema>) => {
+  const saveServer = async (values: ServerFormValues) => {
     if (!isCreate && !server?.id) return;
     try {
       const nickArray = values.nicknames
@@ -256,6 +265,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
         : server!.id;
 
       updateServer(serverId, {
+        imageUrl: values.imageUrl,
         name: values.name,
         host: values.host,
         port: values.port,
@@ -297,7 +307,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
     }
   };
 
-  const onFormSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onFormSubmit = async (values: ServerFormValues) => {
     await saveServer(values);
   };
 
@@ -332,19 +342,19 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
         >
           <DialogHeader className="pt-6 pb-4 px-6 space-y-1 shrink-0">
             <DialogTitle className="text-2xl text-center font-bold text-zinc-900 dark:text-zinc-100">
-              {isCreate ? "Add IRC server" : "Edit server settings"}
+              {isCreate ? t("server.header.add") : t("server.header.edit")}
             </DialogTitle>
             <DialogDescription className="text-center text-zinc-500 dark:text-zinc-400 text-xs sm:text-sm">
               {isCreate
-                ? "Configure host, port, and nickname to connect to your IRC server."
-                : "Update connection parameters and configuration for your IRC server."}
+                ? t("server.header.addDesc")
+                : t("server.header.editDesc")}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onFormSubmit, onFormInvalid)} className="flex flex-col flex-1 min-h-0">
               <div className="flex min-h-0 flex-1 flex-col border-t border-zinc-200 dark:border-zinc-800 sm:flex-row">
               <nav
-                aria-label="Server settings categories"
+                aria-label={t("server.categoriesAria")}
                 className="flex shrink-0 gap-1 overflow-x-auto border-b border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-[#2b2d31] sm:w-52 sm:flex-col sm:overflow-y-auto sm:overflow-x-visible sm:border-b-0 sm:border-r sm:p-3"
               >
                 {SERVER_TABS.map(({ id, title, icon: TabIcon }) => (
@@ -361,7 +371,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                     )}
                   >
                     <TabIcon className="h-4 w-4 shrink-0" />
-                    <span className="whitespace-nowrap">{title}</span>
+                    <span className="whitespace-nowrap">{t(title)}</span>
                   </button>
                 ))}
               </nav>
@@ -369,17 +379,31 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
               <div role="tabpanel" className={tab === "connection" ? "space-y-4" : "hidden"}>
               <FormField
                 control={form.control}
+                name="imageUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider">
+                      {t("server.field.logo")}
+                    </FormLabel>
+                    <FormControl>
+                      <ServerLogoField value={field.value || ""} onChange={field.onChange} disabled={isLoading} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider">
-                      Server name
+                      {t("server.field.name")}
                     </FormLabel>
                     <FormControl>
                       <Input
                         disabled={isLoading}
                         className="bg-zinc-100 dark:bg-[#1e1f22] border border-zinc-300/80 dark:border-zinc-700/60 focus-visible:ring-2 focus-visible:ring-indigo-500 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-medium h-10"
-                        placeholder="e.g. Local Ergo or Libera Chat"
+                        placeholder={t("server.field.namePlaceholder")}
                         {...field}
                       />
                     </FormControl>
@@ -396,7 +420,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider">
-                          Host / address
+                          {t("server.field.host")}
                         </FormLabel>
                         <FormControl>
                           <Input
@@ -431,7 +455,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider">
-                          Port
+                          {t("server.field.port")}
                         </FormLabel>
                         <FormControl>
                           <Input
@@ -456,14 +480,14 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider">
-                      Password (optional)
+                      {t("server.field.password")}
                     </FormLabel>
                     <FormControl>
                       <Input
                         type="password"
                         disabled={isLoading}
                         className="bg-zinc-100 dark:bg-[#1e1f22] border border-zinc-300/80 dark:border-zinc-700/60 focus-visible:ring-2 focus-visible:ring-indigo-500 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-medium h-10 w-full"
-                        placeholder="Optional"
+                        placeholder={t("server.field.optional")}
                         {...field}
                       />
                     </FormControl>
@@ -478,13 +502,13 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider">
-                      Username (optional)
+                      {t("server.field.username")}
                     </FormLabel>
                     <FormControl>
                       <Input
                         disabled={isLoading}
                         className="bg-zinc-100 dark:bg-[#1e1f22] border border-zinc-300/80 dark:border-zinc-700/60 focus-visible:ring-2 focus-visible:ring-indigo-500 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-medium h-10 w-full"
-                        placeholder="Ident (defaults to primary nickname)"
+                        placeholder={t("server.field.identPlaceholder")}
                         {...field}
                       />
                     </FormControl>
@@ -499,13 +523,13 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider">
-                      Real name (optional)
+                      {t("server.field.realName")}
                     </FormLabel>
                     <FormControl>
                       <Input
                         disabled={isLoading}
                         className="bg-zinc-100 dark:bg-[#1e1f22] border border-zinc-300/80 dark:border-zinc-700/60 focus-visible:ring-2 focus-visible:ring-indigo-500 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-medium h-10 w-full"
-                        placeholder="e.g. John Doe"
+                        placeholder={t("server.field.realNamePlaceholder")}
                         {...field}
                       />
                     </FormControl>
@@ -516,7 +540,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
 
               <div className="flex flex-col gap-2">
                 <FormLabel className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider flex items-center justify-between">
-                  Nicknames
+                  {t("server.field.nicknames")}
                   <Plus 
                     className="w-4 h-4 cursor-pointer text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 transition" 
                     onClick={() => appendNick({ value: "" })} 
@@ -534,7 +558,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                             <Input
                               disabled={isLoading}
                               className="bg-zinc-100 dark:bg-[#1e1f22] border border-zinc-300/80 dark:border-zinc-700/60 focus-visible:ring-2 focus-visible:ring-indigo-500 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-medium h-10"
-                              placeholder={index === 0 ? "ReactUser" : "Fallback nick"}
+                              placeholder={index === 0 ? "ReactUser" : t("server.field.fallbackNick")}
                               {...field}
                             />
                             {index > 0 && (
@@ -559,10 +583,10 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                   <FormItem className="flex flex-row items-center justify-between rounded-xl border border-zinc-300/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-3.5 shadow-sm">
                     <div className="space-y-0.5">
                       <FormLabel className="text-sm font-semibold text-zinc-900 dark:text-zinc-200 cursor-pointer">
-                        Use TLS / SSL
+                        {t("server.field.tls")}
                       </FormLabel>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        Encrypt connection via TLS/SSL (default port 6697)
+                        {t("server.field.tlsDesc")}
                       </p>
                     </div>
                     <FormControl>
@@ -590,10 +614,10 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                   <FormItem className="flex flex-row items-center justify-between rounded-xl border border-zinc-300/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-3.5 shadow-sm">
                     <div className="space-y-0.5">
                       <FormLabel className="text-sm font-semibold text-zinc-900 dark:text-zinc-200 cursor-pointer">
-                        Auto-connect on startup
+                        {t("server.field.autoConnect")}
                       </FormLabel>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        Automatically connect to this server when application starts
+                        {t("server.field.autoConnectDesc")}
                       </p>
                     </div>
                     <FormControl>
@@ -613,10 +637,10 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                   <FormItem className="flex flex-row items-center justify-between rounded-xl border border-zinc-300/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-3.5 shadow-sm">
                     <div className="space-y-0.5">
                       <FormLabel className="text-sm font-semibold text-zinc-900 dark:text-zinc-200 cursor-pointer">
-                        Auto-reconnect on disconnect
+                        {t("server.field.autoReconnect")}
                       </FormLabel>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        Automatically attempt to reconnect if connection drops
+                        {t("server.field.autoReconnectDesc")}
                       </p>
                     </div>
                     <FormControl>
@@ -636,10 +660,10 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                   <FormItem className="flex flex-row items-center justify-between rounded-xl border border-zinc-300/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-3.5 shadow-sm">
                     <div className="space-y-0.5">
                       <FormLabel className="text-sm font-semibold text-zinc-900 dark:text-zinc-200 cursor-pointer">
-                        Parse legacy ZNC timestamps
+                        {t("server.field.zncTimestamps")}
                       </FormLabel>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        Extract timestamps formatted as [HH:MM:SS] from older bouncers without IRCv3 server-time support
+                        {t("server.field.zncTimestampsDesc")}
                       </p>
                     </div>
                     <FormControl>
@@ -658,11 +682,11 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                 <div className="flex items-center gap-x-2">
                   <ScrollText className="w-4 h-4 text-indigo-500" />
                   <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-200">
-                    Message of the day (MOTD)
+                    {t("server.field.motd")}
                   </label>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Configure when to automatically display this server's MOTD on connect or join.
+                  {t("server.field.motdDesc")}
                 </p>
                 <select
                   value={motdPolicyOverride}
@@ -678,12 +702,12 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                   className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
                   <option value="default">
-                    Default (Use global setting: {globalMotdPolicy === "always" ? "Always" : globalMotdPolicy === "never" ? "Don't show again (all servers)" : "When changed"})
+                    Default (Use global setting: {globalMotdPolicy === "always" ? t("server.motd.always") : globalMotdPolicy === "never" ? t("server.motd.dontShowAll") : t("server.motd.whenChangedShort")})
                   </option>
-                  <option value="on_change">Only when changed</option>
-                  <option value="always">Always show on connect</option>
-                  <option value="never">Don't show again (this server)</option>
-                  <option value="never_globally">Don't show again (all servers)</option>
+                  <option value="on_change">{t("server.motd.whenChanged")}</option>
+                  <option value="always">{t("server.motd.alwaysOnConnect")}</option>
+                  <option value="never">{t("server.motd.dontShowThisServer")}</option>
+                  <option value="never_globally">{t("server.motd.dontShowAll")}</option>
                 </select>
               </div>
 
@@ -692,11 +716,11 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                 <div className="flex items-center gap-x-2">
                   <Sparkles className="w-4 h-4 text-indigo-500" />
                   <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-200">
-                    User display name format
+                    {t("server.field.displayName")}
                   </label>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Select how member names are displayed for this server.
+                  {t("server.field.displayNameDesc")}
                 </p>
                 <select
                   value={displayNameModeOverride}
@@ -704,11 +728,11 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                   className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
                   <option value="default">
-                    Default (Use app setting)
+                    {t("server.opt.defaultAppSetting")}
                   </option>
-                  <option value="nickname">Nickname</option>
-                  <option value="realname">RealName</option>
-                  <option value="username">Username</option>
+                  <option value="nickname">{t("server.opt.nickname")}</option>
+                  <option value="realname">{t("server.opt.realName")}</option>
+                  <option value="username">{t("server.opt.username")}</option>
                 </select>
               </div>
 
@@ -717,11 +741,11 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                 <div className="flex items-center gap-x-2">
                   <EyeOff className="w-4 h-4 text-indigo-500" />
                   <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-200">
-                    Image preview collapse
+                    {t("server.field.imageCollapse")}
                   </label>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Choose default collapse state for image attachments and previews on this server.
+                  {t("server.field.imageCollapseDesc")}
                 </p>
                 <select
                   value={mediaCollapseOverride}
@@ -729,10 +753,10 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                   className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
                   <option value="default">
-                    Default (Use app setting: {autoCollapseImages ? "Collapsed" : "Expanded"})
+                    Default (Use app setting: {autoCollapseImages ? t("server.opt.collapsed") : t("server.opt.expanded")})
                   </option>
-                  <option value="expanded">Always expanded</option>
-                  <option value="collapsed">Always collapsed</option>
+                  <option value="expanded">{t("server.opt.alwaysExpanded")}</option>
+                  <option value="collapsed">{t("server.opt.alwaysCollapsed")}</option>
                 </select>
               </div>
 
@@ -745,11 +769,11 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                     <div className="flex items-center gap-x-2">
                       <Reply className="w-4 h-4 text-indigo-500" />
                       <FormLabel className="text-sm font-semibold text-zinc-900 dark:text-zinc-200 cursor-pointer">
-                        Reply format
+                        {t("server.field.replyFormat")}
                       </FormLabel>
                     </div>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                      Choose how replies are sent to this server. Auto uses modern IRCv3 tags if supported and falls back to legacy inline quoting.
+                      {t("server.field.replyFormatDesc")}
                     </p>
                     <FormControl>
                       <select
@@ -760,10 +784,10 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                         <option value="inherit">
                           Default (Use app setting: {inheritedReplyModeStr})
                         </option>
-                        <option value="auto">Auto (recommended)</option>
-                        <option value="modern">Modern IRCv3 only</option>
-                        <option value="legacy">Legacy inline only</option>
-                        <option value="hybrid">Hybrid (both)</option>
+                        <option value="auto">{t("server.opt.autoRecommended")}</option>
+                        <option value="modern">{t("server.opt.modernOnly")}</option>
+                        <option value="legacy">{t("server.opt.legacyOnly")}</option>
+                        <option value="hybrid">{t("server.opt.hybrid")}</option>
                       </select>
                     </FormControl>
                     <FormMessage />
@@ -825,10 +849,10 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                   disabled={isLoading}
                   className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white"
                 >
-                  Cancel
+                  {t("server.btn.cancel")}
                 </Button>
                 <Button variant="primary" disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 shadow-sm">
-                  {isCreate ? "Connect & add" : "Save changes"}
+                  {isCreate ? t("server.btn.connectAdd") : t("server.btn.save")}
                 </Button>
               </DialogFooter>
             </form>
@@ -848,7 +872,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
             </div>
             <DialogHeader className="space-y-1">
               <DialogTitle className="text-xl font-bold text-zinc-900 dark:text-zinc-100 text-center">
-                Unsaved changes
+                {t("server.unsaved.title")}
               </DialogTitle>
               <DialogDescription className="text-center text-zinc-500 dark:text-zinc-400 text-xs sm:text-sm leading-relaxed">
                 You have unsaved changes to server settings for <span className="font-semibold text-indigo-600 dark:text-indigo-400">{server?.name}</span>. Do you want to save them before exiting?
@@ -863,7 +887,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
               disabled={isLoading}
               className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white text-xs font-medium transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]"
             >
-              Cancel
+              {t("server.btn.cancel")}
             </Button>
             <Button
               type="button"
@@ -872,7 +896,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
               disabled={isLoading}
               className="border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 text-xs font-medium transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]"
             >
-              Discard changes
+              {t("server.unsaved.discard")}
             </Button>
             <Button
               type="button"
@@ -880,7 +904,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
               disabled={isLoading}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 shadow-sm text-xs transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]"
             >
-              Save changes
+              {t("server.btn.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

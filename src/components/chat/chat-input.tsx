@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Pencil, Paperclip, Loader2, X, FileIcon, Command, Radio, User, Users, Bold, Italic, Underline, Strikethrough, GripHorizontal, EyeOff, MoreHorizontal, Code, SquareCode, Heading, Quote, List, ListOrdered } from "lucide-react";
@@ -46,24 +47,24 @@ import { ActionTooltip } from "@/components/action-tooltip";
 import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 
 const MARKDOWN_FORMATS = [
-  { id: "bold", icon: Bold, before: "**", after: "**", label: "Bold (Ctrl+B)", shortcut: "b", shift: false },
-  { id: "italic", icon: Italic, before: "*", after: "*", label: "Italic (Ctrl+I)", shortcut: "i", shift: false },
-  { id: "underline", icon: Underline, before: "__", after: "__", label: "Underline (Ctrl+U)", shortcut: "u", shift: false },
-  { id: "strikethrough", icon: Strikethrough, before: "~~", after: "~~", label: "Strikethrough (Ctrl+Shift+X)", shortcut: "x", shift: true },
-  { id: "spoiler", icon: EyeOff, before: "||", after: "||", label: "Spoiler (Ctrl+Shift+H)", shortcut: "h", shift: true },
+  { id: "bold", icon: Bold, before: "**", after: "**", label: "chat.input.bold", shortcut: "b", shift: false },
+  { id: "italic", icon: Italic, before: "*", after: "*", label: "chat.input.italic", shortcut: "i", shift: false },
+  { id: "underline", icon: Underline, before: "__", after: "__", label: "chat.input.underline", shortcut: "u", shift: false },
+  { id: "strikethrough", icon: Strikethrough, before: "~~", after: "~~", label: "chat.input.strikethrough", shortcut: "x", shift: true },
+  { id: "spoiler", icon: EyeOff, before: "||", after: "||", label: "chat.input.spoiler", shortcut: "h", shift: true },
 ] as const;
 
 const EXTRA_MARKDOWN_ACTIONS = [
-  { id: "code-block", label: "Code block", icon: Code, apply: (textarea: HTMLTextAreaElement) => wrapCodeBlock(textarea) },
-  { id: "quote", label: "Quote", icon: Quote, apply: (textarea: HTMLTextAreaElement) => toggleLinePrefix(textarea, "> ") },
-  { id: "bullet-list", label: "Bullet list", icon: List, apply: (textarea: HTMLTextAreaElement) => toggleLinePrefix(textarea, "- ") },
-  { id: "numbered-list", label: "Numbered list", icon: ListOrdered, apply: (textarea: HTMLTextAreaElement) => toggleLinePrefix(textarea, "", { numbered: true }) },
+  { id: "code-block", label: "chat.input.codeBlock", icon: Code, apply: (textarea: HTMLTextAreaElement) => wrapCodeBlock(textarea) },
+  { id: "quote", label: "chat.input.quote", icon: Quote, apply: (textarea: HTMLTextAreaElement) => toggleLinePrefix(textarea, "> ") },
+  { id: "bullet-list", label: "chat.input.bulletList", icon: List, apply: (textarea: HTMLTextAreaElement) => toggleLinePrefix(textarea, "- ") },
+  { id: "numbered-list", label: "chat.input.numberedList", icon: ListOrdered, apply: (textarea: HTMLTextAreaElement) => toggleLinePrefix(textarea, "", { numbered: true }) },
 ] as const;
 
 const HEADING_LEVELS = [
-  { level: 1 as const, label: "Heading 1", preview: "#" },
-  { level: 2 as const, label: "Heading 2", preview: "##" },
-  { level: 3 as const, label: "Heading 3", preview: "###" },
+  { level: 1 as const, label: "chat.input.heading1", preview: "#" },
+  { level: 2 as const, label: "chat.input.heading2", preview: "##" },
+  { level: 3 as const, label: "chat.input.heading3", preview: "###" },
 ] as const;
 
 const INPUT_UNDO_LIMIT = 100;
@@ -90,6 +91,7 @@ export const ChatInput = ({
   name,
   type,
 }: ChatInputProps) => {
+  const { t: tr } = useTranslation();
   const isMobile = useIsMobileShell();
   const addMessage = useMockStore((state) => state.addMessage);
   const addDirectMessage = useMockStore((state) => state.addDirectMessage);
@@ -142,6 +144,8 @@ export const ChatInput = ({
   const sentHistoryRef = useRef<string[]>([]);
   const historyIndexRef = useRef(-1);
   const historyShownRef = useRef("");
+  // Mirrors historyIndexRef for rendering: position in sent history, 1-based, while recalling.
+  const [historyPos, setHistoryPos] = useState<{ index: number; total: number } | null>(null);
 
   const [showCommands, setShowCommands] = useState(false);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
@@ -287,7 +291,7 @@ export const ChatInput = ({
   }, []);
 
   const targetName = type === "channel" ? (name.startsWith("#") ? name : `#${name}`) : name;
-  const currentNick = primaryNick || currentMember?.profile?.name || "You";
+  const currentNick = primaryNick || currentMember?.profile?.name || tr("chat.input.you");
   const serverHost = activeServer?.host || "localhost";
   const serverUser = activeServer?.realname || currentNick;
 
@@ -327,7 +331,7 @@ export const ChatInput = ({
     if (nextBytes > maxBytes) {
       e.preventDefault();
       onOpen("ircError", {
-        title: "Message length limit exceeded",
+        title: tr("chat.input.lengthLimit"),
         description: `Pasted message exceeds the maximum allowed limit of ${maxBytes} bytes (attempted paste size: ${nextBytes} bytes).`,
       });
       return;
@@ -425,7 +429,7 @@ export const ChatInput = ({
 
   const processFileUpload = useCallback(async (file: File) => {
     if (uploadConfig.provider === "disabled") {
-      setUploadError("Uploading is disabled in settings. Enable an upload provider in Settings.");
+      setUploadError(tr("chat.input.uploadDisabled"));
       setTimeout(() => setUploadError(null), 5000);
       return;
     }
@@ -452,7 +456,7 @@ export const ChatInput = ({
       focusInput();
     } catch (err: any) {
       console.error("Upload error:", err);
-      setUploadError(err?.message || "Failed to upload file.");
+      setUploadError(err?.message || tr("chat.input.uploadFailed"));
       setAttachedImages((prev) => prev.filter((item) => item.id !== id));
       URL.revokeObjectURL(previewUrl);
       setTimeout(() => setUploadError(null), 5000);
@@ -461,7 +465,7 @@ export const ChatInput = ({
 
   const processFilePathUpload = useCallback(async (filePath: string) => {
     if (uploadConfig.provider === "disabled") {
-      setUploadError("Uploading is disabled in settings. Enable an upload provider in Settings.");
+      setUploadError(tr("chat.input.uploadDisabled"));
       setTimeout(() => setUploadError(null), 5000);
       return;
     }
@@ -506,7 +510,7 @@ export const ChatInput = ({
       await processFileUpload(file);
     } catch (err: any) {
       console.error("File path upload error:", err);
-      setUploadError(err?.message || "Failed to upload file.");
+      setUploadError(err?.message || tr("chat.input.uploadFailed"));
       setTimeout(() => setUploadError(null), 5000);
     }
   }, [uploadConfig, processFileUpload]);
@@ -842,7 +846,7 @@ export const ChatInput = ({
     const suggestions = filtered.map((n) => {
       const modes = (type === "channel" && activeId) ? (channelUserModesMap[activeId]?.[n.toLowerCase()] || []) : [];
       const roleKey = getHighestChannelRole(modes);
-      const roleLabel = roleKey ? ROLE_CONFIGS[roleKey]?.label || "Member" : "Member";
+      const roleLabel = roleKey ? tr(ROLE_CONFIGS[roleKey]?.label || "chat.input.member") : tr("chat.input.member");
       const memberObj = activeServer?.members?.find((m) => m.profile?.name?.toLowerCase() === n.toLowerCase());
       return { nick: n, roleKey, roleLabel, avatarUrl: memberObj?.profile?.imageUrl };
     });
@@ -895,7 +899,7 @@ export const ChatInput = ({
     const suggestions = filtered.map((n) => {
       const modes = (type === "channel" && activeId) ? (channelUserModesMap[activeId]?.[n.toLowerCase()] || []) : [];
       const roleKey = getHighestChannelRole(modes);
-      const roleLabel = roleKey ? ROLE_CONFIGS[roleKey]?.label || "Member" : "Member";
+      const roleLabel = roleKey ? tr(ROLE_CONFIGS[roleKey]?.label || "chat.input.member") : tr("chat.input.member");
       const memberObj = activeServer?.members?.find((m) => m.profile?.name?.toLowerCase() === n.toLowerCase());
       return { nick: n, roleKey, roleLabel, avatarUrl: memberObj?.profile?.imageUrl };
     });
@@ -983,7 +987,7 @@ export const ChatInput = ({
 
       if (wireBytesFor(newValue) > maxBytes) {
         onOpen("ircError", {
-          title: "Message length limit exceeded",
+          title: tr("chat.input.lengthLimit"),
           description: `Formatting would exceed the maximum allowed message limit of ${maxBytes} bytes.`,
         });
         return;
@@ -1015,7 +1019,7 @@ export const ChatInput = ({
 
       if (wireBytesFor(newValue) > maxBytes) {
         onOpen("ircError", {
-          title: "Message length limit exceeded",
+          title: tr("chat.input.lengthLimit"),
           description: `Formatting would exceed the maximum allowed message limit of ${maxBytes} bytes.`,
         });
         return;
@@ -1161,6 +1165,11 @@ export const ChatInput = ({
       return;
     }
 
+    // Typing while recalling detaches the text from history, so the position indicator goes away.
+    if (historyPos && (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete")) {
+      setHistoryPos(null);
+    }
+
     if (
       (e.key === "ArrowUp" || e.key === "ArrowDown") &&
       !e.shiftKey &&
@@ -1199,6 +1208,9 @@ export const ChatInput = ({
       if (next !== null) {
         e.preventDefault();
         historyShownRef.current = next;
+        setHistoryPos(
+          historyIndexRef.current >= 0 ? { index: historyIndexRef.current, total: history.length } : null
+        );
         form.setValue("content", next, { shouldDirty: true });
         setTimeout(() => {
           ta.setSelectionRange(next!.length, next!.length);
@@ -1370,6 +1382,7 @@ export const ChatInput = ({
         if (history.length > 50) history.shift();
       }
       historyIndexRef.current = -1;
+      setHistoryPos(null);
 
       if (textContent.startsWith("/")) {
         let inputUpdated = false;
@@ -1564,10 +1577,10 @@ export const ChatInput = ({
             )} />
             <div className="flex flex-col min-w-0">
               <span className="text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate">
-                {isConnecting ? `Connecting to ${activeServer.name}...` : `Disconnected from ${activeServer.name}`}
+                {isConnecting ? tr("chat.input.connectingTo", { server: activeServer.name }) : tr("chat.input.disconnectedFrom", { server: activeServer.name })}
               </span>
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                {isConnecting ? "Establishing IRC connection..." : "You cannot send messages while disconnected."}
+                {isConnecting ? tr("chat.input.connecting") : tr("chat.input.disconnectedNoSend")}
               </span>
             </div>
           </div>
@@ -1582,7 +1595,7 @@ export const ChatInput = ({
             ) : (
               <Radio className="w-3.5 h-3.5" />
             )}
-            <span>{isConnecting ? "Connecting..." : "Connect to server"}</span>
+            <span>{isConnecting ? tr("chat.input.connectingShort") : tr("chat.input.connectToServer")}</span>
           </button>
         </div>
       </div>
@@ -1614,12 +1627,22 @@ export const ChatInput = ({
                       : "relative p-4 pb-6"
                   )}
                 >
+                  {historyPos && (
+                    <div className="mb-1 flex justify-end px-1">
+                      <span
+                        className="rounded-md bg-zinc-200/80 px-2 py-0.5 text-[11px] font-medium tabular-nums text-zinc-600 dark:bg-zinc-800/80 dark:text-zinc-300"
+                        title={tr("chat.input.historyTitle")}
+                      >
+                        {tr("chat.input.history", { current: historyPos.index + 1, total: historyPos.total })}
+                      </span>
+                    </div>
+                  )}
                   {pendingEdit && (
                     <div className="mb-2 flex items-center gap-x-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
                       <Pencil className="h-4 w-4 shrink-0 text-amber-500" />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-                          Editing message
+                          {tr("chat.input.editing")}
                         </p>
                         <p className="text-xs italic text-zinc-500 dark:text-zinc-400 truncate">
                           {pendingEdit.original}
@@ -1633,7 +1656,7 @@ export const ChatInput = ({
                           form.reset({ content: "" });
                         }}
                         className="h-6 w-6 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70 flex items-center justify-center transition"
-                        title="Cancel edit (Esc)"
+                        title={tr("chat.input.cancelEdit")}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -1644,7 +1667,7 @@ export const ChatInput = ({
                       <div className="w-0.5 self-stretch rounded-full bg-indigo-500 shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">
-                          Replying to {pendingReply.nick}
+                          {tr("chat.input.replyingTo", { nick: pendingReply.nick })}
                         </p>
                         <p className="text-xs italic text-zinc-500 dark:text-zinc-400 truncate">
                           {pendingReply.preview}
@@ -1654,7 +1677,7 @@ export const ChatInput = ({
                         type="button"
                         onClick={() => activeId && clearPendingReply(activeId)}
                         className="h-6 w-6 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70 flex items-center justify-center transition"
-                        title="Cancel reply"
+                        title={tr("chat.input.cancelReply")}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -1692,14 +1715,14 @@ export const ChatInput = ({
                                 {img.name}
                               </span>
                               <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                                {img.isUploading ? "Uploading..." : "Ready"}
+                                {img.isUploading ? tr("chat.input.uploading") : tr("chat.input.ready")}
                               </span>
                             </div>
                             <button
                               type="button"
                               onClick={() => removeAttachment(img.id)}
                               className="absolute -top-2 -right-2 h-6 w-6 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center transition shadow-lg z-10"
-                              title="Remove attachment"
+                              title={tr("chat.input.removeAttachment")}
                             >
                               <X className="w-3.5 h-3.5 stroke-[2.5]" />
                             </button>
@@ -1803,7 +1826,7 @@ export const ChatInput = ({
                         disabled={isLoading}
                         onClick={() => fileInputRef.current?.click()}
                         className="mb-1.5 flex h-9 w-9 shrink-0 items-center justify-center text-blue-500 disabled:opacity-50"
-                        title="Attach files"
+                        title={tr("chat.input.attachFiles")}
                       >
                         {isUploading ? (
                           <Loader2 className="h-5 w-5 animate-spin" />
@@ -1825,14 +1848,14 @@ export const ChatInput = ({
                         <div
                           role="separator"
                           aria-orientation="horizontal"
-                          aria-label="Resize formatting preview"
-                          title="Drag to resize preview"
+                          aria-label={tr("chat.input.resizePreview")}
+                          title={tr("chat.input.dragResize")}
                           onMouseDown={handleFormattingPreviewResizeStart}
                           onDoubleClick={() => setFormattingPreviewHeight(FORMATTING_PREVIEW_HEIGHT_DEFAULT)}
                           className="flex items-center justify-between px-3 py-1 cursor-ns-resize hover:bg-zinc-300/40 dark:hover:bg-zinc-600/40 transition-colors group shrink-0 border-b border-zinc-300/40 dark:border-zinc-600/40 select-none"
                         >
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                            Preview
+                            {tr("chat.input.preview")}
                           </span>
                           <GripHorizontal className="w-4 h-4 text-zinc-400 dark:text-zinc-500 group-hover:text-zinc-600 dark:group-hover:text-zinc-300" />
                         </div>
@@ -1868,16 +1891,16 @@ export const ChatInput = ({
                       }}
                       placeholder={
                         !isIrcConnected
-                          ? "Disconnected from IRC server"
+                          ? tr("chat.input.disconnectedIrc")
                           : isMuted
-                          ? "You do not have permission to send messages in this moderated channel"
+                          ? tr("chat.input.noPermission")
                           : isUploading
-                          ? "Uploading files..."
+                          ? tr("chat.input.uploadingFiles")
                           : pendingReply
                           ? `Reply to ${pendingReply.nick}`
                           : isMobile
-                          ? "Message"
-                          : `Message ${type === "conversation" ? name : "#" + name}`
+                          ? tr("chat.input.message")
+                          : tr("chat.input.messageTo", { target: type === "conversation" ? name : "#" + name })
                       }
                       rows={1}
                       {...field}
@@ -1919,7 +1942,7 @@ export const ChatInput = ({
                       {enableMarkdown &&
                         !isMobile &&
                         MARKDOWN_FORMATS.map(({ id, icon: Icon, before, after, label }) => (
-                        <ActionTooltip key={id} label={label} side="top">
+                        <ActionTooltip key={id} label={tr(label)} side="top">
                           <button
                             type="button"
                             disabled={isInputDisabled}
@@ -1939,7 +1962,7 @@ export const ChatInput = ({
 
                       {enableMarkdown && !isMobile && (
                         <DropdownMenu>
-                          <ActionTooltip label="More formatting" side="top">
+                          <ActionTooltip label={tr("chat.input.moreFormatting")} side="top">
                             <DropdownMenuTrigger asChild>
                               <button
                                 type="button"
@@ -1961,7 +1984,7 @@ export const ChatInput = ({
                               onSelect={() => applyMarkdownTransform((textarea) => wrapCodeBlock(textarea))}
                             >
                               <Code className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                              <span>Code block</span>
+                              <span>{tr("chat.input.codeBlock")}</span>
                             </DropdownMenuItem>
 
                             <DropdownMenuItem
@@ -1969,13 +1992,13 @@ export const ChatInput = ({
                               onSelect={() => applyMarkdownTransform((textarea) => toggleMarkdownWrap(textarea, "`", "`"))}
                             >
                               <SquareCode className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                              <span>Inline code</span>
+                              <span>{tr("chat.input.inlineCode")}</span>
                             </DropdownMenuItem>
 
                             <DropdownMenuSub>
                               <DropdownMenuSubTrigger className="gap-x-2 cursor-pointer focus:bg-zinc-100 dark:focus:bg-zinc-700/60">
                                 <Heading className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                                <span>Heading</span>
+                                <span>{tr("chat.input.heading")}</span>
                               </DropdownMenuSubTrigger>
                               <DropdownMenuSubContent className="bg-white dark:bg-[#2b2d31] border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200">
                                 {HEADING_LEVELS.map(({ level, label, preview }) => (
@@ -1987,7 +2010,7 @@ export const ChatInput = ({
                                     }
                                   >
                                     <span className="w-8 font-mono text-xs text-zinc-500 dark:text-zinc-400">{preview}</span>
-                                    <span>{label}</span>
+                                    <span>{tr(label)}</span>
                                   </DropdownMenuItem>
                                 ))}
                               </DropdownMenuSubContent>
@@ -2000,7 +2023,7 @@ export const ChatInput = ({
                                 onSelect={() => applyMarkdownTransform(apply)}
                               >
                                 <Icon className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                                <span>{label}</span>
+                                <span>{tr(label)}</span>
                               </DropdownMenuItem>
                             ))}
                           </DropdownMenuContent>
@@ -2030,7 +2053,7 @@ export const ChatInput = ({
                         disabled={isLoading}
                         onClick={() => fileInputRef.current?.click()}
                         className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-300/50 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-600/50 dark:hover:text-zinc-200"
-                        title="Attach files (System dialog)"
+                        title={tr("chat.input.attachSystem")}
                       >
                         {isUploading ? (
                           <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
@@ -2051,7 +2074,7 @@ export const ChatInput = ({
                             form.setFocus("content");
                           } else {
                             onOpen("ircError", {
-                              title: "Message length limit exceeded",
+                              title: tr("chat.input.lengthLimit"),
                               description: `Adding this emoji would exceed the maximum allowed message limit of ${maxBytes} bytes.`,
                             });
                           }

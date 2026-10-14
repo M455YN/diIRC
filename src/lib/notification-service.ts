@@ -1,3 +1,4 @@
+import i18n from "@/lib/i18n";
 import { SoundPreset, playNotificationSound } from "./notification-sound";
 import {
   NotificationOverride,
@@ -274,7 +275,7 @@ export async function triggerIncomingNotification({
 
       if (group.count > 1) {
         const channelOrName = group.baseTitle.split(" - ")[0] || group.baseTitle;
-        finalTitle = `${channelOrName} (${group.count} new messages)`;
+        finalTitle = `${channelOrName} (${i18n.t("notif.newMessages", { count: group.count })})`;
         finalBody = group.lastSender ? `${group.lastSender}: ${group.lastBody}` : group.lastBody;
       }
 

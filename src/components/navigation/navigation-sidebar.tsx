@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useRef } from "react";
 import { Settings, ShieldCheck } from "lucide-react";
 
@@ -11,6 +12,7 @@ import { NavigationAction } from "./navigation-action";
 import { NavigationItem } from "./navigation-item";
 
 export const NavigationSidebar = () => {
+  const { t } = useTranslation();
   const servers = useMockStore((state) => state.servers);
   const reorderServers = useMockStore((state) => state.reorderServers);
   const { onOpen } = useModal();
@@ -232,7 +234,7 @@ export const NavigationSidebar = () => {
           </div>
         </ScrollArea>
         <div className="pb-3 mt-auto flex items-center flex-col gap-y-4">
-          <ActionTooltip side="right" align="center" label="Role icons">
+          <ActionTooltip side="right" align="center" label={t("nav.roleIcons")}>
             <button
               onClick={() => onOpen("roleIcons")}
               className="group flex items-center justify-center"
@@ -242,7 +244,7 @@ export const NavigationSidebar = () => {
               </div>
             </button>
           </ActionTooltip>
-          <ActionTooltip side="right" align="center" label="Settings">
+          <ActionTooltip side="right" align="center" label={t("nav.settings")}>
             <button
               onClick={() => onOpen("settings")}
               className="group flex items-center justify-center"

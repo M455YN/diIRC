@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   createContext,
   useContext,
@@ -325,6 +326,7 @@ export const M3SearchBar = ({
   active: boolean;
   onActiveChange: (active: boolean) => void;
 }) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -342,7 +344,7 @@ export const M3SearchBar = ({
       }}
     >
       <ButtonBase
-        aria-label={active ? "Close search" : "Search"}
+        aria-label={active ? tr("m3.closeSearch") : tr("m3.search")}
         onClick={(e) => {
           e.stopPropagation();
           if (active) {
@@ -381,7 +383,7 @@ export const M3SearchBar = ({
       />
       {value && (
         <ButtonBase
-          aria-label="Clear"
+          aria-label={tr("m3.clear")}
           onClick={(e) => {
             e.stopPropagation();
             onChange("");
@@ -940,6 +942,7 @@ const FullScreenBody = ({
   leading: "close" | "back";
   children: ReactNode;
 }) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   const [scrolled, setScrolled] = useState(false);
 
@@ -971,7 +974,7 @@ const FullScreenBody = ({
       >
         <M3IconButton
           icon={leading === "close" ? <CloseIcon /> : <ArrowBackIcon />}
-          label={leading === "close" ? "Close" : "Back"}
+          label={leading === "close" ? tr("m3.close") : tr("m3.back")}
           onClick={back}
           color={t.onSurface}
         />

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useLanguageStore, type AppLanguage } from "@/hooks/use-language-store";
 import {
   Dialog,
   DialogContent,
@@ -67,34 +69,85 @@ import { useTheme } from "next-themes";
 import { useAppearanceStyleStore, useIsWindows11, type AppearanceStyle, type MessageLayout, type WindowMaterial } from "@/hooks/use-appearance-style";
 
 const COLOR_MODES: { id: string; title: string; description: string }[] = [
-  { id: "system", title: "System", description: "Follow the OS setting" },
-  { id: "light", title: "Light", description: "Bright surfaces" },
-  { id: "dark", title: "Dark", description: "Default dark theme" },
-  { id: "oled", title: "OLED", description: "Pure black surfaces" },
+  { id: "system", title: "settings.appearance.color.system", description: "settings.appearance.color.systemDesc" },
+  { id: "light", title: "settings.appearance.color.light", description: "settings.appearance.color.lightDesc" },
+  { id: "dark", title: "settings.appearance.color.dark", description: "settings.appearance.color.darkDesc" },
+  { id: "oled", title: "settings.appearance.color.oled", description: "settings.appearance.color.oledDesc" },
 ];
 
 const APPEARANCE_STYLES: { id: AppearanceStyle; title: string; description: string }[] = [
-  { id: "standard", title: "Standard", description: "Default diIRC look" },
-  { id: "fluent", title: "Fluent", description: "Windows 11 style: rounded, translucent surfaces" },
+  { id: "standard", title: "settings.appearance.style.standard", description: "settings.appearance.style.standardDesc" },
+  { id: "fluent", title: "settings.appearance.style.fluent", description: "settings.appearance.style.fluentDesc" },
 ];
 
 type SettingsTab = "notifications" | "appearance" | "chat" | "previews" | "uploads" | "auth" | "updates";
 
 // Same categories as the mobile settings screen, plus desktop-only "Updates".
 const SETTINGS_TABS: { id: SettingsTab; title: string; icon: typeof Bell }[] = [
-  { id: "notifications", title: "Notifications", icon: Bell },
-  { id: "appearance", title: "Appearance", icon: Palette },
-  { id: "chat", title: "Chat and messaging", icon: MessageSquare },
-  { id: "previews", title: "Link previews", icon: Link2 },
-  { id: "uploads", title: "Image uploads", icon: UploadCloud },
-  { id: "auth", title: "Authorization", icon: Key },
-  { id: "updates", title: "Updates", icon: DownloadCloud },
+  { id: "notifications", title: "settings.tabs.notifications", icon: Bell },
+  { id: "appearance", title: "settings.tabs.appearance", icon: Palette },
+  { id: "chat", title: "settings.tabs.chat", icon: MessageSquare },
+  { id: "previews", title: "settings.tabs.previews", icon: Link2 },
+  { id: "uploads", title: "settings.tabs.uploads", icon: UploadCloud },
+  { id: "auth", title: "settings.tabs.auth", icon: Key },
+  { id: "updates", title: "settings.tabs.updates", icon: DownloadCloud },
+];
+
+const SETTINGS_SEARCH_INDEX: { key: string; tab: SettingsTab }[] = [
+  { key: "settings.items.channelNotifications", tab: "notifications" },
+  { key: "settings.items.dmNotifications", tab: "notifications" },
+  { key: "settings.items.notificationSound", tab: "notifications" },
+  { key: "settings.items.channelSound", tab: "notifications" },
+  { key: "settings.items.dmSound", tab: "notifications" },
+  { key: "settings.items.soundCooldown", tab: "notifications" },
+  { key: "settings.items.popupNotifications", tab: "notifications" },
+  { key: "settings.items.taskbarHighlight", tab: "notifications" },
+  { key: "settings.items.colors", tab: "appearance" },
+  { key: "settings.items.messageLayout", tab: "appearance" },
+  { key: "settings.items.visualStyle", tab: "appearance" },
+  { key: "settings.items.windowMaterial", tab: "appearance" },
+  { key: "settings.items.displayNameFormat", tab: "appearance" },
+  { key: "settings.items.compactMode", tab: "appearance" },
+  { key: "settings.items.groupByRole", tab: "appearance" },
+  { key: "settings.items.dateFormat", tab: "appearance" },
+  { key: "settings.items.sortDmByUnread", tab: "appearance" },
+  { key: "settings.items.sortDm", tab: "appearance" },
+  { key: "settings.items.statusIndicator", tab: "appearance" },
+  { key: "settings.items.confirmLeave", tab: "chat" },
+  { key: "settings.items.slashAutocomplete", tab: "chat" },
+  { key: "settings.items.markdown", tab: "chat" },
+  { key: "settings.items.formattingPreview", tab: "chat" },
+  { key: "settings.items.scrollOnReturn", tab: "chat" },
+  { key: "settings.items.jumboji", tab: "chat" },
+  { key: "settings.items.replyFormat", tab: "chat" },
+  { key: "settings.items.nickCompletion", tab: "chat" },
+  { key: "settings.items.motd", tab: "chat" },
+  { key: "settings.items.linkPreviews", tab: "previews" },
+  { key: "settings.items.collapseImages", tab: "previews" },
+  { key: "settings.items.motdMedia", tab: "previews" },
+  { key: "settings.items.webMetadata", tab: "previews" },
+  { key: "settings.items.previewApi", tab: "previews" },
+  { key: "settings.items.uploadProvider", tab: "uploads" },
+  { key: "settings.items.pomf", tab: "uploads" },
+  { key: "settings.items.imageAuth", tab: "auth" },
+  { key: "settings.items.softwareUpdates", tab: "updates" },
+  { key: "settings.items.updateChannel", tab: "updates" },
+  { key: "settings.items.checkUpdates", tab: "updates" },
 ];
 
 export const SettingsModal = () => {
   const { isOpen, onClose, type, onOpen } = useModal();
   const isMobile = useIsMobileShell();
   const [tab, setTab] = useState<SettingsTab>("notifications");
+  const { t } = useTranslation();
+  const language = useLanguageStore((state) => state.language);
+  const setLanguage = useLanguageStore((state) => state.setLanguage);
+  const [query, setQuery] = useState("");
+  const trimmedQuery = query.trim().toLowerCase();
+  const searching = trimmedQuery.length > 0;
+  const searchResults = searching
+    ? SETTINGS_SEARCH_INDEX.filter((item) => t(item.key).toLowerCase().includes(trimmedQuery))
+    : [];
   const { theme: colorMode, setTheme: setColorMode } = useTheme();
   const appearanceStyle = useAppearanceStyleStore((state) => state.style);
   const setAppearanceStyle = useAppearanceStyleStore((state) => state.setStyle);
@@ -241,6 +294,7 @@ export const SettingsModal = () => {
   const isModalOpen = isOpen && type === "settings";
 
   const handleClose = () => {
+    setQuery("");
     onClose();
   };
 
@@ -285,16 +339,26 @@ export const SettingsModal = () => {
         <DialogHeader className="space-y-1 px-6 pb-4 pt-6 text-left">
           <DialogTitle className="flex items-center gap-x-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
             <Settings className="h-6 w-6 text-indigo-500" />
-            Settings
+            {t("settings.title")}
           </DialogTitle>
           <DialogDescription className="text-xs text-zinc-500 dark:text-zinc-400 sm:text-sm">
-            Manage application preferences, notifications, image servers, and authorization rules.
+            {t("settings.description")}
           </DialogDescription>
         </DialogHeader>
 
+        <div className="px-6 pb-3">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("settings.searchPlaceholder")}
+            aria-label={t("settings.searchPlaceholder")}
+            className="h-9 bg-white text-sm dark:bg-[#1e1f22]"
+          />
+        </div>
+
         <div className="flex h-[70vh] flex-col border-t border-zinc-200 dark:border-zinc-800 sm:flex-row">
           <nav
-            aria-label="Settings categories"
+            aria-label={t("settings.ariaCategories")}
             className="flex shrink-0 gap-1 overflow-x-auto border-b border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-[#2b2d31] sm:w-56 sm:flex-col sm:overflow-y-auto sm:overflow-x-visible sm:border-b-0 sm:border-r sm:p-3"
           >
             {SETTINGS_TABS.map(({ id, title, icon: TabIcon }) => (
@@ -311,13 +375,39 @@ export const SettingsModal = () => {
                 )}
               >
                 <TabIcon className="h-4 w-4 shrink-0" />
-                <span className="whitespace-nowrap">{title}</span>
+                <span className="whitespace-nowrap">{t(title)}</span>
               </button>
             ))}
           </nav>
 
           <div className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
-          {tab === "notifications" && (
+          {searching && (
+            <div className="space-y-2">
+              {searchResults.length === 0 ? (
+                <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                  {t("settings.searchNoResults", { query: query.trim() })}
+                </p>
+              ) : (
+                searchResults.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      setTab(item.tab);
+                      setQuery("");
+                    }}
+                    className="flex w-full items-center justify-between gap-x-3 rounded-md border border-zinc-200 bg-white px-3 py-2.5 text-left text-sm transition hover:border-indigo-400 dark:border-zinc-700 dark:bg-[#2b2d31] dark:hover:border-indigo-500"
+                  >
+                    <span className="font-medium text-zinc-800 dark:text-zinc-100">{t(item.key)}</span>
+                    <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                      {t(SETTINGS_TABS.find((entry) => entry.id === item.tab)?.title ?? "")}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+          {!searching && tab === "notifications" && (
             <div className="space-y-5">
               {/* SECTION: GLOBAL NOTIFICATIONS */}
               <NotificationSettingsFields
@@ -350,15 +440,31 @@ export const SettingsModal = () => {
             </div>
           )}
 
-          {tab === "appearance" && (
+          {!searching && tab === "appearance" && (
             <div className="space-y-5">
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{t("settings.language.label")}</label>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{t("settings.language.description")}</p>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as AppLanguage)}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="system">{t("settings.language.system")}</option>
+                  <option value="en">{t("settings.language.en")}</option>
+                  <option value="pl">{t("settings.language.pl")}</option>
+                </select>
+              </div>
               {/* SECTION: COLOUR MODE */}
               <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
                 <div className="flex items-center gap-x-2">
                   <Palette className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Colors</label>
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{t("settings.appearance.colors")}</label>
                 </div>
-                <div role="radiogroup" aria-label="Colors" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div role="radiogroup" aria-label={t("settings.appearance.colors")} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {COLOR_MODES.map(({ id, title, description }) => (
                     <button
                       key={id}
@@ -373,8 +479,8 @@ export const SettingsModal = () => {
                           : "border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/40"
                       )}
                     >
-                      <span className="font-semibold">{title}</span>
-                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{description}</span>
+                      <span className="font-semibold">{t(title)}</span>
+                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{t(description)}</span>
                     </button>
                   ))}
                 </div>
@@ -383,13 +489,13 @@ export const SettingsModal = () => {
               <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
                 <div className="flex items-center gap-x-2">
                   <MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Message layout</label>
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{t("settings.appearance.messageLayout")}</label>
                 </div>
-                <div role="radiogroup" aria-label="Message layout" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div role="radiogroup" aria-label={t("settings.appearance.messageLayout")} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {([
                     // Persisted id stays "discord" so an already saved layout is not reset.
-                    { id: "discord", title: "Modern", description: "Avatars, name above the text, grouped messages." },
-                    { id: "irc", title: "Compact (IRC)", description: "One dense line per message: [time] <nick> text." },
+                    { id: "discord", title: "settings.appearance.layout.modern", description: "settings.appearance.layout.modernDesc" },
+                    { id: "irc", title: "settings.appearance.layout.irc", description: "settings.appearance.layout.ircDesc" },
                   ] as { id: MessageLayout; title: string; description: string }[]).map(({ id, title, description }) => (
                     <button
                       key={id}
@@ -404,8 +510,8 @@ export const SettingsModal = () => {
                           : "border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/40"
                       )}
                     >
-                      <span className="font-semibold">{title}</span>
-                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{description}</span>
+                      <span className="font-semibold">{t(title)}</span>
+                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{t(description)}</span>
                     </button>
                   ))}
                 </div>
@@ -415,9 +521,9 @@ export const SettingsModal = () => {
                 <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
                   <div className="flex items-center gap-x-2">
                     <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Style</label>
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{t("settings.appearance.style")}</label>
                   </div>
-                  <div role="radiogroup" aria-label="Style" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div role="radiogroup" aria-label={t("settings.appearance.style")} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {APPEARANCE_STYLES.map(({ id, title, description }) => (
                       <button
                         key={id}
@@ -432,27 +538,27 @@ export const SettingsModal = () => {
                             : "border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/40"
                         )}
                       >
-                        <span className="font-semibold">{title}</span>
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{description}</span>
+                        <span className="font-semibold">{t(title)}</span>
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{t(description)}</span>
                       </button>
                     ))}
                   </div>
                   {appearanceStyle === "fluent" && (
                     <div className="space-y-1.5 pt-1">
                       <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        Window material
+                        {t("settings.appearance.windowMaterial")}
                       </label>
                       <select
                         value={windowMaterial}
                         onChange={(e) => setWindowMaterial(e.target.value as WindowMaterial)}
                         className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                       >
-                        <option value="mica">Mica (Windows 11, recommended)</option>
-                        <option value="acrylic">Acrylic (blur of the desktop behind the window)</option>
-                        <option value="none">None (opaque)</option>
+                        <option value="mica">{t("settings.appearance.mica")}</option>
+                        <option value="acrylic">{t("settings.appearance.acrylic")}</option>
+                        <option value="none">{t("settings.appearance.noneOpaque")}</option>
                       </select>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                        Applied to the window background behind the translucent surfaces.
+                        {t("settings.appearance.windowMaterialDesc")}
                       </p>
                     </div>
                   )}
@@ -463,20 +569,20 @@ export const SettingsModal = () => {
                 <div className="flex items-center gap-x-2">
                   <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                   <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    User display name format
+                    {t("settings.appearance.displayName")}
                   </label>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Select default member name format across chat messages, user lists, and hover cards.
+                  {t("settings.appearance.displayNameDesc")}
                 </p>
                 <select
                   value={userDisplayNameMode}
                   onChange={(e) => setUserDisplayNameMode(e.target.value as UserDisplayNameMode)}
                   className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
-                  <option value="nickname">Nickname</option>
-                  <option value="realname">RealName (fallback to nickname)</option>
-                  <option value="username">Username (fallback to nickname)</option>
+                  <option value="nickname">{t("settings.appearance.nickname")}</option>
+                  <option value="realname">{t("settings.appearance.realname")}</option>
+                  <option value="username">{t("settings.appearance.username")}</option>
                 </select>
               </div>
               {/* Compact Mode */}
@@ -485,11 +591,11 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <EyeOff className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      Compact mode
+                      {t("settings.appearance.compactMode")}
                     </label>
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Hide all user avatars in the chat window.
+                    {t("settings.appearance.compactModeDesc")}
                   </p>
                 </div>
                 <Switch
@@ -503,11 +609,11 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <Users className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      Group users by role
+                      {t("settings.appearance.groupByRole")}
                     </label>
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Split the channel user list into owners, operators, voiced, users and away.
+                    {t("settings.appearance.groupByRoleDesc")}
                   </p>
                 </div>
                 <Switch
@@ -515,20 +621,132 @@ export const SettingsModal = () => {
                   onCheckedChange={(checked) => setGroupMembersByRole(checked)}
                 />
               </div>
+              {/* Date Display Format */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <Calendar className="w-4 h-4 text-indigo-500" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {t("settings.appearance.dateFormat")}
+                  </label>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  {t("settings.appearance.dateFormatDesc")}
+                </p>
+                <select
+                  value={dateFormatPreset}
+                  onChange={(e) => setDateFormatPreset(e.target.value)}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="d MMM yyyy, HH:mm">{t("settings.appearance.dateDefault")}</option>
+                  <option value="yyyy-MM-dd HH:mm:ss">{t("settings.appearance.dateIso")}</option>
+                  <option value="MM/dd/yyyy, h:mm a">{t("settings.appearance.dateUs")}</option>
+                  <option value="dd.MM.yyyy HH:mm">{t("settings.appearance.dateEu")}</option>
+                  <option value="HH:mm:ss">{t("settings.appearance.dateTimeOnly")}</option>
+                  <option value="custom">{t("settings.appearance.dateCustom")}</option>
+                </select>
+
+                {dateFormatPreset === "custom" && (
+                  <div className="space-y-1 pt-1">
+                    <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      {t("settings.appearance.customPattern")}
+                    </label>
+                    <Input
+                      value={customDateFormat}
+                      onChange={(e) => setCustomDateFormat(e.target.value)}
+                      placeholder="e.g. yyyy/MM/dd HH:mm"
+                      className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100"
+                    />
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {t("settings.appearance.tokensBasedOn")} <a href="https://unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns" target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline">{t("settings.appearance.unicodeStandard")}</a> {t("settings.appearance.tokensExample")}
+                    </p>
+                  </div>
+                )}
+
+                <div className="pt-1 text-xs text-zinc-500 dark:text-zinc-400 font-mono flex items-center justify-between border-t border-zinc-200 dark:border-zinc-700/50 mt-1">
+                  <span className="font-sans text-[11px]">{t("settings.appearance.preview")}</span>
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                    {formatMessageDate(new Date(), dateFormatPreset, customDateFormat)}
+                  </span>
+                </div>
+              </div>
+              {/* Sort Private Messages by Unread */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      {t("settings.appearance.sortDmUnread")}
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    {t("settings.appearance.sortDmUnreadDesc")}
+                  </p>
+                </div>
+                <Switch
+                  checked={sortDmByUnread}
+                  onCheckedChange={(checked) => setSortDmByUnread(checked)}
+                />
+              </div>
+              {/* Base Private Message Sorting */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <ArrowUpDown className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {t("settings.appearance.sortDm")}
+                  </label>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  {t("settings.appearance.sortDmDesc")}
+                </p>
+                <select
+                  value={dmSortOrder}
+                  onChange={(e) => setDmSortOrder(e.target.value as "opening" | "alphabetical")}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="opening">{t("settings.appearance.byOpening")}</option>
+                  <option value="alphabetical">{t("settings.appearance.alphabetical")}</option>
+                </select>
+              </div>
+              {/* Status Indicator Display Mode */}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
+                <div className="flex items-center gap-x-2">
+                  <Activity className="w-4 h-4 text-emerald-500" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {t("settings.appearance.statusIndicator")}
+                  </label>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  {t("settings.appearance.statusIndicatorDesc")}
+                </p>
+                <select
+                  value={statusDisplayMode}
+                  onChange={(e) => setStatusDisplayMode(e.target.value as StatusDisplayMode)}
+                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="always">{t("settings.appearance.alwaysShow")}</option>
+                  <option value="on_error">{t("settings.appearance.onError")}</option>
+                  <option value="disabled">{t("settings.appearance.disabledHidden")}</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {!searching && tab === "chat" && (
+            <div className="space-y-5">
               {/* Markdown Rendering */}
               <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
                 <div className="space-y-0.5 pr-4">
                   <div className="flex items-center gap-x-2">
                     <FileText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      Markdown rendering
+                      {t("settings.chat.markdown")}
                     </label>
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Render <span className="font-mono">**bold**</span> <span className="font-mono">*italic*</span> <span className="font-mono">__underline__</span> <span className="font-mono">~~strike~~</span> <span className="font-mono">`code`</span> <span className="font-mono">```block```</span> <span className="font-mono">&gt;quote</span> <span className="font-mono">||spoiler||</span> and links.
+                    {t("settings.chat.markdownRender")} <span className="font-mono">**bold**</span> <span className="font-mono">*italic*</span> <span className="font-mono">__underline__</span> <span className="font-mono">~~strike~~</span> <span className="font-mono">`code`</span> <span className="font-mono">```block```</span> <span className="font-mono">&gt;quote</span> <span className="font-mono">||spoiler||</span> {t("settings.chat.markdownLinks")}
                   </p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed pt-1">
-                    Composer shortcuts: <span className="font-mono">Ctrl+B</span> bold, <span className="font-mono">Ctrl+I</span> italic, <span className="font-mono">Ctrl+U</span> underline, <span className="font-mono">Ctrl+Shift+X</span> strike, <span className="font-mono">Ctrl+Shift+E</span> inline code, <span className="font-mono">Ctrl+Shift+H</span> spoiler, <span className="font-mono">Ctrl+Z</span> undo, <span className="font-mono">Ctrl+Y</span> / <span className="font-mono">Ctrl+Shift+Z</span> redo.
+                    {t("settings.chat.composerShortcuts")} <span className="font-mono">Ctrl+B</span> {t("settings.chat.sc.bold")}, <span className="font-mono">Ctrl+I</span> {t("settings.chat.sc.italic")}, <span className="font-mono">Ctrl+U</span> {t("settings.chat.sc.underline")}, <span className="font-mono">Ctrl+Shift+X</span> {t("settings.chat.sc.strike")}, <span className="font-mono">Ctrl+Shift+E</span> {t("settings.chat.sc.inlineCode")}, <span className="font-mono">Ctrl+Shift+H</span> {t("settings.chat.sc.spoiler")}, <span className="font-mono">Ctrl+Z</span> {t("settings.chat.sc.undo")}, <span className="font-mono">Ctrl+Y</span> / <span className="font-mono">Ctrl+Shift+Z</span> {t("settings.chat.sc.redo")}.
                   </p>
                 </div>
                 <Switch
@@ -542,11 +760,11 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <Eye className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      Message formatting preview
+                      {t("settings.chat.formattingPreview")}
                     </label>
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Show a live preview of bold, italic, underline, and strikethrough while composing messages.
+                    {t("settings.chat.formattingPreviewDesc")}
                   </p>
                 </div>
                 <Switch
@@ -559,10 +777,10 @@ export const SettingsModal = () => {
               <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
                 <div className="space-y-0.5 pr-4">
                   <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    Scroll to new messages on return
+                    {t("settings.chat.scrollOnReturn")}
                   </label>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    When you come back to the app and the open chat has unread messages, jump straight to the first one.
+                    {t("settings.chat.scrollOnReturnDesc")}
                   </p>
                 </div>
                 <Switch
@@ -576,7 +794,7 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <Smile className="w-4 h-4 text-amber-500" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      Enlarged emoji size (Jumboji)
+                      {t("settings.chat.jumboji")}
                     </label>
                   </div>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-mono">
@@ -584,7 +802,7 @@ export const SettingsModal = () => {
                   </span>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Adjust size for emoji-only messages. Set to 0 to disable enlarged emojis and display standard text font size.
+                  {t("settings.chat.jumbojiDesc")}
                 </p>
                 <div className="flex items-center gap-x-4 pt-1">
                   <input
@@ -605,70 +823,17 @@ export const SettingsModal = () => {
                   />
                 </div>
               </div>
-              {/* Date Display Format */}
-              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
-                <div className="flex items-center gap-x-2">
-                  <Calendar className="w-4 h-4 text-indigo-500" />
-                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    Date display format
-                  </label>
-                </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Choose how timestamps are displayed in chat messages.
-                </p>
-                <select
-                  value={dateFormatPreset}
-                  onChange={(e) => setDateFormatPreset(e.target.value)}
-                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                >
-                  <option value="d MMM yyyy, HH:mm">Default (20 Aug 2026, 23:30)</option>
-                  <option value="yyyy-MM-dd HH:mm:ss">ISO 8601 (2026-08-20 23:30:00)</option>
-                  <option value="MM/dd/yyyy, h:mm a">US format (08/20/2026, 11:30 PM)</option>
-                  <option value="dd.MM.yyyy HH:mm">European format (20.08.2026 23:30)</option>
-                  <option value="HH:mm:ss">Time only (23:30:00)</option>
-                  <option value="custom">Custom format</option>
-                </select>
-
-                {dateFormatPreset === "custom" && (
-                  <div className="space-y-1 pt-1">
-                    <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                      Custom format pattern
-                    </label>
-                    <Input
-                      value={customDateFormat}
-                      onChange={(e) => setCustomDateFormat(e.target.value)}
-                      placeholder="e.g. yyyy/MM/dd HH:mm"
-                      className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100"
-                    />
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      Uses tokens based on <a href="https://unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns" target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline">Unicode Technical Standard #35 date format patterns</a> (e.g. yyyy/MM/dd HH:mm).
-                    </p>
-                  </div>
-                )}
-
-                <div className="pt-1 text-xs text-zinc-500 dark:text-zinc-400 font-mono flex items-center justify-between border-t border-zinc-200 dark:border-zinc-700/50 mt-1">
-                  <span className="font-sans text-[11px]">Preview:</span>
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                    {formatMessageDate(new Date(), dateFormatPreset, customDateFormat)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {tab === "chat" && (
-            <div className="space-y-5">
               {/* Confirm Before Leaving Channel */}
               <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
                 <div className="space-y-0.5 pr-4">
                   <div className="flex items-center gap-x-2">
                     <LogOut className="w-4 h-4 text-rose-500 dark:text-rose-400" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      Confirm before leaving channel
+                      {t("settings.chat.confirmLeave")}
                     </label>
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Show a confirmation dialog when leaving a channel.
+                    {t("settings.chat.confirmLeaveDesc")}
                   </p>
                 </div>
                 <Switch
@@ -682,11 +847,11 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <Command className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      Slash command autocomplete
+                      {t("settings.chat.slashAutocomplete")}
                     </label>
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Show suggestions popup when typing / in chat.
+                    {t("settings.chat.slashAutocompleteDesc")}
                   </p>
                 </div>
                 <Switch
@@ -694,85 +859,26 @@ export const SettingsModal = () => {
                   onCheckedChange={(checked) => setEnableCommandSuggestions(checked)}
                 />
               </div>
-              {/* Sort Private Messages by Unread */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      Sort private messages by unread
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Move private messages with unread messages to the top of the list.
-                  </p>
-                </div>
-                <Switch
-                  checked={sortDmByUnread}
-                  onCheckedChange={(checked) => setSortDmByUnread(checked)}
-                />
-              </div>
-              {/* Base Private Message Sorting */}
-              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
-                <div className="flex items-center gap-x-2">
-                  <ArrowUpDown className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    Sort private messages
-                  </label>
-                </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Choose base sorting order for active private messages.
-                </p>
-                <select
-                  value={dmSortOrder}
-                  onChange={(e) => setDmSortOrder(e.target.value as "opening" | "alphabetical")}
-                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                >
-                  <option value="opening">By opening order</option>
-                  <option value="alphabetical">Alphabetical</option>
-                </select>
-              </div>
-              {/* Status Indicator Display Mode */}
-              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
-                <div className="flex items-center gap-x-2">
-                  <Activity className="w-4 h-4 text-emerald-500" />
-                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    Connection status indicator
-                  </label>
-                </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Configure when the connection status badge (IRC, resource server, internet) is displayed.
-                </p>
-                <select
-                  value={statusDisplayMode}
-                  onChange={(e) => setStatusDisplayMode(e.target.value as StatusDisplayMode)}
-                  className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                >
-                  <option value="always">Always show</option>
-                  <option value="on_error">Only on error</option>
-                  <option value="disabled">Disabled (hidden)</option>
-                </select>
-              </div>
               {/* Default Reply Format */}
               <div className="flex flex-col gap-y-2 rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
                 <div className="flex items-center gap-x-2">
                   <Reply className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                   <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    Default reply format
+                    {t("settings.chat.replyFormat")}
                   </label>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Choose how replies are sent to servers. Auto uses modern IRCv3 tags if supported and falls back to legacy inline quoting.
+                  {t("settings.chat.replyFormatDesc")}
                 </p>
                 <select
                   value={defaultReplyMode}
                   onChange={(e) => setDefaultReplyMode(e.target.value as ReplyMode)}
                   className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
-                  <option value="auto">Auto (recommended)</option>
-                  <option value="modern">Modern IRCv3 only</option>
-                  <option value="legacy">Legacy inline only</option>
-                  <option value="hybrid">Hybrid (both)</option>
+                  <option value="auto">{t("settings.chat.replyAuto")}</option>
+                  <option value="modern">{t("settings.chat.replyModern")}</option>
+                  <option value="legacy">{t("settings.chat.replyLegacy")}</option>
+                  <option value="hybrid">{t("settings.chat.replyHybrid")}</option>
                 </select>
               </div>
               {/* Nickname Completion / Addressing Format */}
@@ -780,31 +886,31 @@ export const SettingsModal = () => {
                 <div className="flex items-center gap-x-2">
                   <AtSign className="w-4 h-4 text-indigo-500" />
                   <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    Nickname completion format
+                    {t("settings.chat.nickCompletion")}
                   </label>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Choose how member nicknames are formatted when completed using the Tab suggestions menu.
+                  {t("settings.chat.nickCompletionDesc")}
                 </p>
                 <select
                   value={nickCompletionFormat}
                   onChange={(e) => setNickCompletionFormat(e.target.value as NickCompletionFormat)}
                   className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
-                  <option value="plain">Plain nickname (Nick )</option>
-                  <option value="colon">Colon after nick (Nick: )</option>
-                  <option value="comma">Comma after nick (Nick, )</option>
-                  <option value="at">At-sign before nick (@Nick )</option>
-                  <option value="arrow">Arrow after nick (Nick &gt; )</option>
-                  <option value="hyphen">Hyphen after nick (Nick - )</option>
-                  <option value="bracket">Square brackets around nick ([Nick] )</option>
-                  <option value="custom">Custom format pattern</option>
+                  <option value="plain">{t("settings.chat.nickPlain")}</option>
+                  <option value="colon">{t("settings.chat.nickColon")}</option>
+                  <option value="comma">{t("settings.chat.nickComma")}</option>
+                  <option value="at">{t("settings.chat.nickAt")}</option>
+                  <option value="arrow">{t("settings.chat.nickArrow")}</option>
+                  <option value="hyphen">{t("settings.chat.nickHyphen")}</option>
+                  <option value="bracket">{t("settings.chat.nickBrackets")}</option>
+                  <option value="custom">{t("settings.appearance.customPattern")}</option>
                 </select>
 
                 {nickCompletionFormat === "custom" && (
                   <div className="space-y-1 pt-1">
                     <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                      Custom format pattern
+                      {t("settings.appearance.customPattern")}
                     </label>
                     <Input
                       value={customNickCompletionFormat}
@@ -819,10 +925,10 @@ export const SettingsModal = () => {
                 )}
 
                 <div className="pt-1 text-xs text-zinc-500 dark:text-zinc-400 font-mono flex items-center justify-between border-t border-zinc-200 dark:border-zinc-700/50 mt-1">
-                  <span className="font-sans text-[11px]">Preview:</span>
+                  <span className="font-sans text-[11px]">{t("settings.appearance.preview")}</span>
                   <span className="font-semibold text-indigo-600 dark:text-indigo-400">
                     {formatNickCompletion("Alice", nickCompletionFormat, customNickCompletionFormat)}
-                    <span className="text-zinc-500 dark:text-zinc-400 font-normal">hello there!</span>
+                    <span className="text-zinc-500 dark:text-zinc-400 font-normal">{t("settings.chat.hello")}</span>
                   </span>
                 </div>
               </div>
@@ -832,7 +938,7 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <ScrollText className="w-4 h-4 text-indigo-500" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      Message of the day (MOTD)
+                      {t("settings.chat.motd")}
                     </label>
                   </div>
                   <Switch
@@ -843,7 +949,7 @@ export const SettingsModal = () => {
                   />
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Choose when to automatically display server MOTD popups upon connecting or joining.
+                  {t("settings.chat.motdDesc")}
                 </p>
                 {globalMotdPolicy !== "never" && (
                   <select
@@ -851,16 +957,16 @@ export const SettingsModal = () => {
                     onChange={(e) => setGlobalMotdPolicy(e.target.value as MotdDisplayPolicy)}
                     className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                   >
-                    <option value="on_change">Only when changed (recommended)</option>
-                    <option value="always">Always show on connect</option>
-                    <option value="never">Never show automatically (all servers)</option>
+                    <option value="on_change">{t("settings.chat.motdWhenChanged")}</option>
+                    <option value="always">{t("settings.chat.motdAlways")}</option>
+                    <option value="never">{t("settings.chat.motdNever")}</option>
                   </select>
                 )}
               </div>
             </div>
           )}
 
-          {tab === "previews" && (
+          {!searching && tab === "previews" && (
             <div className="space-y-5">
               {/* Switch 1: Enable Link Previews (All embeds) */}
               <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
@@ -868,11 +974,11 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <Link2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      Link previews (embeds)
+                      {t("settings.previews.linkPreviews")}
                     </label>
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Show media previews (images, videos, YouTube, websites) in chat.
+                    {t("settings.previews.linkPreviewsDesc")}
                   </p>
                 </div>
                 <Switch
@@ -886,11 +992,11 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <EyeOff className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      Collapse images by default
+                      {t("settings.previews.collapseImages")}
                     </label>
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Automatically collapse image previews in chat messages into compact expandable cards.
+                    {t("settings.previews.collapseImagesDesc")}
                   </p>
                 </div>
                 <Switch
@@ -904,11 +1010,11 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <ScrollText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      Render media embeds in MOTD
+                      {t("settings.previews.motdMedia")}
                     </label>
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Show rich media embeds (images, videos, YouTube) in Message of the Day dialogs.
+                    {t("settings.previews.motdMediaDesc")}
                   </p>
                 </div>
                 <Switch
@@ -923,11 +1029,11 @@ export const SettingsModal = () => {
                     <div className="flex items-center gap-x-2">
                       <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                       <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                        Fetch web page metadata (API)
+                        {t("settings.previews.webMetadata")}
                       </label>
                     </div>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                      Use API to fetch title, description, and thumbnails for web pages. Direct images don't use the API.
+                      {t("settings.previews.webMetadataDesc")}
                     </p>
                   </div>
                   <Switch
@@ -942,11 +1048,11 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <Server className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                     <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      Preview API endpoint
+                      {t("settings.previews.apiUrl")}
                     </label>
                   </div>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Open-Source metadata API URL for fetching web page previews.
+                    {t("settings.previews.apiUrlDesc")}
                   </p>
                   <Input
                     value={linkPreviewApiUrl}
@@ -959,7 +1065,7 @@ export const SettingsModal = () => {
             </div>
           )}
 
-          {tab === "uploads" && (
+          {!searching && tab === "uploads" && (
             <div className="space-y-5">
               {/* SECTION: IMAGE UPLOADER SERVER */}
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-4 shadow-sm transition">
@@ -967,23 +1073,23 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <UploadCloud className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
                     <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                      Image upload provider
+                      {t("settings.uploads.provider")}
                     </label>
                   </div>
                   {uploadConfig.provider === "litterbox" && (
                     <span className="text-xs px-2 py-0.5 font-bold rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                      Temporary hosting
+                      {t("settings.uploads.temporary")}
                     </span>
                   )}
                   {uploadConfig.provider === "pomf" && (
                     <span className="text-xs px-2 py-0.5 font-bold rounded bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
-                      POMF hosting
+                      {t("settings.uploads.pomf")}
                     </span>
                   )}
                 </div>
 
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Select a service for uploading images pasted from clipboard or files. A direct link will be sent to the IRC chat.
+                  {t("settings.uploads.providerDesc")}
                 </p>
 
                 {/* Provider Selection Dropdown */}
@@ -992,7 +1098,7 @@ export const SettingsModal = () => {
                   onChange={(e) => handleProviderChange(e.target.value as ImageUploadProvider)}
                   className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="disabled">🚫 Disabled (Upload disabled)</option>
+                  <option value="disabled">{t("settings.uploads.disabled")}</option>
                   <option value="litterbox" className="text-amber-600 font-bold">
                     ⚠️ Litterbox (public, expiration 1h - 72h)
                   </option>
@@ -1006,15 +1112,15 @@ export const SettingsModal = () => {
                   <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 space-y-2 text-xs text-amber-600 dark:text-amber-400">
                     <div className="flex items-center gap-x-1.5 font-bold">
                       <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                      Information (Litterbox temporary):
+                      {t("settings.uploads.litterboxInfo")}
                     </div>
                     <p className="text-[11px] leading-relaxed opacity-90">
-                      Images expire automatically after the selected duration. They remain public until deleted.
+                      {t("settings.uploads.litterboxDesc")}
                     </p>
 
                     <div className="pt-1 flex items-center justify-between">
                       <label className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                        Retention duration:
+                        {t("settings.uploads.retention")}
                       </label>
                       <select
                         value={uploadConfig.litterboxTime || "24h"}
@@ -1023,10 +1129,10 @@ export const SettingsModal = () => {
                         }
                         className="bg-white dark:bg-[#1e1f22] border border-amber-500/40 rounded px-2 py-1 text-xs font-semibold text-zinc-900 dark:text-zinc-100"
                       >
-                        <option value="1h">1 hour</option>
-                        <option value="12h">12 hours</option>
-                        <option value="24h">24 hours (default)</option>
-                        <option value="72h">72 hours (3 days)</option>
+                        <option value="1h">{t("settings.uploads.h1")}</option>
+                        <option value="12h">{t("settings.uploads.h12")}</option>
+                        <option value="24h">{t("settings.uploads.h24")}</option>
+                        <option value="72h">{t("settings.uploads.h72")}</option>
                       </select>
                     </div>
                   </div>
@@ -1037,7 +1143,7 @@ export const SettingsModal = () => {
                   <div className="space-y-3 pt-1">
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        POMF server address (upload URL)
+                        {t("settings.uploads.pomfUrl")}
                       </label>
                       <Input
                         value={uploadConfig.pomfUrl || ""}
@@ -1055,19 +1161,19 @@ export const SettingsModal = () => {
             </div>
           )}
 
-          {tab === "auth" && (
+          {!searching && tab === "auth" && (
             <div className="space-y-5">
               {/* SECTION: READING AUTHORIZATION (URL RULES) */}
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
                 <div className="flex items-center gap-x-2">
                   <Key className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
                   <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    Image read authorization (URL headers)
+                    {t("settings.auth.title")}
                   </label>
                 </div>
 
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Define HTTP headers (e.g., tokens) to be sent when fetching and previewing images from specified URL prefixes.
+                  {t("settings.auth.desc")}
                 </p>
 
                 {/* List of rules */}
@@ -1096,7 +1202,7 @@ export const SettingsModal = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">No read authorization rules configured.</p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">{t("settings.auth.none")}</p>
                 )}
 
                 {/* Form to add new rule */}
@@ -1105,7 +1211,7 @@ export const SettingsModal = () => {
                     <Input
                       value={newRulePrefix}
                       onChange={(e) => setNewRulePrefix(e.target.value)}
-                      placeholder="URL Prefix (e.g. https://private-host.org/)"
+                      placeholder={t("settings.auth.urlPrefix")}
                       className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs"
                     />
                   </div>
@@ -1113,13 +1219,13 @@ export const SettingsModal = () => {
                     <Input
                       value={newRuleHeaderName}
                       onChange={(e) => setNewRuleHeaderName(e.target.value)}
-                      placeholder="Header (Authorization / X-Api-Key)"
+                      placeholder={t("settings.auth.headerName")}
                       className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
                     />
                     <Input
                       value={newRuleHeaderValue}
                       onChange={(e) => setNewRuleHeaderValue(e.target.value)}
-                      placeholder="Value (Bearer token / key)"
+                      placeholder={t("settings.auth.headerValue")}
                       className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
                     />
                   </div>
@@ -1136,7 +1242,7 @@ export const SettingsModal = () => {
             </div>
           )}
 
-          {tab === "updates" && (
+          {!searching && tab === "updates" && (
             <div className="space-y-5">
               {/* SECTION: AUTOMATIC UPDATES */}
               <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-4 shadow-sm transition">
@@ -1144,7 +1250,7 @@ export const SettingsModal = () => {
                   <div className="flex items-center gap-x-2">
                     <DownloadCloud className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
                     <label className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                      Software updates
+                      {t("settings.updates.title")}
                     </label>
                   </div>
                   <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
@@ -1153,7 +1259,7 @@ export const SettingsModal = () => {
                 </div>
 
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  Select automatic check and download preferences for new releases.
+                  {t("settings.updates.desc")}
                 </p>
 
                 {/* Mode selector */}
@@ -1177,7 +1283,7 @@ export const SettingsModal = () => {
                         🚀 Automatic update on startup
                       </div>
                       <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-normal mt-0.5">
-                        Check for new versions on app startup and notify when update is ready.
+                        {t("settings.updates.checkOnStart")}
                       </div>
                     </div>
                   </label>
@@ -1201,7 +1307,7 @@ export const SettingsModal = () => {
                         ❓ Ask about update on startup (Popup prompt)
                       </div>
                       <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-normal mt-0.5">
-                        Show a dialog when a new version is detected with options: "Update now" or "Remind me later".
+                        {t("settings.updates.askDialog")}
                       </div>
                     </div>
                   </label>
@@ -1225,7 +1331,7 @@ export const SettingsModal = () => {
                         ⛔ Disable automatic updates
                       </div>
                       <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-normal mt-0.5">
-                        Application will not check for updates automatically on startup.
+                        {t("settings.updates.manual")}
                       </div>
                     </div>
                   </label>
@@ -1237,10 +1343,10 @@ export const SettingsModal = () => {
                     <div>
                       <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-x-1.5">
                         <Server className="w-3.5 h-3.5 text-indigo-500" />
-                        Update channel
+                        {t("settings.updates.channel")}
                       </div>
                       <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                        Choose where updates come from. After switching, the next check offers that channel's latest build.
+                        {t("settings.updates.channelDesc")}
                       </div>
                     </div>
                   </div>
@@ -1259,7 +1365,7 @@ export const SettingsModal = () => {
                           {channel.id === BUILD_UPDATE_CHANNEL ? " (this build)" : ""}
                         </option>
                       ))}
-                      <option value="custom">Custom URL</option>
+                      <option value="custom">{t("settings.updates.customUrl")}</option>
                     </select>
 
                     {activeUpdateChannel !== "custom" && (
@@ -1277,16 +1383,16 @@ export const SettingsModal = () => {
                           className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
                         />
                         <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1">
-                          Must be a valid HTTP(S) endpoint returning a Tauri update JSON manifest.
+                          {t("settings.updates.customEndpoint")}
                         </div>
                         <Input
                           value={customUpdatePubkey}
                           onChange={(e) => setCustomUpdatePubkey(e.target.value)}
-                          placeholder="Public key (optional)"
+                          placeholder={t("settings.updates.publicKeyPlaceholder")}
                           className="bg-white dark:bg-[#1e1f22] border-zinc-300 dark:border-zinc-700 text-xs font-mono"
                         />
                         <div className="text-[10px] text-zinc-500 dark:text-zinc-400 pl-1">
-                          Minisign public key the releases are signed with. Leave empty to use the official key.
+                          {t("settings.updates.publicKey")}
                         </div>
                       </div>
                     )}
@@ -1302,7 +1408,7 @@ export const SettingsModal = () => {
                     {checkStatus === "checking" && (
                       <span className="flex items-center gap-x-1.5 text-indigo-500 font-semibold">
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Checking for updates...
+                        {t("settings.updates.checking")}
                       </span>
                     )}
                     {checkStatus === "upToDate" && (
@@ -1343,7 +1449,7 @@ export const SettingsModal = () => {
                         className="text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-x-1.5"
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${checkStatus === "checking" ? "animate-spin" : ""}`} />
-                        Check for updates
+                        {t("settings.updates.checkNow")}
                       </Button>
                     )}
                   </div>

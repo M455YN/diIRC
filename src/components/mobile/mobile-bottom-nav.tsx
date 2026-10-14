@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
 import DnsOutlinedIcon from "@mui/icons-material/DnsOutlined";
@@ -24,23 +25,24 @@ interface MobileBottomNavProps {
  * - 64×32 active indicator pill on secondary-container behind the icon
  */
 const TABS: { id: MobileTab; label: string; icon: ReactNode; activeIcon: ReactNode }[] = [
-  { id: "servers", label: "Servers", icon: <DnsOutlinedIcon />, activeIcon: <DnsIcon /> },
+  { id: "servers", label: "nav.servers", icon: <DnsOutlinedIcon />, activeIcon: <DnsIcon /> },
   {
     id: "chats",
-    label: "Chats",
+    label: "nav.chats",
     icon: <ChatBubbleOutlineIcon />,
     activeIcon: <ChatBubbleIcon />,
   },
-  { id: "more", label: "More", icon: <MoreHorizIcon />, activeIcon: <MoreHorizIcon /> },
+  { id: "more", label: "nav.more", icon: <MoreHorizIcon />, activeIcon: <MoreHorizIcon /> },
 ];
 
 const NavBar = ({ active, onChange }: Omit<MobileBottomNavProps, "hidden">) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   return (
     <Box
       data-mobile-nav="m3"
       component="nav"
-      aria-label="Main"
+      aria-label={tr("nav.main")}
       sx={{
         position: "fixed",
         left: 0,
@@ -110,7 +112,7 @@ const NavBar = ({ active, onChange }: Omit<MobileBottomNavProps, "hidden">) => {
                   userSelect: "none",
                 }}
               >
-                {tab.label}
+                {tr(tab.label)}
               </Box>
             </ButtonBase>
           );

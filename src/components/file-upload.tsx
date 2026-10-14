@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useRef, useState } from "react";
 import { FileIcon, UploadCloud, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ export const FileUpload = ({
   onChange,
   value,
 }: FileUploadProps) => {
+  const { t: tr } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadConfig = useMockStore((state) => state.uploadConfig);
   const [isUploading, setIsUploading] = useState(false);
@@ -113,7 +115,7 @@ export const FileUpload = ({
         <UploadCloud className="h-8 w-8 text-indigo-500" />
       </div>
       <p className="text-sm font-semibold text-zinc-600 dark:text-zinc-300">
-        Choose a file or drag and drop
+        {tr("rest.chooseFileDrop")}
       </p>
       <p className="text-xs text-zinc-400 mt-1">
         PNG, JPG, GIF or PDF (Active Provider: {uploadConfig.provider})
@@ -131,7 +133,7 @@ export const FileUpload = ({
           inputRef.current?.click();
         }}
       >
-        Select File
+        {tr("rest.selectFile")}
       </Button>
     </div>
   );

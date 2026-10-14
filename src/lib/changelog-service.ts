@@ -1,3 +1,4 @@
+import i18n from "@/lib/i18n";
 import { useState, useEffect } from "react";
 import tauriConfig from "../../src-tauri/tauri.conf.json";
 import { useMockStore } from "@/lib/mock-store";
@@ -89,7 +90,7 @@ const fetchGitHubJson = async (url: string, notFoundMessage: string) => {
   });
   if (!response.ok) {
     if (response.status === 404) throw new Error(notFoundMessage);
-    if (response.status === 403) throw new Error("GitHub rate limit reached. Please try again later.");
+    if (response.status === 403) throw new Error(i18n.t("changelog.rateLimit"));
     throw new Error(`Failed to fetch changelog (HTTP ${response.status}).`);
   }
   return response.json();

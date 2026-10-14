@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { Settings } from "lucide-react";
 
@@ -20,6 +21,7 @@ export const ChannelSettingsModal = () =>
   useIsMobileShell() ? <MobileChannelSettingsModal /> : <DesktopChannelSettingsModal />;
 
 const DesktopChannelSettingsModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
 
   const setChannelNotificationSettings = useMockStore((state) => state.setChannelNotificationSettings);
@@ -187,7 +189,7 @@ const DesktopChannelSettingsModal = () => {
             onClick={handleSave}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-5 py-2 rounded-lg transition shadow-md hover:shadow-indigo-500/20"
           >
-            Save changes
+            {tr("rest.saveChanges")}
           </Button>
         </div>
       </DialogContent>

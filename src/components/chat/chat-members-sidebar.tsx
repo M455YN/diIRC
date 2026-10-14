@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Channel, Member, Server } from "@/types";
 import { UserAvatar } from "@/components/user-avatar";
 import { UserHoverCard, getMemberDisplayName } from "@/components/user-hover-card";
@@ -8,7 +10,8 @@ import { UserRoleIcon, getHighestChannelRole } from "@/components/user-role-icon
 import { useUIStore } from "@/hooks/use-ui-store";
 import { useModal } from "@/hooks/use-modal-store";
 import { ActionTooltip } from "@/components/action-tooltip";
-import { ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronRight, MoreHorizontal, RefreshCw } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
 import { MobileMembersList, type MobileMemberRow } from "@/components/mobile/mobile-members-list";
 import { buildMemberGroups, collapsedKey } from "@/lib/member-groups";
 
@@ -24,6 +27,7 @@ export const ChatMembersSidebar = ({
   channel,
   variant = "sidebar",
 }: ChatMembersSidebarProps) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { onOpen } = useModal();
@@ -42,6 +46,33 @@ export const ChatMembersSidebar = ({
   const toggleGroupCollapsed = useMockStore((state) => state.toggleMemberGroupCollapsed);
 
   const showMembersSidebar = useUIStore((state) => state.showMembersSidebar);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Asks the server for a fresh NAMES list; the reply lands asynchronously through the IRC events.
+  const refreshMembers = async () => {
+    if (!channel || refreshing) return;
+    setRefreshing(true);
+    try {
+      await invoke("refresh_channel_names", { serverId: server.id, channel: channel.name });
+    } catch (err) {
+      console.error("Failed to refresh channel users:", err);
+    } finally {
+      // shortcut: fixed 1s spin as feedback, not tied to the NAMES reply end, upgrade when the reply is tracked.
+      setTimeout(() => setRefreshing(false), 1000);
+    }
+  };
+
+  const refreshButton = channel && ircConnectedServers[server.id] ? (
+    <button
+      type="button"
+      onClick={refreshMembers}
+      aria-label={t("chat.members.refresh")}
+      title={t("chat.members.refresh")}
+      className="ml-auto mr-1 p-1 rounded-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70 transition"
+    >
+      <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
+    </button>
+  ) : null;
 
   const isConnected = !!ircConnectedServers[server.id];
 
@@ -190,7 +221,7 @@ export const ChatMembersSidebar = ({
               className="h-8 w-8 md:h-8 md:w-8"
             />
             {isAway && (
-              <ActionTooltip label={awayReason ? `Away: ${awayReason}` : "Away"} side="left">
+              <ActionTooltip label={awayReason ? `Away: ${awayReason}` : t("chat.members.away")} side="left">
                 <span 
                   className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-yellow-500 dark:bg-yellow-400 rounded-full ring-2 ring-[#F2F3F5] dark:ring-[#2B2D31] cursor-pointer"
                 />
@@ -215,14 +246,20 @@ export const ChatMembersSidebar = ({
       <div className="flex-1 overflow-y-auto pt-4 px-2">
         <div className="mb-6">
           {variant === "sidebar" && (
-            <h3 className="uppercase text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2 px-2">
-              {channel ? "Users" : "Conversations"} — {totalCount}
-            </h3>
+            <div className="mb-2 flex items-center px-2">
+              <h3 className="uppercase text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                {channel ? t("chat.members.users") : t("chat.members.conversations")} — {totalCount}
+              </h3>
+              {refreshButton}
+            </div>
           )}
           {variant === "panel" && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2 px-2">
-              {totalCount} {channel ? "users" : "conversations"}
-            </p>
+            <div className="mb-2 flex items-center px-2">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {totalCount} {channel ? "users" : "conversations"}
+              </p>
+              {refreshButton}
+            </div>
           )}
           <div className={cn("space-y-[2px] transition-all duration-300", !isConnected && "grayscale opacity-60")}>
             {useGroups ? (
@@ -280,7 +317,7 @@ export const ChatMembersSidebar = ({
           <button
             onClick={() => onOpen("privateMessages")}
             className="w-full text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-200/80 dark:bg-zinc-700/80 hover:bg-zinc-300 dark:hover:bg-zinc-600 px-3 py-2.5 min-h-[44px] rounded-md transition flex items-center justify-center gap-x-2 shadow-sm cursor-pointer"
-            title="More options"
+            title={t("chat.members.moreOptions")}
           >
             <MoreHorizontal className="w-4 h-4" />
             More

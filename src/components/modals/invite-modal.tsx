@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Check, Copy, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
@@ -15,6 +16,7 @@ import { useOrigin } from "@/hooks/use-origin";
 import { useMockStore } from "@/lib/mock-store";
 
 export const InviteModal = () => {
+  const { t: tr } = useTranslation();
   const { onOpen, isOpen, onClose, type, data } = useModal();
   const origin = useOrigin();
   const updateInviteCode = useMockStore((state) => state.updateInviteCode);
@@ -55,14 +57,14 @@ export const InviteModal = () => {
       <DialogContent className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 p-0 overflow-hidden max-w-md border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl">
         <DialogHeader className="pt-6 px-6">
           <DialogTitle className="text-2xl text-center font-bold text-zinc-900 dark:text-zinc-100">
-            Invite friends
+            {tr("rest.inviteFriends")}
           </DialogTitle>
         </DialogHeader>
         <div className="p-6">
           <Label
             className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider"
           >
-            Server invite link
+            {tr("rest.serverInviteLink")}
           </Label>
           <div className="flex items-center mt-2 gap-x-2">
             <Input
@@ -85,7 +87,7 @@ export const InviteModal = () => {
             size="sm"
             className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 mt-4 p-0"
           >
-            Generate a new link
+            {tr("rest.generateLink")}
             <RefreshCw className="w-3.5 h-3.5 ml-2" />
           </Button>
         </div>

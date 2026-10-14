@@ -1,4 +1,4 @@
-export type SoundPreset = "chime" | "ping" | "bell" | "pop" | "custom";
+export type SoundPreset = "chime" | "ping" | "bell" | "pop" | "marimba" | "glass" | "custom";
 
 export interface ToneNote {
   freq: number;
@@ -26,6 +26,14 @@ const PRESETS: Record<Exclude<SoundPreset, "custom">, ToneNote[]> = {
   chime: [
     { freq: 659.25, gain: 0.12, duration: 0.35, delay: 0 },   // E5
     { freq: 880.00, gain: 0.15, duration: 0.35, delay: 0.1 }  // A5 two-step chime
+  ],
+  marimba: [
+    { freq: 523.25, type: "triangle", gain: 0.16, duration: 0.3 },                 // C5 wooden strike
+    { freq: 783.99, type: "triangle", gain: 0.13, duration: 0.4, delay: 0.12 }     // G5 answer
+  ],
+  glass: [
+    { freq: 1318.51, gain: 0.1, duration: 0.5 },                                   // E6 crystal tap
+    { freq: 1975.53, gain: 0.05, duration: 0.4, delay: 0.05 }                      // B6 shimmer
   ]
 };
 

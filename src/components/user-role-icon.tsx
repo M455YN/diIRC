@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React from "react";
 import {
   Crown,
@@ -55,7 +56,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   // Channel Roles
   owner: {
     key: "owner",
-    label: "Channel owner",
+    label: "role.owner",
     icon: Crown,
     colorClass: "text-amber-500",
     fillClass: "fill-amber-500/20",
@@ -67,7 +68,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   },
   admin: {
     key: "admin",
-    label: "Channel admin",
+    label: "role.admin",
     icon: ShieldCheck,
     colorClass: "text-indigo-500",
     fillClass: "fill-indigo-500/20",
@@ -79,7 +80,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   },
   op: {
     key: "op",
-    label: "Channel operator",
+    label: "role.op",
     icon: ShieldAlert,
     colorClass: "text-emerald-500",
     fillClass: "fill-emerald-500/20",
@@ -91,7 +92,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   },
   halfop: {
     key: "halfop",
-    label: "Half-operator",
+    label: "role.halfop",
     icon: ShieldHalf,
     colorClass: "text-teal-500",
     fillClass: "fill-teal-500/20",
@@ -103,7 +104,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   },
   voice: {
     key: "voice",
-    label: "Voice",
+    label: "role.voice",
     icon: Mic,
     colorClass: "text-blue-500",
     fillClass: "fill-blue-500/20",
@@ -117,7 +118,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   // Server & Network Roles
   netadmin: {
     key: "netadmin",
-    label: "Network administrator",
+    label: "role.netadmin",
     icon: Network,
     colorClass: "text-rose-500",
     fillClass: "fill-rose-500/20",
@@ -127,7 +128,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   },
   ircop: {
     key: "ircop",
-    label: "IRC operator",
+    label: "role.ircop",
     icon: Terminal,
     colorClass: "text-yellow-500",
     fillClass: "fill-yellow-500/20",
@@ -138,7 +139,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   },
   serveradmin: {
     key: "serveradmin",
-    label: "Server administrator",
+    label: "role.serveradmin",
     icon: ServerCog,
     colorClass: "text-orange-500",
     fillClass: "fill-orange-500/20",
@@ -149,7 +150,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   },
   locop: {
     key: "locop",
-    label: "Local operator",
+    label: "role.locop",
     icon: Server,
     colorClass: "text-purple-500",
     fillClass: "fill-purple-500/20",
@@ -160,7 +161,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   },
   servicesop: {
     key: "servicesop",
-    label: "Services operator",
+    label: "role.servicesop",
     icon: Bot,
     colorClass: "text-cyan-500",
     fillClass: "fill-cyan-500/20",
@@ -227,6 +228,7 @@ export const UserRoleIcon: React.FC<UserRoleIconProps> = ({
   tooltipSide = "top",
   showLabel = false,
 }) => {
+  const { t: tr } = useTranslation();
   const config = ROLE_CONFIGS[role];
   if (!config) return null;
 
@@ -244,7 +246,7 @@ export const UserRoleIcon: React.FC<UserRoleIconProps> = ({
       />
       {showLabel && (
         <span className={cn("text-xs font-medium", config.colorClass)}>
-          {config.label}
+          {tr(config.label)}
         </span>
       )}
     </div>
@@ -252,7 +254,7 @@ export const UserRoleIcon: React.FC<UserRoleIconProps> = ({
 
   if (showTooltip && !showLabel) {
     return (
-      <ActionTooltip label={config.label} side={tooltipSide}>
+      <ActionTooltip label={tr(config.label)} side={tooltipSide}>
         {content}
       </ActionTooltip>
     );

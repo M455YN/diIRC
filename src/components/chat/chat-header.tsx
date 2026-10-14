@@ -1,4 +1,5 @@
-import { Hash, PanelLeft, Server, Users, Edit3, History } from "lucide-react";
+import { Hash, PanelLeft, Server, Users, Edit3, History, Bookmark } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { MobileToggle } from "@/components/mobile-toggle";
 import { UserAvatar } from "@/components/user-avatar";
@@ -43,6 +44,7 @@ export const ChatHeader = ({
   searchContext,
   searchMembers,
 }: ChatHeaderProps) => {
+  const { t } = useTranslation();
   const { 
     showNavigationSidebar, 
     toggleNavigationSidebar, 
@@ -92,7 +94,7 @@ export const ChatHeader = ({
       
       <ActionTooltip 
         side="bottom" 
-        label={showNavigationSidebar ? "Hide server list" : "Show server list"}
+        label={showNavigationSidebar ? t("chat.header.hideServerList") : t("chat.header.showServerList")}
       >
         <button
           onClick={toggleNavigationSidebar}
@@ -107,7 +109,7 @@ export const ChatHeader = ({
 
       <ActionTooltip 
         side="bottom" 
-        label={showServerSidebar ? "Hide channel list" : "Show channel list"}
+        label={showServerSidebar ? t("chat.header.hideChannelList") : t("chat.header.showChannelList")}
       >
         <button
           onClick={toggleServerSidebar}
@@ -149,11 +151,11 @@ export const ChatHeader = ({
                 onClick={handleEditTopic}
                 className="text-xs text-zinc-400 dark:text-zinc-500 font-normal italic cursor-pointer hover:text-zinc-600 dark:hover:text-zinc-300 transition"
               >
-                No topic set
+                {t("chat.header.noTopic")}
               </span>
             )}
             
-            <ActionTooltip side="bottom" label="Edit channel topic">
+            <ActionTooltip side="bottom" label={t("chat.header.editTopic")}>
               <button
                 onClick={handleEditTopic}
                 className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-zinc-200/60 dark:hover:bg-zinc-700/50 transition text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 shrink-0"
@@ -166,7 +168,16 @@ export const ChatHeader = ({
       )}
 
       <div className="ml-auto flex items-center gap-x-3 shrink-0">
-        <ActionTooltip side="bottom" label="Changelog">
+        <ActionTooltip side="bottom" label={t("chat.header.bookmarks")}>
+          <button
+            onClick={() => onOpen("bookmarks")}
+            aria-label={t("chat.header.bookmarks")}
+            className="h-7 w-7 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800 transition"
+          >
+            <Bookmark className="w-4 h-4" />
+          </button>
+        </ActionTooltip>
+        <ActionTooltip side="bottom" label={t("chat.header.changelog")}>
           <button
             onClick={() => onOpen("changelog")}
             className={cn(
@@ -177,7 +188,7 @@ export const ChatHeader = ({
             )}
           >
             <History className="w-3.5 h-3.5" />
-            <span>Changelog</span>
+            <span>{t("chat.header.changelog")}</span>
           </button>
         </ActionTooltip>
 
@@ -189,7 +200,7 @@ export const ChatHeader = ({
 
         <ActionTooltip
           side="bottom" 
-          label={showMembersSidebar ? "Hide user list" : "Show user list"}
+          label={showMembersSidebar ? t("chat.header.hideUserList") : t("chat.header.showUserList")}
         >
           <button
             onClick={toggleMembersSidebar}

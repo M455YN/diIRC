@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useRef, useState, type ReactNode } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ export const SwipeableRow = ({
   onDelete,
   className,
 }: SwipeableRowProps) => {
+  const { t: tr } = useTranslation();
   const [offset, setOffset] = useState(0);
   const startX = useRef(0);
   const startY = useRef(0);
@@ -89,10 +91,10 @@ export const SwipeableRow = ({
             onEdit();
           }}
           className="flex h-full w-[76px] flex-col items-center justify-center gap-0.5 bg-blue-500 text-white"
-          aria-label="Edit"
+          aria-label={tr("mi.edit")}
         >
           <Pencil className="h-4 w-4" />
-          <span className="text-[11px] font-medium">Edit</span>
+          <span className="text-[11px] font-medium">{tr("mi.edit")}</span>
         </button>
         <div className="flex-1" />
         <button
@@ -102,10 +104,10 @@ export const SwipeableRow = ({
             onDelete();
           }}
           className="flex h-full w-[76px] flex-col items-center justify-center gap-0.5 bg-rose-500 text-white"
-          aria-label="Delete"
+          aria-label={tr("mi.delete")}
         >
           <Trash2 className="h-4 w-4" />
-          <span className="text-[11px] font-medium">Delete</span>
+          <span className="text-[11px] font-medium">{tr("mi.delete")}</span>
         </button>
       </div>
 

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useLayoutEffect, useRef, useCallback, useMemo, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { format } from "date-fns";
@@ -50,6 +51,7 @@ export const ChatMessages = ({
   paramValue,
   type,
 }: ChatMessagesProps) => {
+  const { t: tr } = useTranslation();
   const queryKey = `chat:${chatId}`;
   const addKey = `chat:${chatId}:messages`;
   const updateKey = `chat:${chatId}:messages:update`;
@@ -975,14 +977,14 @@ export const ChatMessages = ({
       {loadingOlder && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full bg-black/70 dark:bg-black/60 text-white text-xs px-3 py-1.5 pointer-events-none">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Loading older...
+          {tr("cb.loadingOlder")}
         </div>
       )}
 
       {loadingNewer && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full bg-black/70 dark:bg-black/60 text-white text-xs px-3 py-1.5 pointer-events-none">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Loading newer...
+          {tr("cb.loadingNewer")}
         </div>
       )}
 
@@ -992,7 +994,7 @@ export const ChatMessages = ({
           className="absolute bottom-4 right-4 z-10 flex items-center gap-2 rounded-full bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-semibold px-3 py-2 shadow-lg transition-all transform active:scale-95 cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-150"
         >
           <ArrowDownToLine className="h-4 w-4" />
-          <span>Jump to latest</span>
+          <span>{tr("cb.jumpLatest")}</span>
           {unreadCount > 0 && (
             <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
               {unreadCount}

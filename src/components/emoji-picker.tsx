@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Smile } from "lucide-react";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
@@ -18,6 +19,7 @@ export const EmojiPicker = ({
   onChange,
   disabled,
 }: EmojiPickerProps) => {
+  const { t: tr } = useTranslation();
   const { resolvedTheme } = useTheme();
 
   return (
@@ -27,7 +29,7 @@ export const EmojiPicker = ({
           type="button"
           disabled={disabled}
           className="h-7 w-7 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition flex items-center justify-center rounded-md hover:bg-zinc-300/50 dark:hover:bg-zinc-600/50 disabled:opacity-50 disabled:cursor-not-allowed outline-none"
-          title="Emoji picker"
+          title={tr("cb.emojiPicker")}
         >
           <Smile className="w-4 h-4" />
         </button>

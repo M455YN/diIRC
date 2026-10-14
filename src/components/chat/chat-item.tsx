@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, memo } from "react";
+import { useTranslation } from "react-i18next";
 import { Member, Profile } from "@/types";
-import { Reply, AlertTriangle, Pencil, Trash2 } from "lucide-react";
+import { Reply, AlertTriangle, Pencil, Trash2, Bookmark } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { UserAvatar } from "@/components/user-avatar";
 import { UserHoverCard, getMemberDisplayName } from "@/components/user-hover-card";
@@ -13,6 +14,7 @@ import { useMockStore } from "@/lib/mock-store";
 import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 import { focusChatMessage, useReplyStore } from "@/hooks/use-reply-store";
 import { useEditStore } from "@/hooks/use-edit-store";
+import { useBookmarkStore } from "@/hooks/use-bookmark-store";
 import { useAppearanceStyleStore } from "@/hooks/use-appearance-style";
 import { nickColor } from "@/lib/nick-color";
 import { useMessageCaps } from "@/hooks/use-message-caps";
@@ -74,6 +76,7 @@ const ChatItemInner = ({
   replyTo,
   onContentSizeChange,
 }: ChatItemProps) => {
+  const { t } = useTranslation();
   const params = useParams();
   const navigate = useNavigate();
   const isMobile = useIsMobileShell();
@@ -149,7 +152,29 @@ const ChatItemInner = ({
   const servers = useMockStore((state) => state.servers);
   const currentProfile = useMockStore((state) => state.currentProfile);
   const activeServer = servers.find((s) => s.id === params?.serverId) || servers[0];
-  const displayName = getMemberDisplayName(member, activeServer);
+  // Live messages carry a nick-only snapshot; the server roster has the realname/host from NAMES/WHOIS.
+  const knownMember = useMemo(
+    () => activeServer?.members.find((m) => m.profile.name.toLowerCase() === member.profile.name.toLowerCase()) || member,
+    [activeServer, member]
+  );
+  const displayName = getMemberDisplayName(knownMember, activeServer);
+
+  const location = useLocation();
+  const isBookmarked = useBookmarkStore((state) => state.bookmarks.some((b) => b.messageId === id));
+  const toggleBookmark = useBookmarkStore((state) => state.toggle);
+  const handleBookmark = () => {
+    const channel = channelId ? activeServer?.channels.find((c) => c.id === channelId) : undefined;
+    toggleBookmark({
+      messageId: id,
+      serverId: activeServer?.id ?? "",
+      path: location.pathname,
+      chatLabel: channel ? channel.name : "Private message",
+      nick: displayName,
+      content: content.slice(0, 300),
+      timestamp,
+      createdAt: Date.now(),
+    });
+  };
 
   const myNicks = useMemo(() => {
     return Array.from(
@@ -215,8 +240,8 @@ const ChatItemInner = ({
     e.stopPropagation();
     e.preventDefault();
     if (!activeServer || !ircMsgid || !messageTarget) return;
-    const confirmed = await ask("Delete this message for everyone? This cannot be undone.", {
-      title: "Delete message",
+    const confirmed = await ask(t("chat.item.deleteConfirm"), {
+      title: t("chat.item.deleteTitle"),
       kind: "warning",
     }).catch(() => false);
     if (!confirmed) return;
@@ -635,7 +660,7 @@ const ChatItemInner = ({
               {(hasVisibleText || deleted) && (
                 hasBrokenHeader ? (
                   <div className="flex items-center gap-x-2 my-0.5">
-                    <ActionTooltip label="Incomplete code block: transmission was interrupted or dropped by IRC server">
+                    <ActionTooltip label={t("chat.item.incompleteCode")}>
                       <div className="inline-flex items-center gap-x-2 px-2.5 py-1 rounded bg-rose-500/15 dark:bg-rose-500/20 border border-rose-500/30 text-rose-700 dark:text-rose-300 font-mono text-xs font-semibold cursor-help select-none">
                         <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
                         <span>{textToEvaluate}</span>
@@ -697,7 +722,7 @@ const ChatItemInner = ({
       {!deleted && !isSystem && (
         <div className="hidden group-hover:flex items-center gap-x-2 absolute p-1 -top-2 right-5 bg-white dark:bg-zinc-800 border rounded-sm">
           {canEdit && (
-            <ActionTooltip label="Edit">
+            <ActionTooltip label={t("chat.item.edit")}>
               <button
                 type="button"
                 onClick={handleEdit}
@@ -708,7 +733,7 @@ const ChatItemInner = ({
             </ActionTooltip>
           )}
           {canDelete && (
-            <ActionTooltip label="Delete">
+            <ActionTooltip label={t("chat.item.delete")}>
               <button
                 type="button"
                 onClick={handleDelete}
@@ -718,7 +743,23 @@ const ChatItemInner = ({
               </button>
             </ActionTooltip>
           )}
-          <ActionTooltip label="Answer">
+          <ActionTooltip label={isBookmarked ? t("chat.item.removeBookmark") : t("chat.item.bookmark")}>
+            <button
+              type="button"
+              onClick={handleBookmark}
+              className="p-0.5 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 transition"
+            >
+              <Bookmark
+                className={cn(
+                  "cursor-pointer w-4 h-4 transition",
+                  isBookmarked
+                    ? "fill-amber-500 text-amber-500"
+                    : "text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300"
+                )}
+              />
+            </button>
+          </ActionTooltip>
+          <ActionTooltip label={t("chat.item.answer")}>
             <button
               type="button"
               onClick={handleReply}

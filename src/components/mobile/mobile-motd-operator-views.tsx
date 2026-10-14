@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { ReactNode } from "react";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -67,12 +68,13 @@ const MotdBody = ({
   onPolicyChange: (p: ServerMotdDisplayPolicy) => void;
   openPicker: ReturnType<typeof useM3Picker>["open"];
 }) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   return (
     <>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", pt: 1, pb: 2 }}>
         <M3Chip icon={<DnsOutlinedIcon />} label={serverName} />
-        {isDirc && <M3Chip tone="primary" icon={<AutoAwesomeOutlinedIcon />} label="Luna IRC format" />}
+        {isDirc && <M3Chip tone="primary" icon={<AutoAwesomeOutlinedIcon />} label={tr("mi.lunaFormat")} />}
         {isRefreshing && hasContent && <CircularProgress size={18} thickness={5} sx={{ color: t.primary }} />}
       </Box>
 
@@ -94,20 +96,20 @@ const MotdBody = ({
         <Box sx={{ py: 8, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
           <CircularProgress sx={{ color: t.primary }} />
           <Box sx={{ fontSize: "0.875rem", color: t.onSurfaceVariant }}>
-            Fetching message of the day…
+            {tr("mi.fetchingMotd")}
           </Box>
         </Box>
       ) : (
         <EmptyState
           icon={<DnsOutlinedIcon sx={{ fontSize: 40 }} />}
-          title="No message of the day"
-          text="The server did not send a MOTD or it is empty."
+          title={tr("mi.noMotd")}
+          text={tr("mi.noMotdDesc")}
         />
       )}
 
       {!isDirc && urls.length > 0 && (
         <>
-          <M3Subheader>Links</M3Subheader>
+          <M3Subheader>{tr("mi.links")}</M3Subheader>
           <M3ListGroup>
             {urls.map((url, i) => (
               <M3ListItem
@@ -126,17 +128,17 @@ const MotdBody = ({
         </>
       )}
 
-      <M3Subheader>Display</M3Subheader>
+      <M3Subheader>{tr("mi.display")}</M3Subheader>
       <M3ListGroup>
         <M3SelectItem
-          title="Show on connect"
+          title={tr("mi.showOnConnect")}
           value={policy}
           options={[
             { value: "default", label: `Default (${globalPolicyLabel})` },
-            { value: "on_change", label: "When changed" },
-            { value: "always", label: "Always" },
-            { value: "never", label: "Never on this server" },
-            { value: "never_globally", label: "Never on any server" },
+            { value: "on_change", label: tr("mi.whenChanged") },
+            { value: "always", label: tr("mi.always") },
+            { value: "never", label: tr("mi.neverServer") },
+            { value: "never_globally", label: tr("mi.neverAll") },
           ]}
           onChange={(v) => onPolicyChange(v as ServerMotdDisplayPolicy)}
           openPicker={openPicker}
@@ -161,12 +163,13 @@ export const MobileMotdView = (props: {
   globalPolicyLabel: string;
   onPolicyChange: (p: ServerMotdDisplayPolicy) => void;
 }) => {
+  const { t: tr } = useTranslation();
   const picker = useM3Picker();
   const { open, onClose, ...body } = props;
   return (
     <M3FullScreenDialog
       open={open}
-      title="Message of the day"
+      title={tr("mi.motd")}
       onClose={() => (picker.isOpen ? picker.close() : onClose())}
     >
       <MotdBody {...body} openPicker={picker.open} />
@@ -198,6 +201,7 @@ const OperatorBody = ({
   inviteSuccess,
   onSendInvite,
 }: OperatorViewProps) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   return (
     <>
@@ -229,17 +233,17 @@ const OperatorBody = ({
       )}
 
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pr: 1 }}>
-        <M3Subheader>Channel password (+k)</M3Subheader>
-        {hasKey && <M3Chip tone="success" icon={<ShieldOutlinedIcon />} label="Protected" />}
+        <M3Subheader>{tr("mi.channelPasswordK")}</M3Subheader>
+        {hasKey && <M3Chip tone="success" icon={<ShieldOutlinedIcon />} label={tr("mi.protected")} />}
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2, px: 0.5, pt: 1, pb: 2 }}>
         <M3TextField
-          label={hasKey ? "New password" : "Password"}
+          label={hasKey ? tr("mi.newPassword") : tr("mi.password")}
           type="password"
           value={password}
           onChange={setPassword}
           disabled={passwordBusy}
-          supportingText="Required to join the channel"
+          supportingText={tr("mi.requiredToJoin")}
         />
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
           <M3Button
@@ -254,7 +258,7 @@ const OperatorBody = ({
             onClick={onSetPassword}
             disabled={passwordBusy || !password.trim()}
           >
-            Set password
+            {tr("mi.setPassword")}
           </M3Button>
           {hasKey && (
             <M3Button
@@ -270,7 +274,7 @@ const OperatorBody = ({
         </Box>
       </Box>
 
-      <M3Subheader>Channel modes</M3Subheader>
+      <M3Subheader>{tr("mi.channelModes")}</M3Subheader>
       <M3ListGroup>
         {flags.map(({ flag, label, description, tip }, i) => {
           const checked = activeFlags.has(flag);
@@ -309,7 +313,7 @@ const OperatorBody = ({
                   }}
                 >
                   <M3TextField
-                    label="Invite nickname"
+                    label={tr("mi.inviteNick")}
                     value={inviteNickname}
                     onChange={setInviteNickname}
                     disabled={inviteBusy}
@@ -328,7 +332,7 @@ const OperatorBody = ({
                       onClick={onSendInvite}
                       disabled={inviteBusy || !inviteNickname.trim()}
                     >
-                      Send invite
+                      {tr("mi.sendInvite")}
                     </M3Button>
                     {inviteSuccess && (
                       <M3Chip tone="success" icon={<CheckCircleOutlinedIcon />} label={inviteSuccess} />
@@ -368,8 +372,11 @@ export const MobileChannelOperatorView = ({
   open,
   onClose,
   ...props
-}: OperatorViewProps & { open: boolean; onClose: () => void }) => (
-  <M3FullScreenDialog open={open} title="Channel modes" onClose={onClose}>
-    <OperatorBody {...props} />
-  </M3FullScreenDialog>
-);
+}: OperatorViewProps & { open: boolean; onClose: () => void }) => {
+  const { t: tr } = useTranslation();
+  return (
+    <M3FullScreenDialog open={open} title={tr("mi.channelModes")} onClose={onClose}>
+      <OperatorBody {...props} />
+    </M3FullScreenDialog>
+  );
+};

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
@@ -19,6 +20,7 @@ import {
 
 /** Join channel — Material 3 full-screen dialog. */
 export const MobileCreateChannelModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const navigate = useNavigate();
   const params = useParams();
@@ -66,13 +68,13 @@ export const MobileCreateChannelModal = () => {
   return (
     <M3FullScreenDialog
       open={open}
-      title="Join channel"
+      title={tr("mi.joinChannel")}
       onClose={close}
-      action={{ label: "Join", onClick: join, disabled: busy || !name.trim() }}
+      action={{ label: tr("mi.join"), onClick: join, disabled: busy || !name.trim() }}
     >
       <Box sx={{ px: 0.5, pt: 2, pb: 3 }}>
         <M3TextField
-          label="Channel name"
+          label={tr("mi.channelName")}
           prefix="#"
           value={name}
           autoFocus
@@ -86,8 +88,8 @@ export const MobileCreateChannelModal = () => {
       </Box>
       <M3ListGroup>
         <M3SwitchItem
-          title="Join temporarily"
-          supporting="Don't rejoin automatically after restarting the app"
+          title={tr("mi.joinTemporarily")}
+          supporting={tr("mi.noRejoin")}
           checked={temporary}
           onChange={setTemporary}
           divider={false}
@@ -111,6 +113,7 @@ const TargetIntro = ({ name }: { name: string }) => {
 
 /** Channel / conversation notification overrides — Material 3 full-screen dialog. */
 export const MobileChannelSettingsModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const open = isOpen && type === "channelSettings";
   const { channel, server, conversationId } = data;
@@ -163,7 +166,7 @@ export const MobileChannelSettingsModal = () => {
     ? `#${currentChannel.name}`
     : member
       ? `@${member.profile.name}`
-      : "Private conversation";
+      : tr("mi.privateConversation");
 
   const close = () => onClose("channelSettings");
   const back = () => (picker.isOpen ? picker.close() : close());
@@ -181,9 +184,9 @@ export const MobileChannelSettingsModal = () => {
   return (
     <M3FullScreenDialog
       open={open}
-      title={isDm ? "Conversation settings" : "Channel settings"}
+      title={isDm ? tr("mi.conversationSettings") : tr("mi.channelSettings")}
       onClose={back}
-      action={{ label: "Save", onClick: save }}
+      action={{ label: tr("mi.save"), onClick: save }}
     >
       <TargetIntro name={targetName} />
       <MobileNotificationOverrides

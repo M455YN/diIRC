@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { useLanguageStore, type AppLanguage } from "@/hooks/use-language-store";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -50,88 +52,91 @@ const CATEGORIES: {
 }[] = [
   {
     id: "notifications",
-    title: "Notifications",
-    subtitle: "Mentions, direct messages, sounds",
+    title: "mobile.cat.notifications",
+    subtitle: "mobile.cat.notificationsSub",
     icon: <NotificationsOutlinedIcon />,
   },
   {
     id: "appearance",
-    title: "Appearance",
-    subtitle: "Theme, compact mode, names, dates",
+    title: "mobile.cat.appearance",
+    subtitle: "mobile.cat.appearanceSub",
     icon: <PaletteOutlinedIcon />,
   },
   {
     id: "chat",
-    title: "Chat and messaging",
-    subtitle: "Replies, commands, MOTD, sorting",
+    title: "mobile.cat.chat",
+    subtitle: "mobile.cat.chatSub",
     icon: <ChatOutlinedIcon />,
   },
   {
     id: "previews",
-    title: "Link previews",
-    subtitle: "Images, web pages, preview API",
+    title: "mobile.cat.previews",
+    subtitle: "mobile.cat.previewsSub",
     icon: <LinkOutlinedIcon />,
   },
   {
     id: "uploads",
-    title: "Image uploads",
-    subtitle: "Litterbox, POMF",
+    title: "mobile.cat.uploads",
+    subtitle: "mobile.cat.uploadsSub",
     icon: <CloudUploadOutlinedIcon />,
   },
   {
     id: "auth",
-    title: "Authorization",
-    subtitle: "URL header rules for private hosts",
+    title: "mobile.cat.auth",
+    subtitle: "mobile.cat.authSub",
     icon: <VpnKeyOutlinedIcon />,
   },
 ];
 
 const SEARCH_INDEX: { title: string; category: SettingsCategory }[] = [
-  { title: "Theme", category: "appearance" },
-  { title: "Dark theme", category: "appearance" },
-  { title: "Pure black", category: "appearance" },
-  { title: "Channel notifications", category: "notifications" },
-  { title: "Direct message notifications", category: "notifications" },
-  { title: "Notification sound", category: "notifications" },
-  { title: "Channel sound", category: "notifications" },
-  { title: "Direct message sound", category: "notifications" },
-  { title: "Sound cooldown", category: "notifications" },
-  { title: "Popup notifications", category: "notifications" },
-  { title: "User display name", category: "appearance" },
-  { title: "Compact mode", category: "appearance" },
-  { title: "Group users by role", category: "appearance" },
-  { title: "Markdown rendering", category: "appearance" },
-  { title: "Formatting preview", category: "appearance" },
-  { title: "Date format", category: "appearance" },
-  { title: "Emoji size", category: "appearance" },
-  { title: "Confirm before leaving channel", category: "chat" },
-  { title: "Slash command suggestions", category: "chat" },
-  { title: "Sort private messages by unread", category: "chat" },
-  { title: "Private message sort order", category: "chat" },
-  { title: "Connection status indicator", category: "chat" },
-  { title: "Default reply format", category: "chat" },
-  { title: "Nickname completion format", category: "chat" },
-  { title: "Message of the day (MOTD)", category: "chat" },
-  { title: "Link previews", category: "previews" },
-  { title: "Web page previews", category: "previews" },
-  { title: "Auto-collapse images", category: "previews" },
-  { title: "MOTD media previews", category: "previews" },
-  { title: "Link preview API URL", category: "previews" },
-  { title: "Image upload provider", category: "uploads" },
-  { title: "Litterbox expiration", category: "uploads" },
-  { title: "POMF server URL", category: "uploads" },
-  { title: "URL authorization rules", category: "auth" },
+  { title: "mobile.search.theme", category: "appearance" },
+  { title: "mobile.search.darkTheme", category: "appearance" },
+  { title: "mobile.search.pureBlack", category: "appearance" },
+  { title: "mobile.search.channelNotifications", category: "notifications" },
+  { title: "mobile.search.dmNotifications", category: "notifications" },
+  { title: "mobile.search.notificationSound", category: "notifications" },
+  { title: "mobile.search.channelSound", category: "notifications" },
+  { title: "mobile.search.dmSound", category: "notifications" },
+  { title: "mobile.search.soundCooldown", category: "notifications" },
+  { title: "mobile.search.popupNotifications", category: "notifications" },
+  { title: "mobile.search.userDisplayName", category: "appearance" },
+  { title: "mobile.search.compactMode", category: "appearance" },
+  { title: "mobile.search.groupByRole", category: "appearance" },
+  { title: "mobile.search.markdown", category: "chat" },
+  { title: "mobile.search.scrollOnReturn", category: "chat" },
+  { title: "mobile.search.formattingPreview", category: "chat" },
+  { title: "mobile.search.dateFormat", category: "appearance" },
+  { title: "mobile.search.emojiSize", category: "chat" },
+  { title: "mobile.search.confirmLeave", category: "chat" },
+  { title: "mobile.search.slashSuggestions", category: "chat" },
+  { title: "mobile.search.sortDmUnread", category: "appearance" },
+  { title: "mobile.search.dmSortOrder", category: "appearance" },
+  { title: "mobile.search.statusIndicator", category: "appearance" },
+  { title: "mobile.search.defaultReplyFormat", category: "chat" },
+  { title: "mobile.search.nickCompletion", category: "chat" },
+  { title: "mobile.search.motd", category: "chat" },
+  { title: "mobile.cat.previews", category: "previews" },
+  { title: "mobile.search.webPreviews", category: "previews" },
+  { title: "mobile.search.autoCollapse", category: "previews" },
+  { title: "mobile.search.motdMedia", category: "previews" },
+  { title: "mobile.search.previewApi", category: "previews" },
+  { title: "mobile.search.uploadProvider", category: "uploads" },
+  { title: "mobile.search.litterboxExpiration", category: "uploads" },
+  { title: "mobile.search.pomfUrl", category: "uploads" },
+  { title: "mobile.search.urlRules", category: "auth" },
 ];
 
 const SOUND_OPTIONS: M3Option[] = [
-  { value: "chime", label: "Harmonic chime" },
-  { value: "ping", label: "Crisp ping" },
-  { value: "bell", label: "Warm bell" },
-  { value: "pop", label: "Bubble pop" },
+  { value: "chime", label: "mobile.sound.chime" },
+  { value: "ping", label: "mobile.sound.ping" },
+  { value: "bell", label: "mobile.sound.bell" },
+  { value: "pop", label: "mobile.sound.pop" },
+  { value: "marimba", label: "mobile.sound.marimba" },
+  { value: "glass", label: "mobile.sound.glass" },
 ];
 
 const COOLDOWN_OPTIONS: M3Option[] = [
-  { value: "0", label: "No cooldown" },
+  { value: "0", label: "mobile.cooldown.none" },
   { value: "1000", label: "1 second" },
   { value: "2500", label: "2.5 seconds" },
   { value: "3000", label: "3 seconds" },
@@ -166,6 +171,13 @@ const Card = ({ children }: { children: ReactNode }) => {
 };
 
 const SettingsBody = ({ onClose }: { onClose: () => void }) => {
+  const { t: tr } = useTranslation();
+  const language = useLanguageStore((state) => state.language);
+  const setLanguage = useLanguageStore((state) => state.setLanguage);
+  const categories = CATEGORIES.map((c) => ({ ...c, title: tr(c.title), subtitle: tr(c.subtitle) }));
+  const searchIndex = SEARCH_INDEX.map((i) => ({ ...i, title: tr(i.title) }));
+  const soundOptions = SOUND_OPTIONS.map((o) => ({ ...o, label: tr(o.label) }));
+  const cooldownOptions = COOLDOWN_OPTIONS.map((o) => ({ ...o, label: tr(o.label) }));
   const t = useM3();
   const [category, setCategory] = useState<SettingsCategory | null>(null);
   const [query, setQuery] = useState("");
@@ -204,14 +216,14 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    const catTitle = (id: SettingsCategory) => CATEGORIES.find((c) => c.id === id)!.title;
+    const catTitle = (id: SettingsCategory) => categories.find((c) => c.id === id)!.title;
     return [
-      ...CATEGORIES.filter((c) => c.title.toLowerCase().includes(q)).map((c) => ({
+      ...categories.filter((c) => c.title.toLowerCase().includes(q)).map((c) => ({
         title: c.title,
         category: c.id,
-        context: "Category",
+        context: tr("mobile.search.category"),
       })),
-      ...SEARCH_INDEX.filter((i) => i.title.toLowerCase().includes(q)).map((i) => ({
+      ...searchIndex.filter((i) => i.title.toLowerCase().includes(q)).map((i) => ({
         ...i,
         context: catTitle(i.category),
       })),
@@ -262,43 +274,43 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
       case "notifications":
         return (
           <>
-            <M3Subheader>Alerts</M3Subheader>
+            <M3Subheader>{tr("mobile.alerts")}</M3Subheader>
             <Card>
               {select(
-                "Channel notifications",
+                tr("mobile.search.channelNotifications"),
                 notificationSettings.channelNotifications || "mentions",
                 [
-                  { value: "mentions", label: "Mentions only" },
-                  { value: "all", label: "All messages" },
-                  { value: "off", label: "Off" },
+                  { value: "mentions", label: tr("mobile.mentionsOnly") },
+                  { value: "all", label: tr("mobile.allMessages") },
+                  { value: "off", label: tr("mobile.off") },
                 ],
                 (v) => setNotif({ channelNotifications: v as ChannelNotificationMode })
               )}
               {select(
-                "Direct message notifications",
+                tr("mobile.search.dmNotifications"),
                 notificationSettings.dmNotifications || "all",
                 [
-                  { value: "all", label: "All messages" },
-                  { value: "off", label: "Off" },
+                  { value: "all", label: tr("mobile.allMessages") },
+                  { value: "off", label: tr("mobile.off") },
                 ],
                 (v) => setNotif({ dmNotifications: v as DmNotificationMode })
               )}
               {toggle(
-                "Popup notifications",
+                tr("mobile.search.popupNotifications"),
                 notificationSettings.popupEnabled,
                 (v) => {
                   setNotif({ popupEnabled: v });
                   if (v) void requestDesktopNotificationPermission();
                 },
-                "Show a system notification for new alerts",
+                tr("mobile.notifSystem"),
                 false
               )}
             </Card>
 
-            <M3Subheader>Sound</M3Subheader>
+            <M3Subheader>{tr("mobile.sound")}</M3Subheader>
             <Card>
               {toggle(
-                "Notification sound",
+                tr("mobile.search.notificationSound"),
                 notificationSettings.soundEnabled,
                 (v) => setNotif({ soundEnabled: v }),
                 undefined,
@@ -307,32 +319,32 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
               {notificationSettings.soundEnabled && (
                 <>
                   {select(
-                    "Channel sound",
+                    tr("mobile.search.channelSound"),
                     notificationSettings.soundPreset === "custom"
                       ? "custom"
                       : notificationSettings.soundPreset || "chime",
                     notificationSettings.soundPreset === "custom"
-                      ? [...SOUND_OPTIONS, { value: "custom", label: "Custom file" }]
-                      : SOUND_OPTIONS,
+                      ? [...soundOptions, { value: "custom", label: tr("mobile.sound.customFile") }]
+                      : soundOptions,
                     (v) => setNotif({ soundPreset: v as SoundPreset })
                   )}
                   {select(
-                    "Direct message sound",
+                    tr("mobile.search.dmSound"),
                     notificationSettings.dmSoundPreset || "chime",
                     notificationSettings.dmSoundPreset === "custom"
-                      ? [...SOUND_OPTIONS, { value: "custom", label: "Custom file" }]
-                      : SOUND_OPTIONS,
+                      ? [...soundOptions, { value: "custom", label: tr("mobile.sound.customFile") }]
+                      : soundOptions,
                     (v) => setNotif({ dmSoundPreset: v as SoundPreset })
                   )}
                   {select(
-                    "Sound cooldown",
+                    tr("mobile.search.soundCooldown"),
                     String(notificationSettings.soundCooldownMs ?? 3000),
-                    COOLDOWN_OPTIONS.some(
+                    cooldownOptions.some(
                       (o) => o.value === String(notificationSettings.soundCooldownMs ?? 3000)
                     )
-                      ? COOLDOWN_OPTIONS
+                      ? cooldownOptions
                       : [
-                          ...COOLDOWN_OPTIONS,
+                          ...cooldownOptions,
                           {
                             value: String(notificationSettings.soundCooldownMs),
                             label: `${(notificationSettings.soundCooldownMs ?? 0) / 1000} seconds`,
@@ -352,7 +364,7 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
                         )
                       }
                     >
-                      Play sound
+                      {tr("rest.playSound")}
                     </M3Button>
                   </Box>
                 </>
@@ -364,76 +376,67 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
       case "appearance":
         return (
           <>
-            <M3Subheader>Theme</M3Subheader>
+            <M3Subheader>{tr("mobile.search.theme")}</M3Subheader>
             <Card>
               {select(
-                "Theme",
+                tr("settings.language.label"),
+                language,
+                [
+                  { value: "system", label: tr("settings.language.system") },
+                  { value: "en", label: tr("settings.language.en") },
+                  { value: "pl", label: tr("settings.language.pl") },
+                ],
+                (v) => setLanguage(v as AppLanguage)
+              )}
+              {select(
+                tr("mobile.search.theme"),
                 themeMode,
                 [
-                  { value: "system", label: "System default", description: "Follow the phone's dark theme setting" },
-                  { value: "light", label: "Light" },
-                  { value: "dark", label: "Dark" },
+                  { value: "system", label: tr("mobile.systemDefault"), description: tr("mobile.followPhoneTheme") },
+                  { value: "light", label: tr("mobile.light") },
+                  { value: "dark", label: tr("mobile.dark") },
                 ],
                 (v) => setThemeMode(v as MobileThemeMode)
               )}
               {toggle(
-                "Pure black",
+                tr("mobile.search.pureBlack"),
                 pureBlack,
                 setPureBlack,
-                "Use black backgrounds in dark theme to save power on OLED screens",
+                tr("mobile.pureBlackDesc"),
                 false
               )}
             </Card>
 
-            <M3Subheader>Display</M3Subheader>
+            <M3Subheader>{tr("mobile.display")}</M3Subheader>
             <Card>
               {select(
-                "User display name",
+                tr("mobile.search.userDisplayName"),
                 store.userDisplayNameMode || "nickname",
                 [
-                  { value: "nickname", label: "Nickname" },
-                  { value: "realname", label: "Real name", description: "Falls back to nickname" },
-                  { value: "username", label: "Username", description: "Falls back to nickname" },
+                  { value: "nickname", label: tr("mobile.nickname") },
+                  { value: "realname", label: tr("mobile.realName"), description: tr("mobile.fallsBackNick") },
+                  { value: "username", label: tr("mobile.username"), description: tr("mobile.fallsBackNick") },
                 ],
                 (v) => store.setUserDisplayNameMode(v as UserDisplayNameMode)
               )}
               {toggle(
-                "Compact mode",
+                tr("mobile.search.compactMode"),
                 store.compactMode,
                 store.setCompactMode,
-                "Hide avatars in the chat window"
+                tr("mobile.hideAvatars")
               )}
               {toggle(
-                "Group users by role",
+                tr("mobile.search.groupByRole"),
                 store.groupMembersByRole ?? true,
                 store.setGroupMembersByRole,
-                "Split the channel user list into owners, operators, voiced, users and away"
-              )}
-              {toggle(
-                "Markdown rendering",
-                store.enableMarkdown ?? true,
-                store.setEnableMarkdown,
-                "Bold, italic, code, spoilers, and links"
-              )}
-              {toggle(
-                "Scroll to new messages on return",
-                store.scrollToUnreadOnFocus ?? false,
-                store.setScrollToUnreadOnFocus,
-                "Jump to the first unread message when you return to the app"
-              )}
-              {toggle(
-                "Formatting preview",
-                store.enableFormattingPreview ?? true,
-                store.setEnableFormattingPreview,
-                "Live preview above the composer",
-                false
+                tr("mobile.splitRoles")
               )}
             </Card>
 
-            <M3Subheader>Dates and emoji</M3Subheader>
+            <M3Subheader>{tr("mobile.datesAndEmoji")}</M3Subheader>
             <Card>
               {select(
-                "Date format",
+                tr("mobile.search.dateFormat"),
                 store.dateFormatPreset || "d MMM yyyy, HH:mm",
                 [
                   "d MMM yyyy, HH:mm",
@@ -442,36 +445,53 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
                   "dd.MM.yyyy HH:mm",
                 ]
                   .map((f) => ({ value: f, label: formatMessageDate(new Date(), f, "") }))
-                  .concat({ value: "custom", label: "Custom format" }),
+                  .concat({ value: "custom", label: tr("mobile.customFormat") }),
                 store.setDateFormatPreset,
                 store.dateFormatPreset !== "custom"
               )}
               {store.dateFormatPreset === "custom" &&
                 fieldBox(
                   <M3TextField
-                    label="Custom date format"
+                    label={tr("mobile.customDateFormat")}
                     value={store.customDateFormat || ""}
                     onChange={store.setCustomDateFormat}
                     placeholder="yyyy/MM/dd HH:mm"
                     monospace
                     labelBackground={t.surfaceContainer}
-                    supportingText={`Preview: ${formatMessageDate(
+                    supportingText={`${tr("settings.appearance.preview")} ${formatMessageDate(
                       new Date(),
                       "custom",
                       store.customDateFormat || "yyyy/MM/dd HH:mm"
                     )}`}
                   />
                 )}
+            </Card>
+
+            <M3Subheader>{tr("mobile.lists")}</M3Subheader>
+            <Card>
+              {toggle(
+                tr("mobile.search.sortDmUnread"),
+                store.sortDmByUnread ?? true,
+                store.setSortDmByUnread
+              )}
               {select(
-                "Emoji size",
-                String(store.jumbojiSize ?? 42),
+                tr("mobile.search.dmSortOrder"),
+                store.dmSortOrder ?? "opening",
                 [
-                  { value: "0", label: "Disabled" },
-                  { value: "32", label: "Small" },
-                  { value: "42", label: "Default" },
-                  { value: "56", label: "Large" },
+                  { value: "opening", label: tr("mobile.byOpening") },
+                  { value: "alphabetical", label: tr("mobile.alphabetical") },
                 ],
-                (v) => store.setJumbojiSize(Number(v)),
+                (v) => store.setDmSortOrder(v as "opening" | "alphabetical")
+              )}
+              {select(
+                tr("mobile.search.statusIndicator"),
+                store.statusDisplayMode || "always",
+                [
+                  { value: "always", label: tr("mobile.alwaysShow") },
+                  { value: "on_error", label: tr("mobile.onlyOnError") },
+                  { value: "disabled", label: tr("mobile.hidden") },
+                ],
+                (v) => store.setStatusDisplayMode(v as StatusDisplayMode),
                 false
               )}
             </Card>
@@ -483,38 +503,69 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
           ["plain", "colon", "comma", "at", "arrow", "hyphen", "bracket"] as NickCompletionFormat[]
         )
           .map((f) => ({ value: f, label: formatNickCompletion("Alice", f).trimEnd() }))
-          .concat({ value: "custom", label: "Custom format" });
+          .concat({ value: "custom", label: tr("mobile.customFormat") });
         return (
           <>
-            <M3Subheader>Behavior</M3Subheader>
+            <M3Subheader>{tr("mobile.behavior")}</M3Subheader>
             <Card>
               {toggle(
-                "Confirm before leaving channel",
+                tr("mobile.search.markdown"),
+                store.enableMarkdown ?? true,
+                store.setEnableMarkdown,
+                tr("mobile.markdownDesc")
+              )}
+              {toggle(
+                tr("mobile.search.scrollOnReturn"),
+                store.scrollToUnreadOnFocus ?? false,
+                store.setScrollToUnreadOnFocus,
+                tr("mobile.scrollDesc")
+              )}
+              {toggle(
+                tr("mobile.search.formattingPreview"),
+                store.enableFormattingPreview ?? true,
+                store.setEnableFormattingPreview,
+                tr("mobile.formattingDesc"),
+                false
+              )}
+              {select(
+                tr("mobile.search.emojiSize"),
+                String(store.jumbojiSize ?? 42),
+                [
+                  { value: "0", label: tr("mobile.disabled") },
+                  { value: "32", label: tr("mobile.small") },
+                  { value: "42", label: tr("mobile.default") },
+                  { value: "56", label: tr("mobile.large") },
+                ],
+                (v) => store.setJumbojiSize(Number(v)),
+                false
+              )}
+              {toggle(
+                tr("mobile.search.confirmLeave"),
                 store.confirmLeaveChannel ?? true,
                 store.setConfirmLeaveChannel
               )}
               {toggle(
-                "Slash command suggestions",
+                tr("mobile.search.slashSuggestions"),
                 store.enableCommandSuggestions ?? true,
                 store.setEnableCommandSuggestions
               )}
               {select(
-                "Default reply format",
+                tr("mobile.search.defaultReplyFormat"),
                 store.defaultReplyMode || "auto",
                 [
                   {
                     value: "auto",
-                    label: "Auto",
-                    description: "IRCv3 tags when supported, otherwise inline quote",
+                    label: tr("mobile.auto"),
+                    description: tr("mobile.autoDesc"),
                   },
-                  { value: "modern", label: "Modern IRCv3 only" },
-                  { value: "legacy", label: "Legacy inline only" },
-                  { value: "hybrid", label: "Hybrid", description: "Both formats" },
+                  { value: "modern", label: tr("mobile.modernOnly") },
+                  { value: "legacy", label: tr("mobile.legacyOnly") },
+                  { value: "hybrid", label: tr("mobile.hybrid"), description: tr("mobile.bothFormats") },
                 ],
                 (v) => store.setDefaultReplyMode(v as ReplyMode)
               )}
               {select(
-                "Nickname completion format",
+                tr("mobile.search.nickCompletion"),
                 store.nickCompletionFormat || "plain",
                 nickOptions,
                 (v) => store.setNickCompletionFormat(v as NickCompletionFormat),
@@ -523,13 +574,13 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
               {store.nickCompletionFormat === "custom" &&
                 fieldBox(
                   <M3TextField
-                    label="Custom pattern"
+                    label={tr("mobile.customPattern")}
                     value={store.customNickCompletionFormat || ""}
                     onChange={store.setCustomNickCompletionFormat}
                     placeholder="{nick}: "
                     monospace
                     labelBackground={t.surfaceContainer}
-                    supportingText={`Preview: ${formatNickCompletion(
+                    supportingText={`${tr("settings.appearance.preview")} ${formatNickCompletion(
                       "Alice",
                       "custom",
                       store.customNickCompletionFormat || "{nick}: "
@@ -537,46 +588,18 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
                   />
                 )}
               {select(
-                "Message of the day (MOTD)",
+                tr("mobile.search.motd"),
                 store.globalMotdPolicy || "on_change",
                 [
-                  { value: "on_change", label: "When changed" },
-                  { value: "always", label: "Always" },
-                  { value: "never", label: "Never" },
+                  { value: "on_change", label: tr("mobile.whenChanged") },
+                  { value: "always", label: tr("mobile.always") },
+                  { value: "never", label: tr("mobile.never") },
                 ],
                 (v) => store.setGlobalMotdPolicy(v as MotdDisplayPolicy),
                 false
               )}
             </Card>
 
-            <M3Subheader>Lists</M3Subheader>
-            <Card>
-              {toggle(
-                "Sort private messages by unread",
-                store.sortDmByUnread ?? true,
-                store.setSortDmByUnread
-              )}
-              {select(
-                "Private message sort order",
-                store.dmSortOrder ?? "opening",
-                [
-                  { value: "opening", label: "By opening order" },
-                  { value: "alphabetical", label: "Alphabetical" },
-                ],
-                (v) => store.setDmSortOrder(v as "opening" | "alphabetical")
-              )}
-              {select(
-                "Connection status indicator",
-                store.statusDisplayMode || "always",
-                [
-                  { value: "always", label: "Always show" },
-                  { value: "on_error", label: "Only on error" },
-                  { value: "disabled", label: "Hidden" },
-                ],
-                (v) => store.setStatusDisplayMode(v as StatusDisplayMode),
-                false
-              )}
-            </Card>
           </>
         );
       }
@@ -585,25 +608,25 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
         return (
           <Card>
             {toggle(
-              "Link previews",
+              tr("mobile.cat.previews"),
               store.enableLinkPreviews,
               store.setEnableLinkPreviews,
-              "Show embeds for links in chat"
+              tr("mobile.linkPreviewsDesc")
             )}
             {toggle("Web page previews", store.enableWebPagePreviews, store.setEnableWebPagePreviews)}
             {toggle(
-              "Auto-collapse images",
+              tr("mobile.search.autoCollapse"),
               store.autoCollapseImages ?? false,
               store.setAutoCollapseImages
             )}
             {toggle(
-              "MOTD media previews",
+              tr("mobile.search.motdMedia"),
               store.enableMotdMediaPreviews ?? false,
               store.setEnableMotdMediaPreviews
             )}
             {fieldBox(
               <M3TextField
-                label="Link preview API URL"
+                label={tr("mobile.search.previewApi")}
                 value={store.linkPreviewApiUrl || ""}
                 onChange={store.setLinkPreviewApiUrl}
                 placeholder="https://…"
@@ -618,23 +641,23 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
         return (
           <Card>
             {select(
-              "Image upload provider",
+              tr("mobile.search.uploadProvider"),
               cfg.provider,
               [
-                { value: "disabled", label: "Disabled" },
+                { value: "disabled", label: tr("mobile.disabled") },
                 {
                   value: "litterbox",
-                  label: "Litterbox",
-                  description: "Public, expires after 1–72 hours",
+                  label: tr("mobile.litterbox"),
+                  description: tr("mobile.litterboxDesc"),
                 },
-                { value: "pomf", label: "POMF", description: "Custom POMF-compatible server" },
+                { value: "pomf", label: tr("mobile.pomf"), description: tr("mobile.pomfDesc") },
               ],
               (v) => store.setUploadConfig({ ...cfg, provider: v as ImageUploadProvider }),
               cfg.provider !== "disabled"
             )}
             {cfg.provider === "litterbox" &&
               select(
-                "Litterbox expiration",
+                tr("mobile.search.litterboxExpiration"),
                 cfg.litterboxTime || "1h",
                 [
                   { value: "1h", label: "1 hour" },
@@ -648,7 +671,7 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
             {cfg.provider === "pomf" &&
               fieldBox(
                 <M3TextField
-                  label="POMF server URL"
+                  label={tr("mobile.search.pomfUrl")}
                   value={cfg.pomfUrl || ""}
                   onChange={(v) => store.setUploadConfig({ ...cfg, pomfUrl: v })}
                   placeholder="https://…"
@@ -663,12 +686,12 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
         return (
           <>
             <Box sx={{ px: 1, pb: 1.5, fontSize: "0.875rem", color: t.onSurfaceVariant }}>
-              Add header rules for private image hosts that require authorization.
+              {tr("rest.headerRulesDesc")}
             </Box>
-            <M3Subheader>Rules</M3Subheader>
+            <M3Subheader>{tr("mobile.rules")}</M3Subheader>
             <Card>
               {store.urlAuthRules.length === 0 ? (
-                <M3ListItem headline="No rules configured" />
+                <M3ListItem headline={tr("mobile.noRules")} />
               ) : (
                 store.urlAuthRules.map((rule, i) => (
                   <M3ListItem
@@ -682,7 +705,7 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
                     divider={i < store.urlAuthRules.length - 1}
                     trailing={
                       <ButtonBase
-                        aria-label="Delete rule"
+                        aria-label={tr("mobile.deleteRule")}
                         onClick={() => store.removeUrlAuthRule(rule.id)}
                         sx={{ width: 40, height: 40, borderRadius: "50%", color: t.onSurfaceVariant }}
                       >
@@ -693,25 +716,25 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
                 ))
               )}
             </Card>
-            <M3Subheader>New rule</M3Subheader>
+            <M3Subheader>{tr("mobile.newRule")}</M3Subheader>
             <Card>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, px: 2.5, pt: 2.5, pb: 2 }}>
                 <M3TextField
-                  label="URL prefix"
+                  label={tr("mobile.urlPrefix")}
                   value={newRulePrefix}
                   onChange={setNewRulePrefix}
                   placeholder="https://img.example.com/"
                   labelBackground={t.surfaceContainer}
                 />
                 <M3TextField
-                  label="Header name"
+                  label={tr("mobile.headerName")}
                   value={newRuleHeaderName}
                   onChange={setNewRuleHeaderName}
                   monospace
                   labelBackground={t.surfaceContainer}
                 />
                 <M3TextField
-                  label="Header value"
+                  label={tr("mobile.headerValue")}
                   value={newRuleHeaderValue}
                   onChange={setNewRuleHeaderValue}
                   monospace
@@ -732,7 +755,7 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
                       setNewRuleHeaderValue("");
                     }}
                   >
-                    Add rule
+                    {tr("rest.addRule")}
                   </M3Button>
                 </Box>
               </Box>
@@ -745,7 +768,7 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
-  const activeCategory = CATEGORIES.find((c) => c.id === category);
+  const activeCategory = categories.find((c) => c.id === category);
 
   return (
     <Box
@@ -763,7 +786,7 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
       {!searchActive && (
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, px: 0.5, height: 64 }}>
           <ButtonBase
-            aria-label="Back"
+            aria-label={tr("mobile.back")}
             onClick={handleBack}
             sx={{ width: 48, height: 48, borderRadius: "50%", color: t.onSurface }}
           >
@@ -795,7 +818,7 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
           <M3SearchBar
             value={query}
             onChange={setQuery}
-            placeholder="Search settings"
+            placeholder={tr("mobile.search.placeholder")}
             active={searchActive}
             onActiveChange={setSearchActive}
           />
@@ -821,19 +844,19 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
               </Card>
             ) : (
               <Box sx={{ py: 6, textAlign: "center", color: t.onSurfaceVariant }}>
-                No matching settings
+                {tr("rest.noMatchingSettings")}
               </Box>
             )
           ) : null
         ) : (
           <Card>
-            {CATEGORIES.map((c, i) => (
+            {categories.map((c, i) => (
               <M3ListItem
                 key={c.id}
                 leading={c.icon}
                 headline={c.title}
                 supporting={c.subtitle}
-                divider={i < CATEGORIES.length - 1}
+                divider={i < categories.length - 1}
                 onClick={() => openCategory(c.id)}
               />
             ))}

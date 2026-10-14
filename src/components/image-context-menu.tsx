@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Copy, ExternalLink, Download, ChevronRight, ChevronDown } from "lucide-react";
 import {
   ContextMenu,
@@ -26,6 +27,7 @@ export const ImageContextMenu: React.FC<ImageContextMenuProps> = ({
   isCollapsed,
   onToggleCollapse,
 }) => {
+  const { t } = useTranslation();
   if (!url) return <>{children}</>;
 
   const handleCopyLink = async (e: React.MouseEvent) => {
@@ -60,12 +62,12 @@ export const ImageContextMenu: React.FC<ImageContextMenuProps> = ({
               {isCollapsed ? (
                 <>
                   <ChevronDown className="w-4 h-4 text-zinc-400" />
-                  <span>Expand image</span>
+                  <span>{t("image.expand")}</span>
                 </>
               ) : (
                 <>
                   <ChevronRight className="w-4 h-4 text-zinc-400" />
-                  <span>Collapse image</span>
+                  <span>{t("image.collapse")}</span>
                 </>
               )}
             </ContextMenuItem>
@@ -74,16 +76,16 @@ export const ImageContextMenu: React.FC<ImageContextMenuProps> = ({
         )}
         <ContextMenuItem onClick={handleCopyLink} className="gap-x-2">
           <Copy className="w-4 h-4 text-zinc-400" />
-          <span>Copy image link</span>
+          <span>{t("image.copyLink")}</span>
         </ContextMenuItem>
         <ContextMenuItem onClick={handleOpenInBrowser} className="gap-x-2">
           <ExternalLink className="w-4 h-4 text-zinc-400" />
-          <span>Open in browser</span>
+          <span>{t("image.openInBrowser")}</span>
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onClick={handleSaveImage} className="gap-x-2">
           <Download className="w-4 h-4 text-zinc-400" />
-          <span>Save image...</span>
+          <span>{t("image.saveImage")}</span>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

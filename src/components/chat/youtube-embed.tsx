@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useState, useRef } from "react";
 import { Play, Youtube } from "lucide-react";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
@@ -25,6 +26,7 @@ export const LazyYouTubeEmbed: React.FC<LazyYouTubeEmbedProps> = ({
   onContentSizeChange,
   title = "YouTube video player",
 }) => {
+  const { t: tr } = useTranslation();
   const { ref, isVisible } = useIntersectionObserver({
     root: null,
     rootMargin: "400px",
@@ -64,14 +66,14 @@ export const LazyYouTubeEmbed: React.FC<LazyYouTubeEmbedProps> = ({
           <button
             type="button"
             onClick={handleActivate}
-            aria-label="Play YouTube video"
+            aria-label={tr("cb.playYt")}
             className="absolute inset-0 w-full h-full group cursor-pointer overflow-hidden bg-black"
           >
             {/* Thumbnail image */}
             {!thumbError ? (
               <img
                 src={thumbSrc}
-                alt="YouTube video thumbnail"
+                alt={tr("cb.ytThumb")}
                 loading="lazy"
                 referrerPolicy="no-referrer"
                 className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${

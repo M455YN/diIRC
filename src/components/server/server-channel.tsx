@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useRef } from "react";
 import { 
   Channel, 
@@ -47,6 +48,7 @@ export const ServerChannel = ({
   dropPosition,
   onPointerDown,
 }: ServerChannelProps) => {
+  const { t: tr } = useTranslation();
   const { onOpen } = useModal();
   const params = useParams();
   const navigate = useNavigate();
@@ -214,12 +216,12 @@ export const ServerChannel = ({
               {channel.name}
             </p>
             {channel.key && (
-              <ActionTooltip label="Password protected">
+              <ActionTooltip label={tr("srv.passwordProtected")}>
                 <Lock className="w-3.5 h-3.5 ml-auto text-amber-500/80 shrink-0" />
               </ActionTooltip>
             )}
             {channel.isTemporary && (
-              <ActionTooltip label="Temporary channel (disappears on restart unless saved)">
+              <ActionTooltip label={tr("srv.temporaryChannel")}>
                 <Bookmark className="w-3.5 h-3.5 ml-auto text-zinc-400 hover:text-indigo-400 shrink-0 cursor-pointer" onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
                   useMockStore.getState().setChannelTemporary(server.id, channel.name, false);
@@ -239,7 +241,7 @@ export const ServerChannel = ({
               </span>
             )}
             <div className="ml-auto flex items-center gap-x-2">
-              <ActionTooltip label={isMuted ? "Unmute channel" : "Mute channel"}>
+              <ActionTooltip label={isMuted ? tr("srv.unmuteChannel") : tr("srv.muteChannel")}>
                 <span
                   onClick={handleToggleMute}
                   className={cn(
@@ -254,7 +256,7 @@ export const ServerChannel = ({
                   )}
                 </span>
               </ActionTooltip>
-              <ActionTooltip label="Leave">
+              <ActionTooltip label={tr("srv.leave")}>
                 <X
                   onClick={handleLeaveChannel}
                   className="hidden group-hover:block w-4 h-4 text-zinc-500 hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-400 transition"
@@ -272,14 +274,14 @@ export const ServerChannel = ({
               className="cursor-pointer flex items-center gap-x-2"
             >
               <Sliders className="w-4 h-4" />
-              Channel settings (operator)
+              {tr("srv.channelSettingsOperator")}
             </ContextMenuItem>
             <ContextMenuItem
               onSelect={() => setTimeout(() => onOpen("channelSettings", { server, channel }), 0)}
               className="cursor-pointer flex items-center gap-x-2"
             >
               <Settings className="w-4 h-4" />
-              Channel settings
+              {tr("srv.channelSettings")}
             </ContextMenuItem>
           </>
         ) : (
@@ -290,12 +292,12 @@ export const ServerChannel = ({
                   <div className="w-full">
                     <ContextMenuItem disabled className="opacity-50 cursor-not-allowed flex items-center gap-x-2">
                       <Sliders className="w-4 h-4" />
-                      Channel settings (operator)
+                      {tr("srv.channelSettingsOperator")}
                     </ContextMenuItem>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p className="text-xs font-medium">You must be a channel operator</p>
+                  <p className="text-xs font-medium">{tr("srv.mustBeOperator")}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -304,7 +306,7 @@ export const ServerChannel = ({
               className="cursor-pointer flex items-center gap-x-2"
             >
               <Settings className="w-4 h-4" />
-              Channel settings
+              {tr("srv.channelSettings")}
             </ContextMenuItem>
           </>
         )}
@@ -314,7 +316,7 @@ export const ServerChannel = ({
           className="cursor-pointer flex items-center gap-x-2 text-rose-600 dark:text-rose-400 focus:text-rose-600 dark:focus:text-rose-400"
         >
           <X className="w-4 h-4" />
-          Leave channel
+          {tr("srv.leaveChannel")}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

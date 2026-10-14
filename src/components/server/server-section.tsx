@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ChannelType, ServerWithMembersWithProfiles } from "@/types";
 import { Plus, Settings } from "lucide-react";
 
@@ -17,6 +18,7 @@ export const ServerSection = ({
   channelType,
   server,
 }: ServerSectionProps) => {
+  const { t } = useTranslation();
   const { onOpen } = useModal();
 
   return (
@@ -25,7 +27,7 @@ export const ServerSection = ({
         {label}
       </p>
       {sectionType === "channels" && (
-        <ActionTooltip label="Join channel" side="top">
+        <ActionTooltip label={t("srv.joinChannel")} side="top">
           <button
             onClick={() => onOpen("createChannel", { channelType, server })}
             className="text-zinc-500 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-300 transition"

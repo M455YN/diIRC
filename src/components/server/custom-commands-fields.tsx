@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useRef, useState } from "react";
 import { Control, useFieldArray } from "react-hook-form";
 import {
@@ -78,6 +79,7 @@ export const CustomCommandsFields = ({
   control,
   disabled,
 }: CustomCommandsFieldsProps) => {
+  const { t: tr } = useTranslation();
   const { fields, append, remove, replace } = useFieldArray({
     name: "customCommands",
     control,
@@ -100,7 +102,7 @@ export const CustomCommandsFields = ({
       const message =
         err instanceof SyntaxError
           ? "Invalid JSON file."
-          : err?.message || "Failed to load custom commands.";
+          : err?.message || tr("cb.loadCommandsFailed");
       setImportError(message);
     }
   };
@@ -108,17 +110,17 @@ export const CustomCommandsFields = ({
   return (
     <div className="flex flex-col gap-2">
       <FormLabel className="uppercase text-xs font-bold text-zinc-600 dark:text-zinc-300 tracking-wider flex items-center justify-between">
-        Custom commands
+        {tr("cb.customCommands")}
         <span className="flex items-center gap-2">
           <button
             type="button"
             disabled={disabled}
-            title="Load from JSON"
+            title={tr("cb.loadFromJson")}
             onClick={() => fileInputRef.current?.click()}
             className="inline-flex items-center gap-1 text-[11px] font-semibold normal-case tracking-normal text-zinc-500 hover:text-indigo-500 dark:text-zinc-400 dark:hover:text-indigo-400 transition disabled:opacity-50"
           >
             <FileJson className="w-3.5 h-3.5" />
-            Load from JSON
+            {tr("cb.loadFromJson")}
           </button>
           <Plus
             className="w-4 h-4 cursor-pointer text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 transition"
@@ -136,9 +138,9 @@ export const CustomCommandsFields = ({
         onChange={handleLoadJson}
       />
       <p className="text-xs text-zinc-500 dark:text-zinc-400 -mt-1 mb-1">
-        Map a slash command to chat text. Arguments are appended automatically.
-        Optional description and suggestions appear in autocomplete.
-        You can also load commands from a JSON file.
+        {tr("cb.mapCommandDesc")}
+        {tr("cb.optionalDesc")}
+        {tr("cb.canLoadJson")}
       </p>
 
       {importError && (
@@ -147,7 +149,7 @@ export const CustomCommandsFields = ({
 
       {fields.length === 0 && (
         <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">
-          No custom commands. Click + to add one, or load a JSON file.
+          {tr("cb.noCommands")}
         </p>
       )}
 
@@ -163,7 +165,7 @@ export const CustomCommandsFields = ({
               render={({ field }) => (
                 <FormItem className="flex-1 space-y-1">
                   <FormLabel className="text-[10px] uppercase tracking-wider text-zinc-500">
-                    Slash command
+                    {tr("cb.slashCommand")}
                   </FormLabel>
                   <FormControl>
                     <div className="relative">
@@ -173,7 +175,7 @@ export const CustomCommandsFields = ({
                       <Input
                         disabled={disabled}
                         className="bg-zinc-100 dark:bg-[#1e1f22] border border-zinc-300/80 dark:border-zinc-700/60 focus-visible:ring-2 focus-visible:ring-indigo-500 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-medium h-10 pl-6"
-                        placeholder="command"
+                        placeholder={tr("cb.commandPlaceholder")}
                         {...field}
                         onChange={(e) =>
                           field.onChange(e.target.value.replace(/^\/*/, "").replace(/\s+/g, ""))
@@ -191,13 +193,13 @@ export const CustomCommandsFields = ({
               render={({ field }) => (
                 <FormItem className="flex-[1.4] space-y-1">
                   <FormLabel className="text-[10px] uppercase tracking-wider text-zinc-500">
-                    Sends as
+                    {tr("cb.sendsAs")}
                   </FormLabel>
                   <FormControl>
                     <Input
                       disabled={disabled}
                       className="bg-zinc-100 dark:bg-[#1e1f22] border border-zinc-300/80 dark:border-zinc-700/60 focus-visible:ring-2 focus-visible:ring-indigo-500 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-medium h-10"
-                      placeholder="!command"
+                      placeholder={tr("cb.sendsAsPlaceholder")}
                       {...field}
                     />
                   </FormControl>
@@ -222,7 +224,7 @@ export const CustomCommandsFields = ({
                   <Input
                     disabled={disabled}
                     className="bg-zinc-100 dark:bg-[#1e1f22] border border-zinc-300/80 dark:border-zinc-700/60 focus-visible:ring-2 focus-visible:ring-indigo-500 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-medium h-10"
-                    placeholder="Short description shown in autocomplete"
+                    placeholder={tr("cb.shortDescPlaceholder")}
                     {...field}
                   />
                 </FormControl>
@@ -242,12 +244,12 @@ export const CustomCommandsFields = ({
                   <Input
                     disabled={disabled}
                     className="bg-zinc-100 dark:bg-[#1e1f22] border border-zinc-300/80 dark:border-zinc-700/60 focus-visible:ring-2 focus-visible:ring-indigo-500 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-medium h-10"
-                    placeholder="option1, option2, option3"
+                    placeholder={tr("cb.optionsPlaceholder")}
                     {...field}
                   />
                 </FormControl>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Comma-separated arguments shown in autocomplete
+                  {tr("cb.commaArgs")}
                 </p>
                 <FormMessage />
               </FormItem>

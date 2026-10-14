@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
@@ -43,15 +44,16 @@ const MemberItem = ({
   /** Off inside role groups, where the group header already states the role. */
   showRole?: boolean;
 }) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   const supporting = row.isAway
     ? row.awayReason
       ? `Away: ${row.awayReason}`
-      : "Away"
+      : tr("mi.away")
     : row.isSelf
-      ? "You"
+      ? tr("mi.you")
       : row.role && showRole
-        ? ROLE_CONFIGS[row.role].label
+        ? tr(ROLE_CONFIGS[row.role].label)
         : undefined;
 
   return (
@@ -68,7 +70,7 @@ const MemberItem = ({
             {row.isAway && (
               <Box
                 component="span"
-                aria-label="Away"
+                aria-label={tr("mi.away")}
                 sx={{
                   position: "absolute",
                   right: -1,
@@ -129,6 +131,7 @@ export const MobileMembersList = ({
   onMemberClick: (memberId: string) => void;
   onMore: () => void;
 }) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   const [query, setQuery] = useState("");
   const [searchActive, setSearchActive] = useState(false);
@@ -161,7 +164,7 @@ export const MobileMembersList = ({
       ? [
           {
             id: isChannel ? "role:users" : "conversations",
-            title: isChannel ? "Users" : "Conversations",
+            title: isChannel ? tr("mi.users") : tr("mi.conversations"),
             kind: "role" as const,
             items: others,
           },
@@ -181,7 +184,7 @@ export const MobileMembersList = ({
         <M3SearchBar
           value={query}
           onChange={setQuery}
-          placeholder={isChannel ? `Search ${rows.length} users` : "Search conversations"}
+          placeholder={isChannel ? tr("mobile.searchUsers", { count: rows.length }) : tr("mi.searchConversations")}
           active={searchActive}
           onActiveChange={setSearchActive}
         />
@@ -190,7 +193,7 @@ export const MobileMembersList = ({
       {/* Ungrouped lists keep the self row pinned on top */}
       {!grouped && self && !query && (
         <>
-          <M3Subheader>You</M3Subheader>
+          <M3Subheader>{tr("mi.you")}</M3Subheader>
           <M3ListGroup>
             <MemberItem row={self} divider={false} />
           </M3ListGroup>
@@ -240,14 +243,14 @@ export const MobileMembersList = ({
 
       {!hasAnyRows && (
         <Box sx={{ py: 6, textAlign: "center", color: t.onSurfaceVariant, fontSize: "0.875rem" }}>
-          {query ? "No matching users" : isChannel ? "No other users" : "No conversations yet"}
+          {query ? tr("mi.noMatchingUsers") : isChannel ? tr("mi.noOtherUsers") : tr("mi.noConversationsYet")}
         </Box>
       )}
 
       {!isChannel && (
         <Box sx={{ pt: 1 }}>
           <M3Button variant="tonal" icon={<MoreHorizIcon />} onClick={onMore} fullWidth>
-            More options
+            {tr("mi.more")}
           </M3Button>
         </Box>
       )}

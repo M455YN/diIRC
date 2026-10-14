@@ -30,7 +30,7 @@ export type DmNotificationMode = "all" | "off";
 export type ChannelNotificationOverrideValue = "default" | "all" | "mentions" | "off";
 export type DmNotificationOverrideValue = "default" | "all" | "off";
 
-export type SoundPreset = "chime" | "ping" | "bell" | "pop" | "custom";
+export type SoundPreset = "chime" | "ping" | "bell" | "pop" | "marimba" | "glass" | "custom";
 
 export interface NotificationOverride {
   sound?: NotificationOverrideValue;

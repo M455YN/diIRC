@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dialog,
@@ -33,6 +34,7 @@ export const ChangelogModal = () =>
   useIsMobileShell() ? <MobileChangelogModal /> : <DesktopChangelogModal />;
 
 const DesktopChangelogModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type } = useModal();
   const isModalOpen = isOpen && type === "changelog";
   const isMobile = useIsMobileShell();
@@ -117,7 +119,7 @@ const DesktopChangelogModal = () => {
                   isMobile ? "text-[28px] tracking-tight" : "text-lg text-zinc-900 dark:text-zinc-100"
                 )}
               >
-                <span>Changelog</span>
+                <span>{tr("mi.changelog")}</span>
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 font-mono text-xs font-medium",
@@ -135,7 +137,7 @@ const DesktopChangelogModal = () => {
                   isMobile ? "text-muted-foreground" : "text-zinc-500 dark:text-zinc-400"
                 )}
               >
-                Release notes and update history for Luna IRC
+                {tr("mi.releaseNotesDesc")}
               </DialogDescription>
             </div>
           </div>
@@ -146,7 +148,7 @@ const DesktopChangelogModal = () => {
             onClick={() => refresh()}
             disabled={loading}
             className="h-8 w-8 p-0 rounded-lg text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200"
-            title="Refresh changelog"
+            title={tr("mi.refreshChangelog")}
           >
             <RotateCw className={cn("w-4 h-4", loading && "animate-spin text-indigo-500")} />
           </Button>
@@ -166,7 +168,7 @@ const DesktopChangelogModal = () => {
               </div>
               <div className="space-y-1.5 max-w-md">
                 <p className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Unable to load release notes
+                  {tr("mi.notesFailed")}
                 </p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                   {error}
@@ -180,13 +182,13 @@ const DesktopChangelogModal = () => {
                 className="mt-2 text-xs font-semibold border-zinc-300 dark:border-zinc-700 flex items-center gap-x-2 px-4 py-2"
               >
                 <RotateCw className={cn("w-3.5 h-3.5", loading && "animate-spin text-indigo-500")} />
-                <span>{loading ? "Connecting..." : "Try again"}</span>
+                <span>{loading ? "Connecting..." : tr("mi.tryAgain")}</span>
               </Button>
             </div>
           ) : versions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-zinc-500 dark:text-zinc-400">
               <Tag className="w-8 h-8 opacity-50 mb-2" />
-              <p className="text-sm font-medium">No release notes available</p>
+              <p className="text-sm font-medium">{tr("mi.noNotes")}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -231,14 +233,14 @@ const DesktopChangelogModal = () => {
 
                         {isCurrent && (
                           <span className="inline-flex items-center gap-x-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
-                            Current version
+                            {tr("mi.currentVersion")}
                           </span>
                         )}
 
                         {isLatest && !isCurrent && (
                           <span className="inline-flex items-center gap-x-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
                             <Sparkles className="w-3 h-3" />
-                            Latest
+                            {tr("mi.latest")}
                           </span>
                         )}
                       </div>
@@ -287,7 +289,7 @@ const DesktopChangelogModal = () => {
               </span>
             ) : (
               <span className="text-zinc-500 dark:text-zinc-400 font-medium">
-                Version v{cleanCurrentVersion} release notes pending in Gist
+                {tr("changelog.pendingNotes", { version: cleanCurrentVersion })}
               </span>
             )}
           </span>
@@ -298,7 +300,7 @@ const DesktopChangelogModal = () => {
             onClick={handleClose}
             className="text-xs border border-zinc-300 dark:border-zinc-700"
           >
-            Close
+            {tr("common.close")}
           </Button>
         </div>
       </DialogContent>

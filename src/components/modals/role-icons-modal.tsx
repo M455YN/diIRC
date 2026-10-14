@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,7 @@ import { ROLE_CONFIGS, UserRoleIcon, UserRoleKey } from "@/components/user-role-
 import { ShieldCheck } from "lucide-react";
 
 export const RoleIconsModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type } = useModal();
   const isModalOpen = isOpen && type === "roleIcons";
 
@@ -26,7 +28,7 @@ export const RoleIconsModal = () => {
         <DialogHeader className="pt-6 px-6 pb-2">
           <DialogTitle className="text-xl font-bold flex items-center gap-x-2">
             <ShieldCheck className="w-5 h-5 text-indigo-500" />
-            Role icons
+            {tr("rest.roleIcons")}
           </DialogTitle>
           <DialogDescription className="text-xs text-zinc-500 dark:text-zinc-400">
             Icons and color signatures for all user roles.
@@ -43,7 +45,7 @@ export const RoleIconsModal = () => {
                 <div className="flex items-center gap-x-3 min-w-0">
                   <UserRoleIcon role={role.key as UserRoleKey} showTooltip={false} />
                   <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-                    {role.label}
+                    {tr(role.label)}
                   </span>
                 </div>
                 <span
@@ -59,7 +61,7 @@ export const RoleIconsModal = () => {
 
         <div className="p-4 bg-zinc-100 dark:bg-[#2b2d31] flex justify-end border-t border-zinc-200 dark:border-zinc-800">
           <Button onClick={handleClose} variant="secondary" className="px-5 text-xs font-semibold">
-            Close
+            {tr("rim.close")}
           </Button>
         </div>
       </DialogContent>

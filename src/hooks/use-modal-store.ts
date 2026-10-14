@@ -24,7 +24,8 @@ export type ModalType =
   | "updateAvailable"
   | "motd"
   | "alreadyAway"
-  | "changelog";
+  | "changelog"
+  | "bookmarks";
 
 interface ModalData {
   server?: Server;

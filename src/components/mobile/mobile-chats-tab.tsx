@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import { Hash, MoreHorizontal, Plus, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -41,6 +42,7 @@ interface MobileChatsTabProps {
 }
 
 export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
+  const { t: tr } = useTranslation();
   const navigate = useNavigate();
   const { onOpen } = useModal();
   const [query, setQuery] = useState("");
@@ -58,9 +60,9 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
     servers.find((s) => s.id === serverId) || (serverId ? undefined : servers[0]);
 
   const filters: { id: FilterId; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "channels", label: "Channels" },
-    { id: "messages", label: "Messages" },
+    { id: "all", label: tr("mi.all") },
+    { id: "channels", label: tr("mi.channels") },
+    { id: "messages", label: tr("mi.messages") },
   ];
 
   const rows = useMemo(() => {
@@ -78,8 +80,8 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
         kind: "channel",
         title: channel.name.startsWith("#") ? channel.name : `#${channel.name}`,
         preview: last
-          ? `${lastNick || "Someone"}: ${String(last.content || "").slice(0, 80)}`
-          : "No messages yet",
+          ? `${lastNick || tr("mi.someone")}: ${String(last.content || "").slice(0, 80)}`
+          : tr("mi.noMessagesYet"),
         href: `/servers/${server.id}/channels/${channel.id}`,
         timeLabel: formatTime(last?.createdAt),
         unread,
@@ -143,7 +145,7 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
             type="button"
             onClick={() => onOpen("settings")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-secondary-foreground"
-            aria-label="Menu"
+            aria-label={tr("mi.menu")}
           >
             <MoreHorizontal className="h-5 w-5" />
           </button>
@@ -155,14 +157,14 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
                 : onOpen("createServer")
             }
             className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-sm"
-            aria-label="New chat"
+            aria-label={tr("mi.newChat")}
           >
             <Plus className="h-5 w-5 stroke-[2.5]" />
           </button>
         </div>
 
         <h1 className="mb-3 text-[34px] font-bold leading-none tracking-tight">
-          Chats
+          {tr("mi.chats")}
         </h1>
 
         <label className="mb-3 flex h-11 items-center gap-2 rounded-full bg-secondary px-3.5">
@@ -170,7 +172,7 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search"
+            placeholder={tr("mi.search")}
             className="w-full bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
           />
         </label>
@@ -205,13 +207,13 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-28">
         {!server && (
           <div className="px-4 py-16 text-center text-sm text-muted-foreground">
-            Add a server to see channels and messages.
+            {tr("mi.addServerToSee")}
           </div>
         )}
 
         {server && visible.length === 0 && (
           <div className="px-4 py-16 text-center text-sm text-muted-foreground">
-            No chats match your filters.
+            {tr("mi.noChatsMatch")}
           </div>
         )}
 

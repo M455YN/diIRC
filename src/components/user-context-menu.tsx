@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Channel, Member, Profile, Server } from "@/types";
 import {
   ContextMenu,
@@ -27,6 +28,7 @@ export const UserContextMenu = React.forwardRef<
   HTMLDivElement,
   UserContextMenuProps & React.HTMLAttributes<HTMLDivElement>
 >(({ member, server, channel, children, ...props }, ref) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const currentProfile = useMockStore((state) => state.currentProfile);
   const servers = useMockStore((state) => state.servers);
@@ -194,18 +196,18 @@ export const UserContextMenu = React.forwardRef<
           <>
             <ContextMenuItem onClick={onOpenDM} className="gap-x-2 cursor-pointer">
               <MessageSquare className="w-4 h-4 text-zinc-500" />
-              <span>Message yourself</span>
+              <span>{t("ctx.messageYourself")}</span>
             </ContextMenuItem>
             <ContextMenuItem onClick={handleToggleSelfAway} className="gap-x-2 cursor-pointer">
               {isSelfAway ? (
                 <>
                   <UserCheck className="w-4 h-4 text-emerald-500" />
-                  <span>Set back</span>
+                  <span>{t("ctx.setBack")}</span>
                 </>
               ) : (
                 <>
                   <Clock className="w-4 h-4 text-amber-500" />
-                  <span>Set away</span>
+                  <span>{t("ctx.setAway")}</span>
                 </>
               )}
             </ContextMenuItem>
@@ -217,13 +219,13 @@ export const UserContextMenu = React.forwardRef<
           <>
             <ContextMenuItem onClick={onOpenDM} className="gap-x-2">
               <MessageSquare className="w-4 h-4 text-zinc-500" />
-              <span>Private message</span>
+              <span>{t("ctx.privateMessage")}</span>
             </ContextMenuItem>
 
             <ContextMenuSub>
               <ContextMenuSubTrigger className="gap-x-2">
                 <UserPlus className="w-4 h-4 text-zinc-500" />
-                <span>Invite to channel</span>
+                <span>{t("ctx.inviteToChannel")}</span>
               </ContextMenuSubTrigger>
               <ContextMenuSubContent className="w-48">
                 {eligibleInviteChannels.length > 0 ? (
@@ -239,7 +241,7 @@ export const UserContextMenu = React.forwardRef<
                   ))
                 ) : (
                   <ContextMenuItem disabled className="text-zinc-400 dark:text-zinc-500 text-xs">
-                    No channels available
+                    {t("ctx.noChannels")}
                   </ContextMenuItem>
                 )}
               </ContextMenuSubContent>
@@ -255,12 +257,12 @@ export const UserContextMenu = React.forwardRef<
               {isOp ? (
                 <>
                   <ShieldOff className="w-4 h-4 text-amber-500" />
-                  <span>Remove operator (-o)</span>
+                  <span>{t("ctx.removeOp")}</span>
                 </>
               ) : (
                 <>
                   <ShieldAlert className="w-4 h-4 text-emerald-500" />
-                  <span>Give operator (+o)</span>
+                  <span>{t("ctx.giveOp")}</span>
                 </>
               )}
             </ContextMenuItem>
@@ -269,12 +271,12 @@ export const UserContextMenu = React.forwardRef<
               {isVoice ? (
                 <>
                   <MicOff className="w-4 h-4 text-red-500" />
-                  <span>Remove voice (-v)</span>
+                  <span>{t("ctx.removeVoice")}</span>
                 </>
               ) : (
                 <>
                   <Mic className="w-4 h-4 text-blue-500" />
-                  <span>Give voice (+v)</span>
+                  <span>{t("ctx.giveVoice")}</span>
                 </>
               )}
             </ContextMenuItem>

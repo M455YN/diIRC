@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Server, Plus } from "lucide-react";
@@ -8,6 +9,7 @@ import { useModal } from "@/hooks/use-modal-store";
 import { cn } from "@/lib/utils";
 
 export const SetupPage = () => {
+  const { t: tr } = useTranslation();
   const servers = useMockStore((state) => state.servers);
   const navigate = useNavigate();
   const { onOpen } = useModal();
@@ -53,7 +55,7 @@ export const SetupPage = () => {
             isMobile ? "text-muted-foreground" : "text-zinc-500 dark:text-zinc-400"
           )}
         >
-          You haven't added any IRC servers yet. Add a server to start chatting.
+          {tr("cb.setupNoServers")}
         </p>
         <Button
           onClick={() => onOpen("createServer")}
@@ -65,7 +67,7 @@ export const SetupPage = () => {
           )}
         >
           <Plus className="h-4 w-4" />
-          Add server
+          {tr("cb.addServer")}
         </Button>
       </div>
     </div>

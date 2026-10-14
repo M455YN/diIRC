@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,7 @@ import { useMockStore, getServerActiveNick } from "@/lib/mock-store";
 import { invoke } from "@tauri-apps/api/core";
 
 export const AlreadyAwayModal = () => {
+  const { t } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
 
   const isModalOpen = isOpen && type === "alreadyAway";
@@ -39,23 +41,23 @@ export const AlreadyAwayModal = () => {
         <DialogHeader className="pt-8 px-6 space-y-2">
           <DialogTitle className="text-2xl text-center font-bold flex items-center justify-center gap-x-2 text-amber-500">
             <AlertCircle className="w-6 h-6 shrink-0" />
-            Already away
+            {t("away.title")}
           </DialogTitle>
           <DialogDescription className="text-center text-zinc-500 dark:text-zinc-400 mt-2">
-            You are already set to away state.
+            {t("away.desc")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="bg-gray-100 dark:bg-zinc-900/50 p-6 flex flex-col gap-y-4">
           <div className="text-sm text-zinc-500 dark:text-zinc-400 text-center">
-            Clicking <b>Back</b> will return you from the away state, making you active again.
+            Clicking <b>{t("common.back")}</b> will return you from the away state, making you active again.
           </div>
           <div className="flex gap-x-4">
             <Button onClick={onClose} variant="ghost" className="w-full">
               Ok
             </Button>
             <Button onClick={handleReturnFromAway} variant="primary" className="w-full">
-              Back
+              {t("common.back")}
             </Button>
           </div>
         </div>

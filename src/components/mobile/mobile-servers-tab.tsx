@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { MoreHorizontal, Plus, Radio, Search, Unplug } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,6 +14,7 @@ interface MobileServersTabProps {
 }
 
 export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabProps) => {
+  const { t: tr } = useTranslation();
   const servers = useMockStore((state) => state.servers);
   const ircConnectedServers = useMockStore((state) => state.ircConnectedServers);
   const connectServer = useMockStore((state) => state.connectServer);
@@ -63,7 +65,7 @@ export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabPro
             type="button"
             onClick={() => onOpen("settings")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-secondary-foreground"
-            aria-label="Menu"
+            aria-label={tr("mi.menu")}
           >
             <MoreHorizontal className="h-5 w-5" />
           </button>
@@ -71,14 +73,14 @@ export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabPro
             type="button"
             onClick={() => onOpen("createServer")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-sm"
-            aria-label="Add server"
+            aria-label={tr("mi.addServer")}
           >
             <Plus className="h-5 w-5 stroke-[2.5]" />
           </button>
         </div>
 
         <h1 className="mb-3 text-[34px] font-bold leading-none tracking-tight">
-          Servers
+          {tr("mi.servers")}
         </h1>
 
         <label className="mb-2 flex h-11 items-center gap-2 rounded-full bg-secondary px-3.5">
@@ -86,13 +88,13 @@ export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabPro
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search"
+            placeholder={tr("mi.search")}
             className="w-full bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
           />
         </label>
 
         <p className="mb-1 px-1 text-[12px] text-muted-foreground">
-          Swipe right to edit · swipe left to delete
+          {tr("mi.swipeHint")}
         </p>
       </div>
 
@@ -100,7 +102,7 @@ export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabPro
         {filtered.length === 0 && (
           <div className="px-4 py-16 text-center">
             <p className="mb-4 text-sm text-muted-foreground">
-              No servers yet. Add an IRC server to start chatting.
+              {tr("mi.noServers")}
             </p>
             <button
               type="button"
@@ -108,7 +110,7 @@ export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabPro
               className="inline-flex items-center gap-2 rounded-full bg-blue-500 px-4 py-2 text-sm font-medium text-white"
             >
               <Plus className="h-4 w-4" />
-              Add server
+              {tr("mi.addServer")}
             </button>
           </div>
         )}
@@ -140,7 +142,7 @@ export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabPro
                     <p className="truncate text-[13px] text-muted-foreground">
                       {server.host
                         ? `${server.host}${server.port ? `:${server.port}` : ""}`
-                        : "IRC server"}
+                        : tr("mi.ircServer")}
                     </p>
                   </div>
                 </button>
@@ -156,7 +158,7 @@ export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabPro
                       ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                       : "bg-secondary text-muted-foreground"
                   )}
-                  aria-label={connected ? "Connected" : "Connect"}
+                  aria-label={connected ? tr("mi.connected") : tr("mi.connect")}
                 >
                   {connected ? (
                     <Radio className="h-4 w-4" />

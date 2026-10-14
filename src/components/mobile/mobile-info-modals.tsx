@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -39,6 +40,7 @@ import {
 /* ------------------------------------------------------------------ */
 
 const ConnectionBody = ({ serverId }: { serverId?: string }) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   const servers = useMockStore((s) => s.servers);
   const uploadConfig = useMockStore((s) => s.uploadConfig);
@@ -66,7 +68,7 @@ const ConnectionBody = ({ serverId }: { serverId?: string }) => {
       ? "POMF"
       : uploadConfig.provider === "litterbox"
         ? "Litterbox"
-        : "Uploads disabled";
+        : tr("mi.uploadsDisabled");
 
   return (
     <>
@@ -75,7 +77,7 @@ const ConnectionBody = ({ serverId }: { serverId?: string }) => {
           <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Box sx={{ fontSize: "1.375rem", lineHeight: "28px", color: t.onSurface }}>
-                {server?.name ?? "No server"}
+                {server?.name ?? tr("mi.noServer")}
               </Box>
               <Box
                 sx={{
@@ -93,13 +95,13 @@ const ConnectionBody = ({ serverId }: { serverId?: string }) => {
             <M3Chip
               tone={irc ? "success" : "error"}
               icon={irc ? <CheckCircleOutlinedIcon /> : <ErrorOutlineIcon />}
-              label={irc ? "Connected" : "Disconnected"}
+              label={irc ? tr("mi.connected") : tr("mi.disconnected")}
             />
           </Box>
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             <M3Chip
               icon={<LockOutlinedIcon />}
-              label={server?.useTls ? "TLS" : "No TLS"}
+              label={server?.useTls ? "TLS" : tr("mi.noTls")}
             />
             {server?.username && <M3Chip label={`Username: ${server.username}`} />}
           </Box>
@@ -127,7 +129,7 @@ const ConnectionBody = ({ serverId }: { serverId?: string }) => {
                 onClick={toggleConnection}
                 disabled={busy || !server}
               >
-                {busy ? "Connecting…" : "Connect"}
+                {busy ? tr("mi.connecting") : tr("mi.connect")}
               </M3Button>
             )}
           </Box>
@@ -146,7 +148,7 @@ const ConnectionBody = ({ serverId }: { serverId?: string }) => {
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 500, fontSize: "0.875rem" }}>
             <ErrorOutlineIcon sx={{ fontSize: 20 }} />
-            Connection error
+            {tr("mi.connectionError")}
           </Box>
           <Box
             sx={{
@@ -162,26 +164,26 @@ const ConnectionBody = ({ serverId }: { serverId?: string }) => {
         </Box>
       )}
 
-      <M3Subheader>Services</M3Subheader>
+      <M3Subheader>{tr("mi.services")}</M3Subheader>
       <M3ListGroup>
         <M3ListItem
           leading={<CloudOutlinedIcon />}
-          headline="Resource server"
+          headline={tr("mi.resourceServer")}
           supporting={providerLabel}
           trailing={
             <M3Chip
               tone={resourceServer ? "success" : "neutral"}
-              label={resourceServer ? "Connected" : "Disabled"}
+              label={resourceServer ? tr("mi.connected") : tr("mi.disabled")}
             />
           }
           divider
         />
         <M3ListItem
           leading={<PublicIcon />}
-          headline="Internet"
-          supporting={internet ? "Device is online" : "No network connection"}
+          headline={tr("mi.internet")}
+          supporting={internet ? tr("mi.deviceOnline") : tr("mi.noNetwork")}
           trailing={
-            <M3Chip tone={internet ? "success" : "error"} label={internet ? "Online" : "Offline"} />
+            <M3Chip tone={internet ? "success" : "error"} label={internet ? tr("mi.online") : tr("mi.offline")} />
           }
         />
       </M3ListGroup>
@@ -190,6 +192,7 @@ const ConnectionBody = ({ serverId }: { serverId?: string }) => {
 };
 
 export const MobileConnectionDetailsModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const { serverId: routeServerId } = useParams();
   const open = isOpen && type === "connectionDetails";
@@ -202,7 +205,7 @@ export const MobileConnectionDetailsModal = () => {
   return (
     <M3FullScreenDialog
       open={open}
-      title="Connection details"
+      title={tr("mi.connectionDetails")}
       onClose={() => onClose("connectionDetails")}
     >
       <ConnectionBody serverId={serverId} />
@@ -215,6 +218,7 @@ export const MobileConnectionDetailsModal = () => {
 /* ------------------------------------------------------------------ */
 
 const ChangelogBody = ({ open }: { open: boolean }) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   const { versions, hasCurrentVersion, currentVersion, loading, error, refresh } = useChangelog();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -245,7 +249,7 @@ const ChangelogBody = ({ open }: { open: boolean }) => {
     return (
       <Box sx={{ py: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
         <CircularProgress sx={{ color: t.primary }} />
-        <Box sx={{ color: t.onSurfaceVariant, fontSize: "0.875rem" }}>Loading release notes…</Box>
+        <Box sx={{ color: t.onSurfaceVariant, fontSize: "0.875rem" }}>{tr("mi.loadingNotes")}</Box>
       </Box>
     );
   }
@@ -254,10 +258,10 @@ const ChangelogBody = ({ open }: { open: boolean }) => {
     return (
       <Box sx={{ py: 8, px: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, textAlign: "center" }}>
         <WifiOffIcon sx={{ fontSize: 40, color: t.error }} />
-        <Box sx={{ fontSize: "1.125rem", color: t.onSurface }}>Unable to load release notes</Box>
+        <Box sx={{ fontSize: "1.125rem", color: t.onSurface }}>{tr("mi.notesFailed")}</Box>
         <Box sx={{ fontSize: "0.875rem", color: t.onSurfaceVariant }}>{error}</Box>
         <M3Button variant="tonal" icon={<RefreshIcon />} onClick={() => refresh()}>
-          Try again
+          {tr("mi.tryAgain")}
         </M3Button>
       </Box>
     );
@@ -267,12 +271,12 @@ const ChangelogBody = ({ open }: { open: boolean }) => {
     <>
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, pt: 1, pb: 2 }}>
         <M3Chip tone="primary" label={`Installed v${current}`} />
-        {!hasCurrentVersion && <M3Chip label="Notes for this version pending" />}
+        {!hasCurrentVersion && <M3Chip label={tr("mi.notesPending")} />}
       </Box>
 
       {versions.length === 0 ? (
         <Box sx={{ py: 8, textAlign: "center", color: t.onSurfaceVariant }}>
-          No release notes available
+          {tr("mi.noNotes")}
         </Box>
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
@@ -301,9 +305,9 @@ const ChangelogBody = ({ open }: { open: boolean }) => {
                       {v.version}
                     </Box>
                     {v.channel !== "official" && <M3Chip label={UPDATE_CHANNELS[v.channel].label} />}
-                    {isCurrent && <M3Chip tone="success" label="Current" />}
+                    {isCurrent && <M3Chip tone="success" label={tr("mi.current")} />}
                     {isLatest && !isCurrent && (
-                      <M3Chip tone="primary" icon={<AutoAwesomeOutlinedIcon />} label="Latest" />
+                      <M3Chip tone="primary" icon={<AutoAwesomeOutlinedIcon />} label={tr("mi.latest")} />
                     )}
                   </Box>
                   <ExpandMoreIcon
@@ -350,10 +354,11 @@ const ChangelogBody = ({ open }: { open: boolean }) => {
 };
 
 const ChangelogRefresh = () => {
+  const { t: tr } = useTranslation();
   const { loading, refresh } = useChangelog();
   return (
     <M3IconButton
-      label="Refresh changelog"
+      label={tr("mi.refreshChangelog")}
       onClick={() => refresh()}
       disabled={loading}
       icon={
@@ -364,13 +369,14 @@ const ChangelogRefresh = () => {
 };
 
 export const MobileChangelogModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type } = useModal();
   const open = isOpen && type === "changelog";
 
   return (
     <M3FullScreenDialog
       open={open}
-      title="Changelog"
+      title={tr("mi.changelog")}
       onClose={() => onClose()}
       leading="back"
       headerActions={<ChangelogRefresh />}

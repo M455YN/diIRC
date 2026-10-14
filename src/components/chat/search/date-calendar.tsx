@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import {
   eachDayOfInterval,
@@ -14,6 +15,7 @@ import {
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { dateLocale } from "@/lib/date-locale";
 
 interface DateCalendarProps {
   /** Called with the selected day at local midnight. */
@@ -28,6 +30,7 @@ const WEEKDAY_LABELS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
  * the caller owns insertion into the query string.
  */
 export const DateCalendar = ({ onSelect }: DateCalendarProps) => {
+  const { t: tr } = useTranslation();
   const [viewMonth, setViewMonth] = useState<Date>(() => startOfMonth(new Date()));
 
   const gridStart = startOfWeek(startOfMonth(viewMonth), { weekStartsOn: 1 });
@@ -42,18 +45,18 @@ export const DateCalendar = ({ onSelect }: DateCalendarProps) => {
           type="button"
           onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
           className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-[#3f4147] transition"
-          title="Previous month"
+          title={tr("cb.prevMonth")}
         >
           <ChevronLeft className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
         </button>
         <span className="text-xs font-semibold text-black dark:text-white capitalize">
-          {format(viewMonth, "LLLL yyyy")}
+          {format(viewMonth, "LLLL yyyy", dateLocale())}
         </span>
         <button
           type="button"
           onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
           className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-[#3f4147] transition"
-          title="Next month"
+          title={tr("cb.nextMonth")}
         >
           <ChevronRight className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
         </button>

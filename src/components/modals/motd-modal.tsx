@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { useParams } from "react-router-dom";
 import {
@@ -44,6 +45,7 @@ import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 import { MobileMotdView } from "@/components/mobile/mobile-motd-operator-views";
 
 export const MotdModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const isMobile = useIsMobileShell();
   const params = useParams();
@@ -127,7 +129,7 @@ export const MotdModal = () => {
     return "max-w-xl";
   }, [motdLines, isDirc]);
 
-  const serverDisplayName = activeServer?.name || activeServer?.host || "Server";
+  const serverDisplayName = activeServer?.name || activeServer?.host || tr("motd.server");
 
   const rawServerPolicy = (activeServerId && serverMotdPolicies[activeServerId]) || activeServer?.motdPolicy;
   const currentPolicy: ServerMotdDisplayPolicy =
@@ -154,10 +156,10 @@ export const MotdModal = () => {
 
   const globalPolicyLabel =
     globalMotdPolicy === "always"
-      ? "Always"
+      ? tr("motd.always")
       : globalMotdPolicy === "never"
-      ? "Don't show again (all servers)"
-      : "When changed";
+      ? tr("motd.dontShowAll")
+      : tr("motd.whenChanged");
 
   if (isMobile) {
     return (
@@ -171,7 +173,7 @@ export const MotdModal = () => {
         urls={detectedUrls}
         onOpenUrl={openExternalUrl}
         policy={currentPolicy}
-        globalPolicyLabel={globalMotdPolicy === "never" ? "Never" : globalPolicyLabel}
+        globalPolicyLabel={globalMotdPolicy === "never" ? tr("motd.never") : globalPolicyLabel}
         onPolicyChange={handlePolicyChange}
         content={
           isDirc ? (
@@ -240,11 +242,11 @@ export const MotdModal = () => {
             )}
           >
             {!isMobile && <ScrollText className="h-5 w-5 shrink-0 text-indigo-500" />}
-            <span>Message of the day</span>
+            <span>{tr("motd.title")}</span>
             {isDirc && (
               <span className="ml-1 inline-flex select-none items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-600 dark:border-indigo-800/60 dark:bg-indigo-950/60 dark:text-indigo-400">
                 <Sparkles className="h-3 w-3" />
-                Luna IRC format
+                {tr("motd.lunaFormat")}
               </span>
             )}
           </DialogTitle>
@@ -314,7 +316,7 @@ export const MotdModal = () => {
                     <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-[#1e1f22]/70 p-3 text-xs space-y-1.5 mt-3">
                       <div className="font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
                         <ExternalLink className="w-3.5 h-3.5" />
-                        Links in MOTD
+                        {tr("motd.links")}
                       </div>
                       <div className="flex flex-col gap-1">
                         {detectedUrls.map((url, idx) => (
@@ -339,10 +341,10 @@ export const MotdModal = () => {
               <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                  Fetching message of the day...
+                  {tr("motd.fetching")}
                 </p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Connecting to {serverDisplayName} to retrieve the latest MOTD.
+                  {tr("motd.connectingTo", { server: serverDisplayName })}
                 </p>
               </div>
             </div>
@@ -353,10 +355,10 @@ export const MotdModal = () => {
               </div>
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                  No message of the day available
+                  {tr("motd.none")}
                 </p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm">
-                  The server did not send a MOTD or the MOTD file is empty.
+                  {tr("motd.noneDesc")}
                 </p>
               </div>
             </div>
@@ -374,21 +376,21 @@ export const MotdModal = () => {
         >
           <div className="flex items-center gap-x-2">
             <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap select-none">
-              Show on connect:
+              {tr("motd.showOnConnect")}
             </span>
             <Select
               value={currentPolicy}
               onValueChange={(val: ServerMotdDisplayPolicy) => handlePolicyChange(val)}
             >
               <SelectTrigger className="h-8 text-xs bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 min-w-[155px]">
-                <SelectValue placeholder="Display policy" />
+                <SelectValue placeholder={tr("motd.displayPolicy")} />
               </SelectTrigger>
               <SelectContent className="bg-white dark:bg-[#2B2D31] border-zinc-200 dark:border-zinc-800 text-xs">
                 <SelectItem value="default">Default ({globalPolicyLabel})</SelectItem>
-                <SelectItem value="on_change">Only when changed</SelectItem>
-                <SelectItem value="always">Always show</SelectItem>
-                <SelectItem value="never">Don't show again (this server)</SelectItem>
-                <SelectItem value="never_globally">Don't show again (all servers)</SelectItem>
+                <SelectItem value="on_change">{tr("motd.onlyWhenChanged")}</SelectItem>
+                <SelectItem value="always">{tr("motd.alwaysShow")}</SelectItem>
+                <SelectItem value="never">{tr("motd.dontShowThisServer")}</SelectItem>
+                <SelectItem value="never_globally">{tr("motd.dontShowAll")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -404,7 +406,7 @@ export const MotdModal = () => {
               isMobile && "h-11 w-full rounded-full text-sm"
             )}
           >
-            Close
+            {tr("image.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

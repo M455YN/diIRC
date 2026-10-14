@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
@@ -35,11 +36,11 @@ type DateKey = "before" | "after" | "during";
 type UserKey = "from" | "mentions";
 
 const FILTERS: { key: UserKey | DateKey; label: string; icon: React.ReactNode }[] = [
-  { key: "from", label: "From user", icon: <PersonOutlineIcon /> },
-  { key: "mentions", label: "Mentions user", icon: <AlternateEmailIcon /> },
-  { key: "before", label: "Before date", icon: <EventIcon /> },
-  { key: "after", label: "After date", icon: <EventIcon /> },
-  { key: "during", label: "On date", icon: <EventIcon /> },
+  { key: "from", label: "filter.from", icon: <PersonOutlineIcon /> },
+  { key: "mentions", label: "filter.mentions", icon: <AlternateEmailIcon /> },
+  { key: "before", label: "filter.before", icon: <EventIcon /> },
+  { key: "after", label: "filter.after", icon: <EventIcon /> },
+  { key: "during", label: "filter.during", icon: <EventIcon /> },
 ];
 
 const lastToken = (text: string) => {
@@ -75,6 +76,7 @@ const SearchView = ({
   context,
   members,
 }: Omit<MobileMessageSearchProps, "open">) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   const rawQuery = useSearchStore((s) => s.rawQuery);
   const setQuery = useSearchStore((s) => s.setQuery);
@@ -226,7 +228,7 @@ const SearchView = ({
         fontFamily: "Roboto, system-ui, sans-serif",
       }}
     >
-      <DialogTitle className="sr-only">Search messages</DialogTitle>
+      <DialogTitle className="sr-only">{tr("ms.searchMessages")}</DialogTitle>
 
       {/* Search view header — https://m3.material.io/components/search/specs */}
       <Box
@@ -239,7 +241,7 @@ const SearchView = ({
           bgcolor: t.surfaceContainerHigh,
         }}
       >
-        <M3IconButton icon={<ArrowBackIcon />} label="Back" onClick={onClose} color={t.onSurface} />
+        <M3IconButton icon={<ArrowBackIcon />} label={tr("ms.back")} onClick={onClose} color={t.onSurface} />
         <Box
           component="input"
           ref={inputRef}
@@ -252,7 +254,7 @@ const SearchView = ({
               void runSearch(context);
             }
           }}
-          placeholder={`Search in ${target}`}
+          placeholder={tr("ms.searchIn", { target })}
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"
@@ -275,7 +277,7 @@ const SearchView = ({
         {rawQuery && (
           <M3IconButton
             icon={<CloseIcon />}
-            label="Clear"
+            label={tr("ms.clear")}
             onClick={() => {
               setQuery("");
               inputRef.current?.focus();
@@ -297,10 +299,10 @@ const SearchView = ({
       <Box onScroll={handleScroll} sx={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
         {userKey ? (
           <>
-            <M3Subheader>{userKey === "from" ? "Messages from" : "Messages mentioning"}</M3Subheader>
+            <M3Subheader>{userKey === "from" ? tr("ms.messagesFrom") : tr("ms.messagesMentioning")}</M3Subheader>
             {memberSuggestions.length === 0 ? (
               <Box sx={{ px: 2.5, py: 1, fontSize: "0.875rem", color: t.onSurfaceVariant }}>
-                No matching users — keep typing a nick or real name.
+                {tr("ms.noMatchingUsers")}
               </Box>
             ) : (
               <Box sx={{ px: 2 }}>
@@ -351,7 +353,7 @@ const SearchView = ({
                     />
                   ))}
                 {availableFilters.map((f) => (
-                  <M3Chip key={f.key} icon={f.icon} label={f.label} onClick={() => applyFilter(f.key)} />
+                  <M3Chip key={f.key} icon={f.icon} label={tr(f.label)} onClick={() => applyFilter(f.key)} />
                 ))}
               </Box>
             )}
@@ -359,11 +361,11 @@ const SearchView = ({
             {status === "idle" &&
               emptyState(
                 <ManageSearchIcon />,
-                "Search messages",
+                tr("ms.searchMessages"),
                 <>
-                  Type a phrase or add a filter above.
+                  {tr("ms.typePhrase")}
                   <br />
-                  Use quotes for exact phrases, a minus to exclude words, or /regex/.
+                  {tr("ms.syntaxHint")}
                 </>
               )}
 
@@ -373,10 +375,10 @@ const SearchView = ({
               </Box>
             )}
 
-            {status === "error" && emptyState(<SearchOffIcon />, "Search failed", "Try again in a moment.")}
+            {status === "error" && emptyState(<SearchOffIcon />, tr("ms.searchFailed"), tr("ms.tryAgain"))}
 
             {status === "done" && hits.length === 0 &&
-              emptyState(<SearchOffIcon />, "No results found", "Try different words or remove a filter.")}
+              emptyState(<SearchOffIcon />, "No results found", tr("ms.tryDifferent"))}
 
             {status === "done" && hits.length > 0 && (
               <>
@@ -400,7 +402,7 @@ const SearchView = ({
                     }}
                   >
                     <SwapVertIcon />
-                    {sort === "newest" ? "Newest first" : "Oldest first"}
+                    {sort === "newest" ? tr("ms.newestFirst") : tr("ms.oldestFirst")}
                   </ButtonBase>
                 </Box>
 

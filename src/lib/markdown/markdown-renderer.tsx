@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -31,6 +32,7 @@ const CodeBlock: React.FC<{ language: string; code: string; onContentSizeChange?
   code,
   onContentSizeChange,
 }) => {
+  const { t: tr } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -57,7 +59,7 @@ const CodeBlock: React.FC<{ language: string; code: string; onContentSizeChange?
           type="button"
           onClick={handleCopy}
           className="flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 transition-colors px-2 py-0.5 rounded hover:bg-zinc-800/60"
-          title="Copy code"
+          title={tr("cb.copyCode")}
         >
           {copied ? (
             <>
@@ -67,7 +69,7 @@ const CodeBlock: React.FC<{ language: string; code: string; onContentSizeChange?
           ) : (
             <>
               <Copy className="w-3.5 h-3.5" />
-              <span className="text-xs">Copy code</span>
+              <span className="text-xs">{tr("cb.copyCode")}</span>
             </>
           )}
         </button>
@@ -99,11 +101,12 @@ const CodeBlock: React.FC<{ language: string; code: string; onContentSizeChange?
 
 // Spoiler component — hidden until clicked
 const SpoilerInline: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t: tr } = useTranslation();
   const [revealed, setRevealed] = useState(false);
   return (
     <span
       onClick={() => setRevealed((v) => !v)}
-      title={revealed ? "Click to hide" : "Click to reveal spoiler"}
+      title={revealed ? tr("cb.hideSpoiler") : tr("cb.revealSpoiler")}
       className={cn(
         "rounded px-1 py-0.5 cursor-pointer select-none transition",
         revealed
@@ -129,6 +132,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   allMemberNicks = [],
   allowImages = true,
 }) => {
+  const { t: tr } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const enableLinkPreviews = useMockStore((s) => s.enableLinkPreviews);
   const jumbojiSize = useMockStore((s) => s.jumbojiSize ?? 42);

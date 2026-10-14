@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import * as z from "zod";
+import { useTranslation } from "react-i18next";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useParams, useNavigate } from "react-router-dom";
@@ -25,13 +27,16 @@ import { Button } from "@/components/ui/button";
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
 
-const formSchema = z.object({
+const buildFormSchema = (t: (key: string) => string) => z.object({
   nickname: z.string().min(1, {
-    message: "Nickname is required.",
+    message: t("pm.nickRequired"),
   }),
 });
 
+type FormValues = z.infer<ReturnType<typeof buildFormSchema>>;
+
 export const PrivateMessagesModal = () => {
+  const { t } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const navigate = useNavigate();
   const params = useParams();
@@ -43,7 +48,8 @@ export const PrivateMessagesModal = () => {
 
   const activeServerId = params?.serverId || modalServerId || modalServer?.id || servers[0]?.id;
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const formSchema = useMemo(() => buildFormSchema(t), [t]);
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       nickname: "",
@@ -57,7 +63,7 @@ export const PrivateMessagesModal = () => {
     onClose("privateMessages");
   };
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: FormValues) => {
     const cleanNick = values.nickname.trim().replace(/^@/, "");
     if (!cleanNick || !activeServerId) return;
 
@@ -76,10 +82,10 @@ export const PrivateMessagesModal = () => {
         <DialogHeader className="pt-6 px-6 pb-0">
           <DialogTitle className="text-xl font-bold flex items-center gap-x-2 text-zinc-900 dark:text-zinc-100">
             <MessageSquare className="w-5 h-5 text-indigo-500" />
-            Start private message
+            {t("pm.startTitle")}
           </DialogTitle>
           <DialogDescription className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-            Enter the nickname of the user you want to start a private message conversation with.
+            {t("pm.startDesc")}
           </DialogDescription>
         </DialogHeader>
 
@@ -97,7 +103,7 @@ export const PrivateMessagesModal = () => {
                     <FormControl>
                       <Input
                         disabled={isLoading}
-                        placeholder="Enter nickname..."
+                        placeholder={t("pm.placeholder")}
                         className="bg-zinc-100/50 dark:bg-[#1e1f22] border-zinc-200 dark:border-zinc-700/60 focus-visible:ring-indigo-500 text-zinc-900 dark:text-zinc-100"
                         {...field}
                       />
@@ -124,7 +130,7 @@ export const PrivateMessagesModal = () => {
                 disabled={isLoading}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-5 shadow-sm"
               >
-                Start chat
+                {t("pm.startChat")}
               </Button>
             </DialogFooter>
           </form>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ import {
 import { Update } from "@tauri-apps/plugin-updater";
 
 export const UpdateModal = () => {
+  const { t } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const isModalOpen = isOpen && type === "updateAvailable";
 
@@ -84,10 +86,10 @@ export const UpdateModal = () => {
             <Sparkles className="w-6 h-6 animate-pulse" />
           </div>
           <DialogTitle className="text-xl text-center font-bold text-zinc-900 dark:text-zinc-100">
-            New version available
+            {t("update.newVersion")}
           </DialogTitle>
           <DialogDescription className="text-center text-zinc-500 dark:text-zinc-400 text-xs">
-            An update for Luna IRC is available. We recommend updating to the latest version.
+            {t("update.available")}
           </DialogDescription>
         </DialogHeader>
 
@@ -107,7 +109,7 @@ export const UpdateModal = () => {
           {updateInfo?.body && (
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                What's new:
+                {t("update.whatsNew")}
               </label>
               <div className="max-h-36 overflow-y-auto p-3 rounded-lg bg-zinc-50 dark:bg-[#1e1f22] border border-zinc-200 dark:border-zinc-800 text-xs font-mono text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">
                 {updateInfo.body}
@@ -122,10 +124,10 @@ export const UpdateModal = () => {
                 <span className="flex items-center gap-x-2">
                   <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
                   {progress.status === "backing_up"
-                    ? "Creating data backup..."
+                    ? t("update.backup")
                     : progress.status === "downloading" 
-                    ? "Downloading update..." 
-                    : "Installing and restarting..."}
+                    ? t("update.downloading") 
+                    : t("update.installing")}
                 </span>
                 <span>{progress.percentage}%</span>
               </div>
@@ -150,7 +152,7 @@ export const UpdateModal = () => {
           {progress.status === "ready" && (
             <div className="flex items-center gap-x-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-medium text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="w-5 h-5 shrink-0" />
-              Update downloaded! Restarting application...
+              {t("update.downloaded")}
             </div>
           )}
 
@@ -163,7 +165,7 @@ export const UpdateModal = () => {
                   <p className="font-bold">Automatic update failed</p>
                   <p className="text-[11px] font-normal opacity-90 mt-0.5">
                     {progress.isDebFallback 
-                      ? "Packages installed via system installer (.deb) require manual installation from GitHub Releases."
+                      ? t("update.debManual")
                       : progress.errorMessage}
                   </p>
                 </div>
@@ -177,8 +179,8 @@ export const UpdateModal = () => {
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 {progress.isDebFallback 
-                  ? "Download .deb package from GitHub Releases" 
-                  : "Download update from GitHub Releases"}
+                  ? t("update.downloadDeb") 
+                  : t("update.downloadUpdate")}
               </Button>
             </div>
           )}
@@ -193,7 +195,7 @@ export const UpdateModal = () => {
               onClick={handleClose}
               className="text-xs border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300"
             >
-              Remind me later
+              {t("update.remindLater")}
             </Button>
           )}
 
@@ -204,7 +206,7 @@ export const UpdateModal = () => {
               className="text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 flex items-center gap-x-1.5"
             >
               <DownloadCloud className="w-4 h-4" />
-              Update now
+              {t("update.updateNow")}
             </Button>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { ChannelType } from "@/types";
 import { Hash, User, Check, X, Sparkles, Plus, ScrollText } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
@@ -28,6 +29,7 @@ const iconMap = {
 export const ServerSidebar = ({
   serverId
 }: ServerSidebarProps) => {
+  const { t: tr } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const currentProfile = useMockStore((state) => state.currentProfile);
@@ -252,10 +254,10 @@ export const ServerSidebar = ({
     return (
       <div className="flex flex-col h-full text-primary w-full dark:bg-[#2B2D31] bg-[#F2F3F5] overflow-hidden select-none">
         <div className="text-md font-semibold px-4 flex items-center h-12 border-neutral-200 dark:border-neutral-800 border-b-2 dark:text-zinc-400 text-zinc-600">
-          No server
+          {tr("srv.noServer")}
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
-          No active server connection
+          {tr("srv.noActiveConnection")}
         </div>
       </div>
     );
@@ -350,7 +352,7 @@ export const ServerSidebar = ({
               >
                 <ScrollText className="w-4 h-4 text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition shrink-0" />
                 <span className="font-semibold text-xs text-zinc-600 dark:text-zinc-300 group-hover:text-zinc-800 dark:group-hover:text-zinc-100 transition truncate">
-                  Message of the day
+                  {tr("srv.motd")}
                 </span>
               </button>
 
@@ -358,7 +360,7 @@ export const ServerSidebar = ({
                 serverId={server.id}
                 data={[
                   {
-                    label: "Text channels",
+                    label: tr("srv.textChannels"),
                     type: "channel",
                     data: textChannels?.map((channel) => ({
                       id: channel.id,
@@ -367,7 +369,7 @@ export const ServerSidebar = ({
                     }))
                   },
                   {
-                    label: "Members",
+                    label: tr("srv.members"),
                     type: "member",
                     data: otherMembers?.map((member) => {
                       const displayName = getMemberDisplayName(member, server);
@@ -375,7 +377,7 @@ export const ServerSidebar = ({
                       const nameWithNick =
                         displayName && nickname && displayName !== nickname
                           ? `${displayName} (${nickname})`
-                          : displayName || nickname || "User";
+                          : displayName || nickname || tr("srv.user");
 
                       return {
                         id: member.id,
@@ -430,7 +432,7 @@ export const ServerSidebar = ({
                               e.stopPropagation();
                               await acceptPendingInvite(server.id, invite.channelName);
                             }}
-                            title="Join channel"
+                            title={tr("srv.joinChannel")}
                             className="p-1 rounded hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition"
                           >
                             <Check className="w-4 h-4 stroke-[2.5]" />
@@ -441,7 +443,7 @@ export const ServerSidebar = ({
                               e.stopPropagation();
                               ignorePendingInvite(server.id, invite.channelName);
                             }}
-                            title="Ignore invite"
+                            title={tr("srv.ignoreInvite")}
                             className="p-1 rounded hover:bg-rose-500/20 text-zinc-400 hover:text-rose-500 transition"
                           >
                             <X className="w-4 h-4 stroke-[2.5]" />
@@ -456,7 +458,7 @@ export const ServerSidebar = ({
             )}
 
             {[
-              { label: "Text channels", type: ChannelType.TEXT, channels: textChannels, alwaysShow: true },
+              { label: tr("srv.textChannels"), type: ChannelType.TEXT, channels: textChannels, alwaysShow: true },
             ].map((section) => (section.alwaysShow || !!section.channels?.length) && (
               <div key={section.type} className="mb-2">
                 <ServerSection
@@ -487,7 +489,7 @@ export const ServerSidebar = ({
         <div
           onMouseDown={handleDividerMouseDown}
           className="h-2 flex items-center justify-center cursor-row-resize hover:bg-zinc-300/50 dark:hover:bg-zinc-700/50 transition group shrink-0 border-y border-zinc-200 dark:border-zinc-800/60"
-          title="Drag to resize panels"
+          title={tr("srv.dragResize")}
         >
           <div className="w-10 h-[3px] bg-zinc-300 dark:bg-zinc-600 group-hover:bg-indigo-500 rounded transition" />
         </div>
@@ -502,11 +504,11 @@ export const ServerSidebar = ({
                   "text-xs font-semibold uppercase text-zinc-500 dark:text-zinc-400 flex items-center gap-x-1 select-none transition",
                   isConversationPage && "cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-200"
                 )}
-                title={isConversationPage ? "Expand side panel" : undefined}
+                title={isConversationPage ? tr("srv.expandPanel") : undefined}
               >
-                Private messages ({pmMembers.length})
+                {tr("srv.pmCount", { count: pmMembers.length })}
               </p>
-              <ActionTooltip label="Start private message" side="top">
+              <ActionTooltip label={tr("srv.startPm")} side="top">
                 <button
                   onClick={() => onOpen("privateMessages", { server })}
                   className="text-zinc-500 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-300 transition"
@@ -529,7 +531,7 @@ export const ServerSidebar = ({
               </div>
             ) : (
               <div className="text-xs text-zinc-400 dark:text-zinc-500 italic px-2 py-3">
-                No active private messages
+                {tr("srv.noActivePm")}
               </div>
             )}
           </ScrollArea>

@@ -1,0 +1,16 @@
+[package]
+name = "tauri-plugin-keep-alive"
+version = "0.1.0"
+authors = [ "diIRC" ]
+description = "Android foreground service that keeps IRC sockets alive in the background"
+edition = "2021"
+rust-version = "1.77.2"
+exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
+links = "tauri-plugin-keep-alive"
+
+[dependencies]
+tauri = { version = "2.11.3" }
+serde = "1.0"
+
+[build-dependencies]
+tauri-plugin = { version = "2.6.3", features = ["build"] }

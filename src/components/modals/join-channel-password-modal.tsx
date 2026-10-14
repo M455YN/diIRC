@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { Lock, AlertCircle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +19,7 @@ import { useMockStore } from "@/lib/mock-store";
 import { ChannelType } from "@/types";
 
 export const JoinChannelPasswordModal = () => {
+  const { t } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const navigate = useNavigate();
   const addChannel = useMockStore((state) => state.addChannel);
@@ -142,7 +144,7 @@ export const JoinChannelPasswordModal = () => {
     } catch (err: any) {
       console.error("Failed to join password-protected channel:", err);
       setIsLoading(false);
-      setLocalError(err?.toString() || "Failed to join channel. Please check the password.");
+      setLocalError(err?.toString() || t("join.failed"));
     }
   };
 
@@ -153,7 +155,7 @@ export const JoinChannelPasswordModal = () => {
         <DialogHeader className="pt-8 px-6">
           <DialogTitle className="text-2xl text-center font-bold flex items-center justify-center gap-2">
             <Lock className="w-6 h-6 text-indigo-500" />
-            Password protected channel
+            {t("join.protected")}
           </DialogTitle>
         </DialogHeader>
 
@@ -171,7 +173,7 @@ export const JoinChannelPasswordModal = () => {
 
           <div className="space-y-2">
             <label className="uppercase text-xs font-bold text-zinc-500 dark:text-zinc-400">
-              Channel password
+              {t("join.channelPassword")}
             </label>
             <Input
               ref={inputRef}
@@ -179,7 +181,7 @@ export const JoinChannelPasswordModal = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter channel password..."
+              placeholder={t("join.placeholder")}
               className="bg-zinc-300/50 dark:bg-zinc-700/50 border-0 focus-visible:ring-1 focus-visible:ring-offset-0 text-black dark:text-white"
               autoFocus
             />
@@ -202,7 +204,7 @@ export const JoinChannelPasswordModal = () => {
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Joining...
+                  {t("join.joining")}
                 </>
               ) : (
                 "Join channel"

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Sliders, AlertCircle, Loader2, KeyRound, ShieldCheck, Trash2, UserPlus } from "lucide-react";
@@ -65,6 +66,7 @@ export const CHANNEL_FLAGS: FlagConfig[] = [
 ];
 
 export const ChannelOperatorSettingsModal = () => {
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
   const isMobile = useIsMobileShell();
   const channelModesMap = useMockStore((state) => state.channelModes);
@@ -298,7 +300,7 @@ export const ChannelOperatorSettingsModal = () => {
         <DialogHeader className="pt-6 px-6 shrink-0">
           <DialogTitle className="text-xl text-center font-bold flex items-center justify-center gap-2">
             <Sliders className="w-5 h-5 text-indigo-500" />
-            Channel settings (operator)
+            {tr("rest.channelSettingsOperator")}
           </DialogTitle>
           <p className="text-center text-xs text-zinc-500 dark:text-zinc-400 mt-1">
             Manage channel flags and password for <span className="font-semibold text-indigo-500">#{channel?.name}</span>
@@ -331,7 +333,7 @@ export const ChannelOperatorSettingsModal = () => {
             </div>
 
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Set a password required to join this channel or remove existing protection.
+              {tr("rest.setPasswordDesc")}
             </p>
 
             <form onSubmit={handleSetPassword} className="space-y-3 pt-1">
@@ -369,7 +371,7 @@ export const ChannelOperatorSettingsModal = () => {
                     className="h-8 text-xs gap-x-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    Remove password
+                    {tr("rest.removePassword")}
                   </Button>
                 </div>
               )}
@@ -379,7 +381,7 @@ export const ChannelOperatorSettingsModal = () => {
           {/* Section: Channel flags */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 px-1">
-              Channel flags
+              {tr("rest.channelFlags")}
             </h4>
             <div className="space-y-2">
               {CHANNEL_FLAGS.map(({ flag, label, description }) => {
@@ -425,7 +427,7 @@ export const ChannelOperatorSettingsModal = () => {
                         <div className="flex items-center gap-x-2">
                           <UserPlus className="w-3.5 h-3.5 text-indigo-500" />
                           <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                            Invite user to channel
+                            {tr("rest.inviteUserChannel")}
                           </span>
                         </div>
                         <form onSubmit={handleSendInvite} className="flex gap-x-2">
@@ -451,7 +453,7 @@ export const ChannelOperatorSettingsModal = () => {
                             ) : (
                               <>
                                 <UserPlus className="w-3.5 h-3.5" />
-                                Send invite
+                                {tr("rest.sendInvite")}
                               </>
                             )}
                           </Button>
@@ -477,7 +479,7 @@ export const ChannelOperatorSettingsModal = () => {
             onClick={handleClose}
             className="text-xs"
           >
-            Close
+            {tr("common.close")}
           </Button>
         </div>
       </DialogContent>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { 
   Gavel,
   Loader2,
@@ -26,6 +27,7 @@ import {
 import { useMockStore } from "@/lib/mock-store";
 
 export const MembersModal = () => {
+  const { t: tr } = useTranslation();
   const { onOpen, isOpen, onClose, type, data } = useModal();
   const [loadingId, setLoadingId] = useState("");
   const removeMember = useMockStore((state) => state.removeMember);
@@ -57,7 +59,7 @@ export const MembersModal = () => {
       <DialogContent className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl overflow-hidden">
         <DialogHeader className="pt-6 px-6">
           <DialogTitle className="text-2xl text-center font-bold text-zinc-900 dark:text-zinc-100">
-            Manage members
+            {tr("rest.manageMembers")}
           </DialogTitle>
           <DialogDescription 
             className="text-center text-zinc-500 dark:text-zinc-400"

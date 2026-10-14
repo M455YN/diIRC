@@ -1,6 +1,8 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Loader2, X } from "lucide-react";
 import { format } from "date-fns";
+import { dateLocale } from "@/lib/date-locale";
 
 import { UserAvatar } from "@/components/user-avatar";
 import {
@@ -43,7 +45,7 @@ export const groupHitsByDay = (hits: SearchHit[]): HitGroup[] => {
     const date = parseLogTimestamp(hit.timestamp);
     const dayKey = format(date, "yyyy-MM-dd");
     if (!current || current.dayKey !== dayKey) {
-      current = { dayKey, dayLabel: format(date, "d MMMM yyyy"), hits: [] };
+      current = { dayKey, dayLabel: format(date, "d MMMM yyyy", dateLocale()), hits: [] };
       groups.push(current);
     }
     current.hits.push(hit);
@@ -88,6 +90,7 @@ export const ChatSearchResultsPanel = ({
   context,
   variant = "sidebar",
 }: ChatSearchResultsPanelProps) => {
+  const { t: tr } = useTranslation();
   const hits = useSearchStore((state) => state.hits);
   const status = useSearchStore((state) => state.status);
   const sort = useSearchStore((state) => state.sort);
@@ -123,9 +126,9 @@ export const ChatSearchResultsPanel = ({
 
   const title =
     status === "loading"
-      ? "Searching…"
+      ? tr("cb.searching")
       : status === "error"
-        ? "Search error"
+        ? tr("cb.searchError")
         : `${hits.length} ${resultUnit(hits.length)}`;
 
   return (
@@ -145,7 +148,7 @@ export const ChatSearchResultsPanel = ({
         <div className="flex items-center gap-x-1 shrink-0">
           <button
             onClick={() => setSort(sort === "newest" ? "oldest" : "newest", context)}
-            title={sort === "newest" ? "Sort: newest first (click to switch to oldest)" : "Sort: oldest first (click to switch to newest)"}
+            title={sort === "newest" ? tr("cb.sortNewest") : tr("cb.sortOldest")}
             className="flex items-center gap-x-1 px-1.5 py-1 rounded text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/60 transition font-medium"
           >
             {sort === "newest" ? (
@@ -162,7 +165,7 @@ export const ChatSearchResultsPanel = ({
           </button>
           <button
             onClick={closeSearch}
-            title="Close results (Escape)"
+            title={tr("cb.closeResults")}
             className="p-1.5 rounded hover:bg-zinc-200/60 dark:hover:bg-zinc-700/50 transition text-zinc-500 dark:text-zinc-400"
           >
             <X className="w-4 h-4" />
@@ -179,7 +182,7 @@ export const ChatSearchResultsPanel = ({
               <button
                 key={`${chip.type}:${chip.value}:${index}`}
                 onClick={() => removeChipToken(chip.token)}
-                title="Click to remove filter"
+                title={tr("cb.removeFilter")}
                 className="inline-flex items-center gap-x-1 px-2 py-0.5 rounded-full text-xs bg-zinc-200 text-zinc-800 hover:bg-zinc-300 dark:bg-[#3f4147] dark:text-zinc-100 dark:hover:bg-[#4a4d55] transition"
               >
                 {isOperator && <span className="opacity-70">{chip.type}:</span>}
@@ -199,13 +202,13 @@ export const ChatSearchResultsPanel = ({
         {status === "loading" && (
           <div className="flex items-center justify-center gap-x-2 py-8 text-sm text-zinc-500 dark:text-zinc-400">
             <Loader2 className="w-4 h-4 animate-spin" />
-            Searching…
+            {tr("cb.searching")}
           </div>
         )}
 
         {status === "idle" && (
           <div className="px-3 py-8 text-center text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-            Type a phrase or use filters:
+            {tr("cb.typeOrFilters")}
             <br />
             <code className="text-[11px]">from:</code>{" "}
             <code className="text-[11px]">mentions:</code>{" "}
@@ -217,13 +220,13 @@ export const ChatSearchResultsPanel = ({
 
         {status === "done" && hits.length === 0 && (
           <div className="px-3 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-            No results found
+            {tr("cb.noResults")}
           </div>
         )}
 
         {status === "error" && (
           <div className="px-3 py-8 text-center text-xs text-red-500 dark:text-red-400 break-words">
-            Search failed.
+            {tr("cb.searchFailed")}
           </div>
         )}
 
@@ -266,7 +269,7 @@ export const ChatSearchResultsPanel = ({
         {loadingMore && (
           <div className="flex items-center justify-center gap-x-2 py-3 text-xs text-zinc-500 dark:text-zinc-400">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Searching more messages in background…
+            {tr("cb.searchingBackground")}
           </div>
         )}
 

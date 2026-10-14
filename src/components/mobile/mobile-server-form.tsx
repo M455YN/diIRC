@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -15,6 +16,7 @@ import {
 } from "@/components/server/custom-commands-fields";
 import type { NotificationSettingsValues } from "@/components/notifications/notification-settings-fields";
 import { MobileNotificationOverrides } from "@/components/mobile/mobile-notification-overrides";
+import { ServerLogoField } from "@/components/server/server-logo-field";
 import {
   M3Button,
   M3Card,
@@ -46,6 +48,7 @@ interface CommandRow {
 }
 
 interface FormState {
+  imageUrl: string;
   name: string;
   host: string;
   port: string;
@@ -67,24 +70,24 @@ interface FormState {
 
 type Errors = Partial<Record<"name" | "host" | "port" | `nick${number}`, string>>;
 
-function validate(f: FormState): Errors {
+function validate(f: FormState, t: (key: string) => string): Errors {
   const errors: Errors = {};
-  if (!f.name.trim()) errors.name = "Server name is required.";
-  if (!f.host.trim()) errors.host = "Server address is required.";
+  if (!f.name.trim()) errors.name = t("server.validation.nameRequired");
+  if (!f.host.trim()) errors.host = t("server.validation.addressRequired");
   const port = Number(f.port);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) errors.port = "Port must be 1–65535.";
+  if (!Number.isInteger(port) || port < 1 || port > 65535) errors.port = t("mform.portRange");
   f.nicknames.forEach((n, i) => {
-    if (i === 0 && !n.trim()) errors[`nick${i}`] = "Nickname is required.";
-    else if (/\s/.test(n)) errors[`nick${i}`] = "Nickname cannot contain spaces.";
+    if (i === 0 && !n.trim()) errors[`nick${i}`] = t("server.validation.nickRequired");
+    else if (/\s/.test(n)) errors[`nick${i}`] = t("server.validation.nickSpaces");
   });
   return errors;
 }
 
 const REPLY_LABELS: Record<ReplyMode, string> = {
-  auto: "Auto",
-  modern: "Modern IRCv3 only",
-  legacy: "Legacy inline only",
-  hybrid: "Hybrid",
+  auto: "mform.replyAuto",
+  modern: "mform.replyModern",
+  legacy: "mform.replyLegacy",
+  hybrid: "mform.replyHybrid",
 };
 
 const ServerFormBody = ({
@@ -100,6 +103,7 @@ const ServerFormBody = ({
   isEdit: boolean;
   openPicker: ReturnType<typeof useM3Picker>["open"];
 }) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   const [showPassword, setShowPassword] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -126,7 +130,7 @@ const ServerFormBody = ({
       set("customCommands", parseCustomCommandsJson(JSON.parse(await file.text())));
     } catch (err: any) {
       setImportError(
-        err instanceof SyntaxError ? "Invalid JSON file." : err?.message || "Failed to load commands."
+        err instanceof SyntaxError ? tr("mform.invalidJson") : err?.message || tr("mform.loadFailed")
       );
     }
   };
@@ -137,17 +141,18 @@ const ServerFormBody = ({
     <>
       <M3Subheader>Connection</M3Subheader>
       <Box sx={fields}>
+        <ServerLogoField value={form.imageUrl} onChange={(v) => set("imageUrl", v)} />
         <M3TextField
-          label="Server name"
+          label={tr("mform.serverName")}
           value={form.name}
           onChange={(v) => set("name", v)}
-          placeholder="e.g. Libera Chat"
+          placeholder={tr("mform.serverNamePlaceholder")}
           error={errors.name}
         />
         <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}>
           <Box sx={{ flex: 2.2, minWidth: 0 }}>
             <M3TextField
-              label="Host"
+              label={tr("mform.host")}
               value={form.host}
               inputMode="url"
               onChange={(v) => {
@@ -157,13 +162,13 @@ const ServerFormBody = ({
                   if (p) set("port", p.replace(/\D/g, ""));
                 } else set("host", v);
               }}
-              placeholder="irc.libera.chat"
+              placeholder={tr("mform.hostPlaceholder")}
               error={errors.host}
             />
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <M3TextField
-              label="Port"
+              label={tr("mform.port")}
               value={form.port}
               inputMode="numeric"
               onChange={(v) => set("port", v.replace(/\D/g, ""))}
@@ -172,14 +177,14 @@ const ServerFormBody = ({
           </Box>
         </Box>
         <M3TextField
-          label="Server password"
+          label={tr("mform.password")}
           value={form.password}
           type={showPassword ? "text" : "password"}
           onChange={(v) => set("password", v)}
-          supportingText="Optional"
+          supportingText={tr("mform.optional")}
           trailing={
             <M3IconButton
-              label={showPassword ? "Hide password" : "Show password"}
+              label={showPassword ? tr("mform.hidePassword") : tr("mform.showPassword")}
               icon={showPassword ? <VisibilityOffOutlinedIcon /> : <VisibilityOutlinedIcon />}
               onClick={() => setShowPassword((s) => !s)}
             />
@@ -189,8 +194,8 @@ const ServerFormBody = ({
       <Box sx={{ mt: 1 }}>
         <M3ListGroup>
           <M3SwitchItem
-            title="Use TLS"
-            supporting="Encrypted connection, usually on port 6697"
+            title={tr("mform.useTls")}
+            supporting={tr("mform.useTlsDesc")}
             checked={form.useTls}
             onChange={(v) => {
               set("useTls", v);
@@ -202,12 +207,12 @@ const ServerFormBody = ({
         </M3ListGroup>
       </Box>
 
-      <M3Subheader>Identity</M3Subheader>
+      <M3Subheader>{tr("mform.identity")}</M3Subheader>
       <Box sx={fields}>
         {form.nicknames.map((nick, i) => (
           <M3TextField
             key={i}
-            label={i === 0 ? "Nickname" : `Fallback nickname ${i}`}
+            label={i === 0 ? tr("mform.nickname") : `${tr("mform.fallbackNick")} ${i}`}
             value={nick}
             onChange={(v) =>
               set(
@@ -219,7 +224,7 @@ const ServerFormBody = ({
             trailing={
               i > 0 ? (
                 <M3IconButton
-                  label="Remove nickname"
+                  label={tr("mform.removeNickname")}
                   icon={<CloseIcon />}
                   onClick={() =>
                     set(
@@ -238,51 +243,51 @@ const ServerFormBody = ({
             icon={<AddIcon />}
             onClick={() => set("nicknames", [...form.nicknames, ""])}
           >
-            Add fallback nickname
+            {tr("mform.addFallback")}
           </M3Button>
         </Box>
         <M3TextField
-          label="Username"
+          label={tr("mform.username")}
           value={form.username}
           onChange={(v) => set("username", v)}
-          supportingText="Ident; defaults to the primary nickname"
+          supportingText={tr("mform.usernameDesc")}
         />
         <M3TextField
-          label="Real name"
+          label={tr("mform.realName")}
           value={form.realname}
           onChange={(v) => set("realname", v)}
-          supportingText="Optional"
+          supportingText={tr("mform.optional")}
         />
       </Box>
 
-      <M3Subheader>Behavior</M3Subheader>
+      <M3Subheader>{tr("mform.behavior")}</M3Subheader>
       <M3ListGroup>
         <M3SwitchItem
-          title="Auto-connect on startup"
+          title={tr("mform.autoConnect")}
           checked={form.autoConnect}
           onChange={(v) => set("autoConnect", v)}
         />
         <M3SwitchItem
-          title="Auto-reconnect"
-          supporting="Reconnect when the connection drops"
+          title={tr("mform.autoReconnect")}
+          supporting={tr("mform.autoReconnectDesc")}
           checked={form.autoReconnect}
           onChange={(v) => set("autoReconnect", v)}
         />
         <M3SwitchItem
-          title="Parse legacy ZNC timestamps"
-          supporting="Read [HH:MM:SS] prefixes from bouncers without server-time"
+          title={tr("mform.zncTimestamps")}
+          supporting={tr("mform.zncTimestampsDesc")}
           checked={form.parseLegacyZncTimestamps}
           onChange={(v) => set("parseLegacyZncTimestamps", v)}
         />
         <M3SelectItem
-          title="Reply format"
+          title={tr("mform.replyFormat")}
           value={form.replyMode}
           options={[
-            { value: "inherit", label: `Default (${REPLY_LABELS[defaultReplyMode]})` },
-            { value: "auto", label: "Auto", description: "IRCv3 tags when supported" },
-            { value: "modern", label: "Modern IRCv3 only" },
-            { value: "legacy", label: "Legacy inline only" },
-            { value: "hybrid", label: "Hybrid", description: "Both formats" },
+            { value: "inherit", label: `${tr("mform.defaultPrefix")} (${tr(REPLY_LABELS[defaultReplyMode])})` },
+            { value: "auto", label: tr("mform.replyAuto"), description: tr("mform.replyIrcv3") },
+            { value: "modern", label: tr("mform.replyModern") },
+            { value: "legacy", label: tr("mform.replyLegacy") },
+            { value: "hybrid", label: tr("mform.replyHybrid"), description: tr("mform.replyBoth") },
           ]}
           onChange={(v) => set("replyMode", v as ServerReplyMode)}
           openPicker={openPicker}
@@ -291,23 +296,23 @@ const ServerFormBody = ({
         {isEdit && (
           <>
             <M3SelectItem
-              title="Message of the day (MOTD)"
+              title={tr("mform.motd")}
               value={form.motdPolicy}
               options={[
                 {
                   value: "default",
                   label: `Default (${
                     globalMotdPolicy === "always"
-                      ? "Always"
+                      ? tr("mform.motdAlways")
                       : globalMotdPolicy === "never"
-                        ? "Never"
-                        : "When changed"
+                        ? tr("mform.motdNever")
+                        : tr("mform.motdWhenChanged")
                   })`,
                 },
-                { value: "on_change", label: "When changed" },
-                { value: "always", label: "Always" },
-                { value: "never", label: "Never on this server" },
-                { value: "never_globally", label: "Never on any server" },
+                { value: "on_change", label: tr("mform.motdWhenChanged") },
+                { value: "always", label: tr("mform.motdAlways") },
+                { value: "never", label: tr("mform.motdNeverServer") },
+                { value: "never_globally", label: tr("mform.motdNeverAll") },
               ]}
               onChange={(v) => {
                 if (v === "never_globally") setGlobalMotdPolicy("never");
@@ -316,27 +321,27 @@ const ServerFormBody = ({
               openPicker={openPicker}
             />
             <M3SelectItem
-              title="User display name"
+              title={tr("mform.displayName")}
               value={form.displayNameMode}
               options={[
-                { value: "default", label: "Default (app setting)" },
-                { value: "nickname", label: "Nickname" },
-                { value: "realname", label: "Real name" },
-                { value: "username", label: "Username" },
+                { value: "default", label: tr("mform.displayDefault") },
+                { value: "nickname", label: tr("mform.nickname") },
+                { value: "realname", label: tr("mform.realName") },
+                { value: "username", label: tr("mform.username") },
               ]}
               onChange={(v) => set("displayNameMode", v as ServerUserDisplayNameMode)}
               openPicker={openPicker}
             />
             <M3SelectItem
-              title="Image previews"
+              title={tr("mform.imagePreviews")}
               value={form.mediaCollapse}
               options={[
                 {
                   value: "default",
-                  label: `Default (${autoCollapseImages ? "Collapsed" : "Expanded"})`,
+                  label: `Default (${autoCollapseImages ? tr("mform.collapsed") : tr("mform.expanded")})`,
                 },
-                { value: "expanded", label: "Always expanded" },
-                { value: "collapsed", label: "Always collapsed" },
+                { value: "expanded", label: tr("mform.alwaysExpanded") },
+                { value: "collapsed", label: tr("mform.alwaysCollapsed") },
               ]}
               onChange={(v) => set("mediaCollapse", v as ServerMediaCollapseMode)}
               openPicker={openPicker}
@@ -353,25 +358,25 @@ const ServerFormBody = ({
           inherited={{
             channelNotifications:
               globalNotif?.channelNotifications === "all"
-                ? "All messages"
+                ? tr("mform.allMessages")
                 : globalNotif?.channelNotifications === "off"
-                  ? "Off"
-                  : "Mentions only",
-            dmNotifications: globalNotif?.dmNotifications === "off" ? "Off" : "All messages",
-            sound: globalNotif?.soundEnabled ? "On" : "Muted",
+                  ? tr("mform.off")
+                  : tr("mform.mentionsOnly"),
+            dmNotifications: globalNotif?.dmNotifications === "off" ? tr("mform.off") : tr("mform.allMessages"),
+            sound: globalNotif?.soundEnabled ? "On" : tr("mform.muted"),
             soundPreset: globalNotif?.soundPreset || "chime",
             dmSoundPreset: globalNotif?.dmSoundPreset || "chime",
             cooldownSec: ((globalNotif?.soundCooldownMs ?? 3000) / 1000).toString(),
-            popup: globalNotif?.popupEnabled ? "On" : "Off",
+            popup: globalNotif?.popupEnabled ? "On" : tr("mform.off"),
           }}
           onChange={(field, value) => set("notifications", { ...form.notifications, [field]: value })}
           openPicker={openPicker}
         />
       )}
 
-      <M3Subheader>Custom commands</M3Subheader>
+      <M3Subheader>{tr("mform.customCommands")}</M3Subheader>
       <Box sx={{ px: 0.5, pb: 1.5, fontSize: "0.875rem", lineHeight: "20px", color: t.onSurfaceVariant }}>
-        Map a slash command to chat text. Arguments are appended automatically.
+        {tr("mform.commandsDesc")}
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
         {form.customCommands.map((c, i) => (
@@ -380,15 +385,15 @@ const ServerFormBody = ({
               <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <M3TextField
-                    label="Slash command"
+                    label={tr("mform.slashCommand")}
                     prefix="/"
                     value={c.trigger}
                     onChange={(v) => setCommand(i, "trigger", v.replace(/^\/*/, "").replace(/\s+/g, ""))}
-                    placeholder="command"
+                    placeholder={tr("mform.commandPlaceholder")}
                   />
                 </Box>
                 <M3IconButton
-                  label="Delete command"
+                  label={tr("mform.deleteCommand")}
                   icon={<DeleteOutlinedIcon />}
                   onClick={() =>
                     set(
@@ -399,23 +404,23 @@ const ServerFormBody = ({
                 />
               </Box>
               <M3TextField
-                label="Sends as"
+                label={tr("mform.sendsAs")}
                 value={c.message}
                 onChange={(v) => setCommand(i, "message", v)}
-                placeholder="!command"
+                placeholder={tr("mform.sendsAsPlaceholder")}
               />
               <M3TextField
-                label="Description"
+                label={tr("mform.description")}
                 value={c.description}
                 onChange={(v) => setCommand(i, "description", v)}
-                supportingText="Shown in autocomplete"
+                supportingText={tr("mform.shownAutocomplete")}
               />
               <M3TextField
-                label="Suggestions"
+                label={tr("mform.suggestions")}
                 value={c.suggestions}
                 onChange={(v) => setCommand(i, "suggestions", v)}
-                placeholder="option1, option2"
-                supportingText="Comma-separated arguments"
+                placeholder={tr("mform.suggestionsPlaceholder")}
+                supportingText={tr("mform.commaArgs")}
               />
             </Box>
           </M3Card>
@@ -434,14 +439,14 @@ const ServerFormBody = ({
               ])
             }
           >
-            Add command
+            {tr("mform.addCommand")}
           </M3Button>
           <M3Button
             variant="outlined"
             icon={<FileOpenOutlinedIcon />}
             onClick={() => fileRef.current?.click()}
           >
-            Load from JSON
+            {tr("mform.loadJson")}
           </M3Button>
           <input
             ref={fileRef}
@@ -458,6 +463,7 @@ const ServerFormBody = ({
 
 /** Material 3 full-screen dialog for adding (create) or editing an IRC server on mobile. */
 export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => {
+  const { t: tr } = useTranslation();
   const { isOpen, type, data, onClose } = useModal();
   const navigate = useNavigate();
   const isEdit = mode === "edit";
@@ -488,6 +494,7 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
     const next: FormState =
       isEdit && server
         ? {
+            imageUrl: server.imageUrl || "",
             name: server.name || "",
             host: server.host || "",
             port: String(server.port || 6667),
@@ -523,6 +530,7 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
             },
           }
         : {
+            imageUrl: "",
             name: "",
             host: "",
             port: "6697",
@@ -553,7 +561,7 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
     []
   );
 
-  const errors = useMemo(() => (form ? validate(form) : {}), [form]);
+  const errors = useMemo(() => (form ? validate(form, tr) : {}), [form, tr]);
   const dirty = !!form && JSON.stringify(form) !== initial;
 
   const save = () => {
@@ -562,6 +570,7 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
     if (Object.keys(errors).length > 0) return;
 
     const base = {
+      imageUrl: form.imageUrl,
       name: form.name.trim(),
       host: form.host.trim(),
       port: Number(form.port),
@@ -605,9 +614,9 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
   return (
     <M3FullScreenDialog
       open={open}
-      title={isEdit ? "Edit server" : "Add server"}
+      title={isEdit ? tr("mform.editServer") : tr("mform.addServer")}
       onClose={attemptClose}
-      action={{ label: isEdit ? "Save" : "Add", onClick: save }}
+      action={{ label: isEdit ? tr("mform.save") : tr("mform.add"), onClick: save }}
     >
       {form && (
         <ServerFormBody
@@ -621,13 +630,13 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
       {picker.element}
       <M3Dialog
         open={confirmDiscard}
-        title="Discard changes?"
+        title={tr("mform.discardQuestion")}
         supportingText={`You have unsaved changes${server?.name ? ` to ${server.name}` : ""}.`}
         onDismiss={() => setConfirmDiscard(false)}
         actions={
           <>
             <M3Button variant="text" onClick={() => setConfirmDiscard(false)}>
-              Keep editing
+              {tr("mform.keepEditing")}
             </M3Button>
             <M3Button variant="text" onClick={() => onClose()}>
               Discard

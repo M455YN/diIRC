@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMockStore } from "@/lib/mock-store";
@@ -7,6 +8,7 @@ import { Hash, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const ServerPage = () => {
+  const { t: tr } = useTranslation();
   const { serverId } = useParams();
   const navigate = useNavigate();
   const isMobile = useIsMobileShell();
@@ -85,7 +87,7 @@ export const ServerPage = () => {
                 : "text-2xl font-bold text-zinc-900 dark:text-zinc-100"
             }
           >
-            No channels on server
+            {tr("rest.noChannelsOnServer")}
           </h2>
           <p
             className={
@@ -94,7 +96,7 @@ export const ServerPage = () => {
                 : "max-w-xs text-sm text-zinc-500 dark:text-zinc-400"
             }
           >
-            This server currently has no channels. Join an existing channel or create a new one.
+            {tr("rest.noChannelsDesc")}
           </p>
           <Button
             onClick={() => onOpen("createChannel", { server })}
@@ -105,7 +107,7 @@ export const ServerPage = () => {
             }
           >
             <Plus className="h-4 w-4" />
-            Join / Create channel
+            {tr("rest.joinOrCreate")}
           </Button>
         </div>
       </div>

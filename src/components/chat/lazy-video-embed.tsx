@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useEffect, useRef } from "react";
 import { Film, Play, Volume2 } from "lucide-react";
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer";
@@ -21,6 +22,7 @@ export const LazyVideoEmbed: React.FC<LazyVideoEmbedProps> = ({
   url,
   onContentSizeChange,
 }) => {
+  const { t: tr } = useTranslation();
   const { ref, isVisible } = useIntersectionObserver({
     root: null,
     rootMargin: "400px",
@@ -78,7 +80,7 @@ export const LazyVideoEmbed: React.FC<LazyVideoEmbedProps> = ({
 
             <div className="absolute bottom-2.5 left-3 z-10 pointer-events-none flex items-center gap-x-1.5 text-[11px] text-zinc-400">
               <Volume2 className="w-3.5 h-3.5" />
-              <span>Click to play</span>
+              <span>{tr("cb.clickToPlay")}</span>
             </div>
           </button>
         ) : (

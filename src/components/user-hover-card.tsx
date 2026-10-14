@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Channel, Member, Profile, Server } from "@/types";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { UserAvatar } from "@/components/user-avatar";
@@ -30,6 +31,7 @@ export const UserHoverCard = ({
   side = "right",
   align = "start",
 }: UserHoverCardProps) => {
+  const { t } = useTranslation();
   const params = useParams();
   const navigate = useNavigate();
   const currentProfile = useMockStore((state) => state.currentProfile);
@@ -107,7 +109,7 @@ export const UserHoverCard = ({
                 className="h-8 gap-x-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium shadow-sm transition"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                {isSelf ? "Message yourself" : "Message"}
+                {isSelf ? t("ctx.messageYourself") : t("hover.message")}
               </Button>
             )}
           </div>
@@ -131,8 +133,8 @@ export const UserHoverCard = ({
           <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1.5">
             {isAway && (
               <div className="flex justify-between items-center text-yellow-600 dark:text-yellow-400 font-semibold">
-                <span>Status:</span>
-                <span className="truncate max-w-[160px]">{awayReason ? `Away (${awayReason})` : "Away"}</span>
+                <span>{t("hover.status")}</span>
+                <span className="truncate max-w-[160px]">{awayReason ? `Away (${awayReason})` : t("ctx.away")}</span>
               </div>
             )}
             <div className="flex justify-between">

@@ -4676,6 +4676,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_keep_alive::init())
         .invoke_handler(tauri::generate_handler![
             connect_irc,
             send_message,
