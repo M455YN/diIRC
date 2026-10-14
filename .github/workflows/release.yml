@@ -98,11 +98,7 @@ jobs:
   # ANDROID_KEY_PASSWORD) to sign with a stable key so installs can be updated in place. Without them an
   # ephemeral key is generated, which still installs but cannot update an APK signed by another key.
   build-android:
-    needs: build-tauri
-    if: ${{ !cancelled() && needs.build-tauri.result == 'success' }}
     runs-on: ubuntu-22.04
-    permissions:
-      contents: write
     env:
       NDK_VERSION: '27.2.12479018'
       BUILD_TOOLS_VERSION: '34.0.0'
@@ -206,17 +202,30 @@ jobs:
           path: ${{ steps.sign.outputs.apk }}
           if-no-files-found: error
 
+  # Runs once the desktop jobs have created the draft release and the APK is built.
+  attach-android:
+    needs: [build-tauri, build-android]
+    if: ${{ !cancelled() && needs.build-tauri.result == 'success' && needs.build-android.result == 'success' }}
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: apk
       - name: Attach APK to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "v${{ steps.sign.outputs.version }}" "${{ steps.sign.outputs.apk }}" \
-            --clobber --repo "$GITHUB_REPOSITORY"
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          gh release upload "v${version}" apk/*.apk --clobber --repo "$GITHUB_REPOSITORY"
 
   # Forks publish only once every platform has been uploaded; the updater reads /releases/latest,
   # which skips drafts and prereleases. The upstream repo keeps its draft for manual review.
   publish-release:
-    needs: [build-tauri, build-android]
+    needs: [build-tauri, build-android, attach-android]
     # Publish even when the optional Android build failed, so the desktop updater is never blocked by it.
     if: ${{ !cancelled() && github.repository != 'TheStami/diIRC' && needs.build-tauri.result == 'success' }}
     runs-on: ubuntu-22.04
