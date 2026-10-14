@@ -17,6 +17,7 @@ import { useEditStore } from "@/hooks/use-edit-store";
 import { useBookmarkStore } from "@/hooks/use-bookmark-store";
 import { useAppearanceStyleStore } from "@/hooks/use-appearance-style";
 import { nickColor } from "@/lib/nick-color";
+import { translateSystemMessage } from "@/lib/system-message-i18n";
 import { useMessageCaps } from "@/hooks/use-message-caps";
 import { ChatItemAttachment } from "./chat-item-attachment";
 import { LinkPreview } from "./link-preview";
@@ -422,7 +423,7 @@ const ChatItemInner = ({
           </ActionTooltip>
         </div>
         <p className="text-sm text-zinc-500 italic ml-2">
-          {content}
+          {translateSystemMessage(content)}
         </p>
       </div>
     );

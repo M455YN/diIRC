@@ -101,9 +101,10 @@ export const MobileCreateChannelModal = () => {
 
 const TargetIntro = ({ name }: { name: string }) => {
   const t = useM3();
+  const { t: tr } = useTranslation();
   return (
     <Box sx={{ px: 0.5, pt: 1, fontSize: "0.875rem", lineHeight: "20px", color: t.onSurfaceVariant }}>
-      Notification preferences for{" "}
+      {tr("chanset.notifFor")}{" "}
       <Box component="span" sx={{ color: t.primary, fontWeight: 500 }}>
         {name}
       </Box>

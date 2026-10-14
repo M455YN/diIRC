@@ -1,4 +1,4 @@
-import { Hash, PanelLeft, Server, Users, Edit3, History, Bookmark } from "lucide-react";
+import { Hash, PanelLeft, Server, Users, Edit3, History, Bookmark, StickyNote } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { MobileToggle } from "@/components/mobile-toggle";
@@ -200,6 +200,15 @@ export const ChatHeader = ({
       )}
 
       <div className="ml-auto flex items-center gap-x-3 shrink-0">
+        <ActionTooltip side="bottom" label={tr("notes.title")}>
+          <button
+            onClick={() => onOpen("notes")}
+            aria-label={tr("notes.title")}
+            className="h-7 w-7 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800 transition"
+          >
+            <StickyNote className="w-4 h-4" />
+          </button>
+        </ActionTooltip>
         <ActionTooltip side="bottom" label={tr("chat.header.bookmarks")}>
           <button
             onClick={() => onOpen("bookmarks")}

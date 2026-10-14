@@ -23,6 +23,7 @@ import { MotdModal } from "@/components/modals/motd-modal";
 import { AlreadyAwayModal } from "@/components/modals/already-away-modal";
 import { ChangelogModal } from "@/components/modals/changelog-modal";
 import { BookmarksModal } from "@/components/modals/bookmarks-modal";
+import { NotesModal } from "@/components/modals/notes-modal";
 
 export const ModalProvider = () => {
   const [isMounted, setIsMounted] = useState(false);
@@ -60,6 +61,7 @@ export const ModalProvider = () => {
       <AlreadyAwayModal />
       <ChangelogModal />
       <BookmarksModal />
+      <NotesModal />
     </>
   );
 };

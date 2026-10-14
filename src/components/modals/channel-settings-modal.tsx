@@ -133,10 +133,10 @@ const DesktopChannelSettingsModal = () => {
         <DialogHeader className="pt-6 px-6 space-y-1 shrink-0">
           <DialogTitle className="text-xl text-center font-bold flex items-center justify-center gap-x-2 text-zinc-900 dark:text-zinc-100">
             <Settings className="w-5 h-5 text-indigo-500" />
-            {isDm ? "Private Conversation Settings" : "Channel Settings"}
+            {isDm ? tr("chanset.dmTitle") : tr("chanset.title")}
           </DialogTitle>
           <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-            Notification preferences for <span className="font-semibold text-indigo-600 dark:text-indigo-400">{targetName}</span>
+            {tr("chanset.notifFor")} <span className="font-semibold text-indigo-600 dark:text-indigo-400">{targetName}</span>
           </p>
         </DialogHeader>
 

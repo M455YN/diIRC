@@ -22,6 +22,7 @@
 - **Tryby kanału po najechaniu** na nazwę kanału w nagłówku.
 - **Dwa nowe dźwięki powiadomień:** „Marimba” i „Glass Tap”, dla kanałów i prywatnych wiadomości.
 - **Android: połączenia w tle.** Aplikacja uruchamia usługę pierwszoplanową, gdy jest połączona z serwerem, więc połączenia nie zrywają się po zablokowaniu ekranu lub zminimalizowaniu.
+- **Notatki ogólne.** Prywatne notatki nie przypisane do żadnego kanału ani osoby. Na desktopie przycisk „Notatki” jest w nagłówku czatu, na Androidzie w zakładce „More”. Zmiany zapisują się od razu, a notatki zostają tylko na tym urządzeniu.
 
 ## Zmiany
 - **Ustawienia uporządkowane według kategorii.** Opcje treści czatu (Markdown, podgląd formatowania, przewijanie, rozmiar emoji) są w „Chat and messaging”. Sortowanie prywatnych wiadomości i wskaźnik statusu połączenia są w „Appearance”. Dotyczy desktopu i Androida.
@@ -32,6 +33,10 @@
 - **Panele komend** zamykają się po kliknięciu poza formularzem wpisywania i po zmianie kanału. Kliknięcie w pole wpisywania ich nie zamyka.
 - **Przyciski „Cancel”** w oknach kanałów, serwerów i prywatnych wiadomości oraz pytanie przy opuszczaniu kanału są przetłumaczone.
 - **Android: nazwa aplikacji „Luna IRC”** zamiast „di-irc”. Desktop bez zmian.
+- **Komunikaty systemowe** o dołączeniu, wyjściu, rozłączeniu, zmianie tematu, trybu i nicka są pokazywane w języku interfejsu. Zapisane w logu zostają w oryginalnym brzmieniu.
+- **Wyniki wyszukiwania** (liczba wyników, „Newest”/„Oldest”, „End of search results”) są przetłumaczone, z odmianą liczebników po polsku.
+- **Skrót wyszukiwania** pokazuje `Ctrl K` na Windows i Linux, a `⌘K` na macOS.
+- **Tytuły okien** „Channel Settings” / „Private Conversation Settings” i powitanie na początku kanału lub rozmowy są przetłumaczone.
 
 ## Poprawki
 - Na żywo nazwa rzeczywista (realname) użytkownika jest wyświetlana od razu, a nie dopiero po zmianie kanału.
@@ -51,4 +56,7 @@
 - Komunikaty zwracane przez backend (Rust) i część komunikatów IRC pozostają po angielsku.
 - Usługa w tle na Androidzie pokazuje stałe powiadomienie „Connected to IRC servers”. Na Androidzie 15 i nowszym działa do około 6 godzin, potem połączenia wracają przez automatyczne ponowne połączenie. Powiadomienie wymaga zgody (Android 13+).
 - Skok do zakładki działa tylko wtedy, gdy wiadomość jest załadowana w oknie czatu.
+- Notatki ogólne są zapisane w pamięci przeglądarki aplikacji (`localStorage`), która ma limit kilku MB. Nie synchronizują się między urządzeniami, a na Androidzie znikają po odinstalowaniu aplikacji. Przy bardzo długich notatkach trzeba będzie przejść na zapis w pliku.
+- Tłumaczenie komunikatów systemowych obejmuje tylko znane wzorce. Pozostałe komunikaty (np. błędy z backendu) mogą być po angielsku.
+- Powód nieobecności wysyłany do serwera (`/away`) jest w języku, który wybrałeś. Inni klienci, np. Hexchat, zobaczą go w tym języku.
 - Zmiany nie były testowane na działającej aplikacji. Przed publikacją warto przejść je ręcznie, zwłaszcza panele komend, edycję tematu i Androida.

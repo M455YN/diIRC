@@ -129,7 +129,7 @@ export const ChatSearchResultsPanel = ({
       ? tr("cb.searching")
       : status === "error"
         ? tr("cb.searchError")
-        : `${hits.length} ${resultUnit(hits.length)}`;
+        : tr("cb.results", { count: hits.length });
 
   return (
     <aside
@@ -154,12 +154,12 @@ export const ChatSearchResultsPanel = ({
             {sort === "newest" ? (
               <>
                 <ArrowDownWideNarrow className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                <span className="text-[11px] hidden sm:inline">Newest</span>
+                <span className="text-[11px] hidden sm:inline">{tr("cb.newest")}</span>
               </>
             ) : (
               <>
                 <ArrowUpNarrowWide className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                <span className="text-[11px] hidden sm:inline">Oldest</span>
+                <span className="text-[11px] hidden sm:inline">{tr("cb.oldest")}</span>
               </>
             )}
           </button>
@@ -275,7 +275,7 @@ export const ChatSearchResultsPanel = ({
 
         {status === "done" && !loadingMore && hits.length > 0 && (
           <div className="py-3 text-[11px] text-center text-zinc-400 dark:text-zinc-500">
-            End of search results ({hits.length} {hits.length === 1 ? "message" : "messages"})
+            {tr("cb.endOfResults", { count: hits.length })}
           </div>
         )}
       </div>

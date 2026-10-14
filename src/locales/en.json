@@ -744,7 +744,8 @@
     "searchAll": "Search all channels and members",
     "noResults": "No results found",
     "mustBeOperator": "You must be a channel operator",
-    "pmCount": "Private messages ({{count}})"
+    "pmCount": "Private messages ({{count}})",
+    "search": "Search"
   },
   "nav": {
     "addServer": "Add a server",
@@ -984,7 +985,13 @@
     "commaArgs": "Comma-separated arguments shown in autocomplete",
     "setupNoServers": "You haven't added any IRC servers yet. Add a server to start chatting.",
     "addServer": "Add server",
-    "emojiPicker": "Emoji picker"
+    "emojiPicker": "Emoji picker",
+    "results_one": "{{count}} result",
+    "results_other": "{{count}} results",
+    "newest": "Newest",
+    "oldest": "Oldest",
+    "endOfResults_one": "End of search results ({{count}} message)",
+    "endOfResults_other": "End of search results ({{count}} messages)"
   },
   "eb": {
     "title": "Something went wrong",
@@ -1181,5 +1188,41 @@
   },
   "dc": {
     "leaveQuestion": "Are you sure you want to leave"
+  },
+  "notes": {
+    "title": "Notes",
+    "desc": "Private notes, saved only on this device.",
+    "new": "New note",
+    "empty": "No notes yet. Create the first one.",
+    "untitled": "Untitled",
+    "titlePlaceholder": "Title",
+    "bodyPlaceholder": "Write your note here...",
+    "saved": "Saved {{time}}",
+    "delete": "Delete note",
+    "pickOrCreate": "Select a note or create a new one.",
+    "back": "Back to list"
+  },
+  "welcome": {
+    "toChannel": "Welcome to #",
+    "channelStart": "This is the beginning of the #{{name}} channel.",
+    "conversationStart": "This is the beginning of your conversation with {{name}}."
+  },
+  "chanset": {
+    "dmTitle": "Private Conversation Settings",
+    "title": "Channel Settings",
+    "notifFor": "Notification preferences for"
+  },
+  "sys": {
+    "joined": "{{nick}} has joined",
+    "leftReason": "{{nick}} has left ({{reason}})",
+    "left": "{{nick}} has left",
+    "quitReason": "{{nick}} has quit ({{reason}})",
+    "quit": "{{nick}} has quit",
+    "topicCleared": "{{nick}} cleared the topic",
+    "topicChanged": "{{nick}} changed the topic to: {{topic}}",
+    "kickedReason": "{{target}} was kicked from {{channel}} by {{by}} ({{reason}})",
+    "kicked": "{{target}} was kicked from {{channel}} by {{by}}",
+    "mode": "{{nick}} set mode: {{channel}} {{modes}}",
+    "nick": "{{old}} is now known as {{new}}"
   }
 }

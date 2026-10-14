@@ -33,6 +33,8 @@ export const ServerSearch = ({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  // The shortcut is Cmd+K on macOS and Ctrl+K elsewhere; show the one that applies here.
+  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
   const params = useParams();
 
   useEffect(() => {
@@ -73,12 +75,18 @@ export const ServerSearch = ({
         <p
           className="font-semibold text-sm text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition"
         >
-          Search
+          {t("srv.search")}
         </p>
         <kbd
           className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground ml-auto"
         >
-          <span className="text-xs">⌘</span>K
+          {isMac ? (
+            <>
+              <span className="text-xs">⌘</span>K
+            </>
+          ) : (
+            "Ctrl K"
+          )}
         </kbd>
       </button>
       <CommandDialog open={open} onOpenChange={setOpen}>

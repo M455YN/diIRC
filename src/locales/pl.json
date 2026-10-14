@@ -744,7 +744,8 @@
     "searchAll": "Szukaj we wszystkich kanałach i członkach",
     "noResults": "Brak wyników",
     "mustBeOperator": "Musisz być operatorem kanału",
-    "pmCount": "Wiadomości prywatne ({{count}})"
+    "pmCount": "Wiadomości prywatne ({{count}})",
+    "search": "Szukaj"
   },
   "nav": {
     "addServer": "Dodaj serwer",
@@ -984,7 +985,17 @@
     "commaArgs": "Argumenty oddzielone przecinkami, pokazywane w podpowiedziach",
     "setupNoServers": "Nie dodano jeszcze serwerów IRC. Dodaj serwer, aby zacząć rozmawiać.",
     "addServer": "Dodaj serwer",
-    "emojiPicker": "Wybór emoji"
+    "emojiPicker": "Wybór emoji",
+    "results_one": "{{count}} wynik",
+    "results_few": "{{count}} wyniki",
+    "results_many": "{{count}} wyników",
+    "results_other": "{{count}} wyniku",
+    "newest": "Najnowsze",
+    "oldest": "Najstarsze",
+    "endOfResults_one": "Koniec wyników ({{count}} wiadomość)",
+    "endOfResults_few": "Koniec wyników ({{count}} wiadomości)",
+    "endOfResults_many": "Koniec wyników ({{count}} wiadomości)",
+    "endOfResults_other": "Koniec wyników ({{count}} wiadomości)"
   },
   "eb": {
     "title": "Coś poszło nie tak",
@@ -1183,5 +1194,41 @@
   },
   "dc": {
     "leaveQuestion": "Czy na pewno chcesz opuścić"
+  },
+  "notes": {
+    "title": "Notatki",
+    "desc": "Prywatne notatki, zapisywane tylko na tym urządzeniu.",
+    "new": "Nowa notatka",
+    "empty": "Brak notatek. Utwórz pierwszą.",
+    "untitled": "Bez tytułu",
+    "titlePlaceholder": "Tytuł",
+    "bodyPlaceholder": "Napisz notatkę...",
+    "saved": "Zapisano {{time}}",
+    "delete": "Usuń notatkę",
+    "pickOrCreate": "Wybierz notatkę albo utwórz nową.",
+    "back": "Wróć do listy"
+  },
+  "welcome": {
+    "toChannel": "Witaj na #",
+    "channelStart": "To początek kanału #{{name}}.",
+    "conversationStart": "To początek Twojej rozmowy z {{name}}."
+  },
+  "chanset": {
+    "dmTitle": "Ustawienia prywatnej rozmowy",
+    "title": "Ustawienia kanału",
+    "notifFor": "Preferencje powiadomień dla"
+  },
+  "sys": {
+    "joined": "{{nick}} dołączył do kanału",
+    "leftReason": "{{nick}} opuścił kanał ({{reason}})",
+    "left": "{{nick}} opuścił kanał",
+    "quitReason": "{{nick}} rozłączył się ({{reason}})",
+    "quit": "{{nick}} rozłączył się",
+    "topicCleared": "{{nick}} wyczyścił temat",
+    "topicChanged": "{{nick}} zmienił temat na: {{topic}}",
+    "kickedReason": "{{target}} został wyrzucony z {{channel}} przez {{by}} ({{reason}})",
+    "kicked": "{{target}} został wyrzucony z {{channel}} przez {{by}}",
+    "mode": "{{nick}} ustawia tryb: {{channel}} {{modes}}",
+    "nick": "{{old}} jest teraz znany jako {{new}}"
   }
 }

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Hash } from "lucide-react";
 
 interface ChatWelcomeProps {
@@ -9,6 +10,7 @@ export const ChatWelcome = ({
   name,
   type
 }: ChatWelcomeProps) => {
+  const { t } = useTranslation();
   return (
     <div className="space-y-2 px-4 mb-4">
       {type === "channel" && (
@@ -17,12 +19,12 @@ export const ChatWelcome = ({
         </div>
       )}
       <p className="text-xl md:text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-        {type === "channel" ? "Welcome to #" : ""}{name}
+        {type === "channel" ? t("welcome.toChannel") : ""}{name}
       </p>
       <p className="text-zinc-600 dark:text-zinc-400 text-sm">
         {type === "channel"
-          ? `This is the beginning of the #${name} channel.`
-          : `This is the beginning of your conversation with ${name}.`
+          ? t("welcome.channelStart", { name })
+          : t("welcome.conversationStart", { name })
         }
       </p>
     </div>
