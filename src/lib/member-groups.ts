@@ -18,12 +18,12 @@ export interface MemberGroupInfo {
 }
 
 const ROLE_GROUPS: { id: string; title: string; role: ChannelRoleKey | null }[] = [
-  { id: "role:owner", title: "Owners", role: "owner" },
-  { id: "role:admin", title: "Admins", role: "admin" },
-  { id: "role:op", title: "Operators", role: "op" },
-  { id: "role:halfop", title: "Half-operators", role: "halfop" },
-  { id: "role:voice", title: "Voiced", role: "voice" },
-  { id: "role:users", title: "Users", role: null },
+  { id: "role:owner", title: "group.owners", role: "owner" },
+  { id: "role:admin", title: "group.admins", role: "admin" },
+  { id: "role:op", title: "group.operators", role: "op" },
+  { id: "role:halfop", title: "group.halfops", role: "halfop" },
+  { id: "role:voice", title: "group.voiced", role: "voice" },
+  { id: "role:users", title: "group.users", role: null },
 ];
 
 export const AWAY_GROUP_ID = "away";
@@ -51,7 +51,7 @@ export function buildMemberGroups<T>(
       items: [],
     });
   }
-  const away: MemberGroup<T> = { id: AWAY_GROUP_ID, title: "Away", kind: "away", items: [] };
+  const away: MemberGroup<T> = { id: AWAY_GROUP_ID, title: "group.away", kind: "away", items: [] };
 
   for (const item of items) {
     const info = getInfo(item);

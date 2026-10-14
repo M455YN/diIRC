@@ -27,7 +27,7 @@ export const ChatMembersSidebar = ({
   channel,
   variant = "sidebar",
 }: ChatMembersSidebarProps) => {
-  const { t } = useTranslation();
+  const { t: tr } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { onOpen } = useModal();
@@ -66,8 +66,8 @@ export const ChatMembersSidebar = ({
     <button
       type="button"
       onClick={refreshMembers}
-      aria-label={t("chat.members.refresh")}
-      title={t("chat.members.refresh")}
+      aria-label={tr("chat.members.refresh")}
+      title={tr("chat.members.refresh")}
       className="ml-auto mr-1 p-1 rounded-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/70 transition"
     >
       <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
@@ -221,7 +221,7 @@ export const ChatMembersSidebar = ({
               className="h-8 w-8 md:h-8 md:w-8"
             />
             {isAway && (
-              <ActionTooltip label={awayReason ? `Away: ${awayReason}` : t("chat.members.away")} side="left">
+              <ActionTooltip label={awayReason ? `Away: ${awayReason}` : tr("chat.members.away")} side="left">
                 <span 
                   className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-yellow-500 dark:bg-yellow-400 rounded-full ring-2 ring-[#F2F3F5] dark:ring-[#2B2D31] cursor-pointer"
                 />
@@ -248,7 +248,7 @@ export const ChatMembersSidebar = ({
           {variant === "sidebar" && (
             <div className="mb-2 flex items-center px-2">
               <h3 className="uppercase text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                {channel ? t("chat.members.users") : t("chat.members.conversations")} — {totalCount}
+                {channel ? tr("chat.members.users") : tr("chat.members.conversations")} — {totalCount}
               </h3>
               {refreshButton}
             </div>
@@ -279,7 +279,7 @@ export const ChatMembersSidebar = ({
                       <UserRoleIcon role={group.role} showTooltip={false} className="w-3.5 h-3.5" />
                     )}
                     <span className="truncate">
-                      {group.title} — {group.items.length}
+                      {tr(group.title)} — {group.items.length}
                     </span>
                   </button>
                 );
@@ -317,7 +317,7 @@ export const ChatMembersSidebar = ({
           <button
             onClick={() => onOpen("privateMessages")}
             className="w-full text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white bg-zinc-200/80 dark:bg-zinc-700/80 hover:bg-zinc-300 dark:hover:bg-zinc-600 px-3 py-2.5 min-h-[44px] rounded-md transition flex items-center justify-center gap-x-2 shadow-sm cursor-pointer"
-            title={t("chat.members.moreOptions")}
+            title={tr("chat.members.moreOptions")}
           >
             <MoreHorizontal className="w-4 h-4" />
             More

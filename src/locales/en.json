@@ -1084,5 +1084,14 @@
   "changelog": {
     "rateLimit": "GitHub rate limit reached. Please try again later.",
     "pendingNotes": "Version v{{version}} release notes pending in Gist"
+  },
+  "group": {
+    "owners": "Owners",
+    "admins": "Admins",
+    "operators": "Operators",
+    "halfops": "Half-operators",
+    "voiced": "Voiced",
+    "users": "Users",
+    "away": "Away"
   }
 }

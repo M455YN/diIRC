@@ -1086,5 +1086,14 @@
   "changelog": {
     "rateLimit": "Osiągnięto limit zapytań GitHub. Spróbuj ponownie później.",
     "pendingNotes": "Informacje o wydaniu v{{version}} są jeszcze w przygotowaniu w Gist"
+  },
+  "group": {
+    "owners": "Właściciele",
+    "admins": "Administratorzy",
+    "operators": "Operatorzy",
+    "halfops": "Pół-operatorzy",
+    "voiced": "Voice",
+    "users": "Użytkownicy",
+    "away": "Nieobecni"
   }
 }

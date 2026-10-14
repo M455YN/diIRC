@@ -219,7 +219,7 @@ export const MobileMembersList = ({
                       ) : (
                         <ExpandMoreIcon fontSize="small" />
                       ))}
-                    {g.title} — {g.items.length}
+                    {tr(g.title)} — {g.items.length}
                   </Box>
                 </M3Subheader>
               </ButtonBase>
