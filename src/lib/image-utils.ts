@@ -97,6 +97,25 @@ function runNextQueued() {
 }
 
 /**
+ * Nitter instances proxy Twitter images via /pic/... and are often behind
+ * Cloudflare challenges. Rewrite those URLs to the original pbs.twimg.com host.
+ */
+export function resolveImageSourceUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (!u.pathname.startsWith("/pic/")) return url;
+    let rest = decodeURIComponent(u.pathname.slice("/pic/".length));
+    rest = rest.replace(/^(orig|enc)\//, "");
+    if (/^(media|[a-z_]*thumb)\//.test(rest) || /^[a-z_]*video_thumb\//.test(rest)) {
+      return `https://pbs.twimg.com/${rest}?name=orig`;
+    }
+  } catch (_) {
+    // Not a parseable URL, use as is
+  }
+  return url;
+}
+
+/**
  * Synchronously checks if a URL points to an image file or has been verified as image.
  */
 export function isImageUrl(url: string): boolean {

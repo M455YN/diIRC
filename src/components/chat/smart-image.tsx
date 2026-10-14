@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { resolveImageSourceUrl } from "@/lib/image-utils";
 import { ImageOff, ImageIcon } from "lucide-react";
 
 interface SmartImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
@@ -77,7 +78,8 @@ const SmartImageInner: React.FC<SmartImageProps> = ({
   const [hasError, setHasError] = useState<boolean>(false);
   const [ratio, setRatio] = useState<number | undefined>(initialAspectRatio);
   // resolvedSrc is either the original URL or a proxied data: URL
-  const [resolvedSrc, setResolvedSrc] = useState<string>(src);
+  const directSrc = resolveImageSourceUrl(src);
+  const [resolvedSrc, setResolvedSrc] = useState<string>(directSrc);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -113,7 +115,7 @@ const SmartImageInner: React.FC<SmartImageProps> = ({
 
   const handleError = async () => {
     // If we already tried the proxy (resolvedSrc is a data: URL), give up
-    if (resolvedSrc !== src) {
+    if (resolvedSrc !== directSrc) {
       setHasError(true);
       setIsLoaded(true);
       onImageError?.();
@@ -122,7 +124,7 @@ const SmartImageInner: React.FC<SmartImageProps> = ({
 
     // Try fetching via Rust backend to bypass CORP / Referer restrictions (with LRU coalescing)
     try {
-      const dataUrl = await fetchViaProxy(src);
+      const dataUrl = await fetchViaProxy(directSrc);
       if (!mountedRef.current) return;
       setResolvedSrc(dataUrl);
     } catch {
