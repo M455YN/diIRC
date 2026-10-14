@@ -82,7 +82,6 @@ const ChatItemInner = ({
   const navigate = useNavigate();
   const isMobile = useIsMobileShell();
 
-  const compactMode = useMockStore((state) => state.compactMode);
   const messageLayout = useAppearanceStyleStore((state) => state.layout);
   const ircLayout = messageLayout === "irc" && !isMobile;
   const enableLinkPreviews = useMockStore((state) => state.enableLinkPreviews);
@@ -596,13 +595,13 @@ const ChatItemInner = ({
               </UserHoverCard>
             )}
           </div>
-        ) : !compactMode && !compact ? (
+        ) : !compact ? (
           <UserHoverCard member={member} server={activeServer} side="right">
             <div onClick={onMemberClick} className="cursor-pointer hover:drop-shadow-md transition shrink-0">
               <UserAvatar src={member.profile.imageUrl} name={displayName} className="h-10 w-10 md:h-10 md:w-10" />
             </div>
           </UserHoverCard>
-        ) : !compactMode && compact ? (
+        ) : compact ? (
           <div className="w-10 h-5 flex items-center justify-center shrink-0">
             <span className="text-[10px] text-zinc-400 dark:text-zinc-500 hidden group-hover:block select-none font-mono">
               {compactTime}

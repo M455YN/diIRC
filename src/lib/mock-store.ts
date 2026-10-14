@@ -465,7 +465,6 @@ interface MockState {
   unreadState: Record<string, UnreadInfo>;
   historyLoadToken: number;
   historyWindow: HistoryWindow;
-  compactMode: boolean;
   /** Split the channel user list into role groups (owners, ops, ..., away). */
   groupMembersByRole: boolean;
   /** `${serverId}:${groupId}` -> collapsed */
@@ -550,7 +549,6 @@ interface MockState {
   clearUnread: (key: string) => void;
 
   // Settings Actions
-  setCompactMode: (enabled: boolean) => void;
   setGroupMembersByRole: (enabled: boolean) => void;
   toggleMemberGroupCollapsed: (key: string) => void;
   setEnableMarkdown: (enabled: boolean) => void;
@@ -702,7 +700,6 @@ export const useMockStore = create<MockState>()(
       },
       activeConversations: {},
       historicalConversations: {},
-      compactMode: false,
       groupMembersByRole: true,
       collapsedMemberGroups: {},
       enableMarkdown: true,
@@ -1158,7 +1155,6 @@ export const useMockStore = create<MockState>()(
           },
         })),
 
-      setCompactMode: (enabled: boolean) => set({ compactMode: enabled }),
       setGroupMembersByRole: (enabled: boolean) => set({ groupMembersByRole: enabled }),
 
       toggleMemberGroupCollapsed: (key) =>

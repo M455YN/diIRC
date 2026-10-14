@@ -100,7 +100,6 @@ const SEARCH_INDEX: { title: string; category: SettingsCategory }[] = [
   { title: "mobile.search.soundCooldown", category: "notifications" },
   { title: "mobile.search.popupNotifications", category: "notifications" },
   { title: "mobile.search.userDisplayName", category: "appearance" },
-  { title: "mobile.search.compactMode", category: "appearance" },
   { title: "mobile.search.groupByRole", category: "appearance" },
   { title: "mobile.search.markdown", category: "chat" },
   { title: "mobile.search.scrollOnReturn", category: "chat" },
@@ -418,12 +417,6 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
                   { value: "username", label: tr("mobile.username"), description: tr("mobile.fallsBackNick") },
                 ],
                 (v) => store.setUserDisplayNameMode(v as UserDisplayNameMode)
-              )}
-              {toggle(
-                tr("mobile.search.compactMode"),
-                store.compactMode,
-                store.setCompactMode,
-                tr("mobile.hideAvatars")
               )}
               {toggle(
                 tr("mobile.search.groupByRole"),

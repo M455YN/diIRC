@@ -107,7 +107,6 @@ const SETTINGS_SEARCH_INDEX: { key: string; tab: SettingsTab }[] = [
   { key: "settings.items.visualStyle", tab: "appearance" },
   { key: "settings.items.windowMaterial", tab: "appearance" },
   { key: "settings.items.displayNameFormat", tab: "appearance" },
-  { key: "settings.items.compactMode", tab: "appearance" },
   { key: "settings.items.groupByRole", tab: "appearance" },
   { key: "settings.items.dateFormat", tab: "appearance" },
   { key: "settings.items.sortDmByUnread", tab: "appearance" },
@@ -156,10 +155,8 @@ export const SettingsModal = () => {
   const messageLayout = useAppearanceStyleStore((state) => state.layout);
   const setMessageLayout = useAppearanceStyleStore((state) => state.setLayout);
   const setWindowMaterial = useAppearanceStyleStore((state) => state.setMaterial);
-  const compactMode = useMockStore((state) => state.compactMode);
   const groupMembersByRole = useMockStore((state) => state.groupMembersByRole ?? true);
   const setGroupMembersByRole = useMockStore((state) => state.setGroupMembersByRole);
-  const setCompactMode = useMockStore((state) => state.setCompactMode);
 
   const confirmLeaveChannel = useMockStore((state) => state.confirmLeaveChannel ?? true);
   const setConfirmLeaveChannel = useMockStore((state) => state.setConfirmLeaveChannel);
@@ -586,24 +583,6 @@ export const SettingsModal = () => {
                   <option value="realname">{t("settings.appearance.realname")}</option>
                   <option value="username">{t("settings.appearance.username")}</option>
                 </select>
-              </div>
-              {/* Compact Mode */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <EyeOff className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.appearance.compactMode")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.appearance.compactModeDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={compactMode}
-                  onCheckedChange={(checked) => setCompactMode(checked)}
-                />
               </div>
               {/* Group users by role */}
               <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
