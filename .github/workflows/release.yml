@@ -92,11 +92,133 @@ jobs:
           updaterJsonKeepSignatures: true
           args: ${{ matrix.args }}
 
+  # Android APK, built with the command line tools only (no Android Studio). The Gradle project is
+  # generated on the fly by `tauri android init` (src-tauri/gen/android is gitignored).
+  # Signing: set ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS (and optionally
+  # ANDROID_KEY_PASSWORD) to sign with a stable key so installs can be updated in place. Without them an
+  # ephemeral key is generated, which still installs but cannot update an APK signed by another key.
+  build-android:
+    needs: build-tauri
+    if: ${{ !cancelled() && needs.build-tauri.result == 'success' }}
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      NDK_VERSION: '27.2.12479018'
+      BUILD_TOOLS_VERSION: '34.0.0'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-34
+            build-tools;${{ env.BUILD_TOOLS_VERSION }}
+            ndk;${{ env.NDK_VERSION }}
+
+      - name: install Rust stable (Android targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          cache-on-failure: true
+          shared-key: 'tauri-android'
+
+      - name: install frontend dependencies
+        run: npm ci
+
+      - name: Initialize Android project
+        run: |
+          export NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+          npx tauri android init --ci
+
+      - name: Build release APK (arm64)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          export NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+          npx tauri android build --apk --target aarch64 --ci
+
+      - name: Sign APK
+        id: sign
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          unsigned=$(find src-tauri/gen/android/app/build/outputs/apk -name '*-unsigned.apk' | head -n1)
+          if [ -z "$unsigned" ]; then
+            echo "No unsigned APK found" >&2
+            find src-tauri/gen/android/app/build/outputs -type f >&2
+            exit 1
+          fi
+
+          keystore="$RUNNER_TEMP/release.keystore"
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$keystore"
+            alias="${KEY_ALIAS:-key0}"
+            storepass="$KEYSTORE_PASSWORD"
+            keypass="${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+          else
+            echo "::warning::No Android keystore secrets set, signing with an ephemeral key"
+            alias=ephemeral
+            storepass=ephemeral-pass
+            keypass=ephemeral-pass
+            keytool -genkeypair -keystore "$keystore" -alias "$alias" -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass "$storepass" -keypass "$keypass" -dname "CN=Luna IRC CI"
+          fi
+
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          out="luna-irc_${version}_arm64.apk"
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" sign \
+            --ks "$keystore" --ks-key-alias "$alias" \
+            --ks-pass "pass:$storepass" --key-pass "pass:$keypass" \
+            --out "$out" "$unsigned"
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify "$out"
+          echo "apk=$out" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: ${{ steps.sign.outputs.apk }}
+          if-no-files-found: error
+
+      - name: Attach APK to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ steps.sign.outputs.version }}" "${{ steps.sign.outputs.apk }}" \
+            --clobber --repo "$GITHUB_REPOSITORY"
+
   # Forks publish only once every platform has been uploaded; the updater reads /releases/latest,
   # which skips drafts and prereleases. The upstream repo keeps its draft for manual review.
   publish-release:
-    if: github.repository != 'TheStami/diIRC'
-    needs: build-tauri
+    needs: [build-tauri, build-android]
+    # Publish even when the optional Android build failed, so the desktop updater is never blocked by it.
+    if: ${{ !cancelled() && github.repository != 'TheStami/diIRC' && needs.build-tauri.result == 'success' }}
     runs-on: ubuntu-22.04
     permissions:
       contents: write
