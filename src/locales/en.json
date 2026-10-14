@@ -1227,5 +1227,17 @@
     "colTopic": "Topic",
     "join": "Join",
     "empty": "No channels found."
+  },
+  "connStatus": {
+    "ircServer": "IRC server",
+    "resourceServer": "Resource server",
+    "internet": "Internet",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "disabled": "Disabled",
+    "online": "Online",
+    "offline": "Offline",
+    "clickDetailsLogs": "Click for details & logs",
+    "clickDetails": "Click for details"
   }
 }

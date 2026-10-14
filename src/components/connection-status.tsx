@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useConnectionStatus } from "@/hooks/use-connection-status";
 import { useMockStore } from "@/lib/mock-store";
 import { useModal } from "@/hooks/use-modal-store";
@@ -17,6 +18,7 @@ export const ConnectionStatus = ({ serverId: propServerId, server }: ConnectionS
   const { irc, ircError, resourceServer, internet } = useConnectionStatus(serverId);
   const statusDisplayMode = useMockStore((state) => state.statusDisplayMode) || "always";
   const { onOpen } = useModal();
+  const { t } = useTranslation();
 
   const hasError = !irc || !resourceServer || !internet;
 
@@ -29,27 +31,27 @@ export const ConnectionStatus = ({ serverId: propServerId, server }: ConnectionS
   }
 
   const ircTooltipLabel = irc
-    ? "IRC server: Connected (Click for details & logs)"
-    : `IRC server: Disconnected${ircError ? ` (${ircError})` : ""} - Click for details & logs`;
+    ? `${t("connStatus.ircServer")}: ${t("connStatus.connected")} (${t("connStatus.clickDetailsLogs")})`
+    : `${t("connStatus.ircServer")}: ${t("connStatus.disconnected")}${ircError ? ` (${ircError})` : ""} - ${t("connStatus.clickDetailsLogs")}`;
 
   const statuses = [
     {
       id: "irc",
-      name: "IRC server",
+      name: t("connStatus.ircServer"),
       status: irc,
       tooltip: ircTooltipLabel,
     },
     {
       id: "resource",
-      name: "Resource server",
+      name: t("connStatus.resourceServer"),
       status: resourceServer,
-      tooltip: `Resource server: ${resourceServer ? "Connected" : "Disabled"} (Click for details)`,
+      tooltip: `${t("connStatus.resourceServer")}: ${resourceServer ? t("connStatus.connected") : t("connStatus.disabled")} (${t("connStatus.clickDetails")})`,
     },
     {
       id: "internet",
-      name: "Internet",
+      name: t("connStatus.internet"),
       status: internet,
-      tooltip: `Internet: ${internet ? "Online" : "Offline"} (Click for details)`,
+      tooltip: `${t("connStatus.internet")}: ${internet ? t("connStatus.online") : t("connStatus.offline")} (${t("connStatus.clickDetails")})`,
     },
   ];
 

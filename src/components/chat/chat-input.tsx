@@ -80,6 +80,8 @@ export { getIrcByteCount, getIrcMaxMessageBytes };
 interface ChatInputProps {
   query: Record<string, string>;
   name: string;
+  /** Shown in the placeholder only; `name` stays the IRC target. */
+  displayName?: string;
   type: "conversation" | "channel";
 }
 
@@ -90,6 +92,7 @@ const formSchema = z.object({
 export const ChatInput = ({
   query,
   name,
+  displayName,
   type,
 }: ChatInputProps) => {
   const { t: tr } = useTranslation();
@@ -1946,7 +1949,7 @@ export const ChatInput = ({
                           ? `Reply to ${pendingReply.nick}`
                           : isMobile
                           ? tr("chat.input.message")
-                          : tr("chat.input.messageTo", { target: type === "conversation" ? name : "#" + name })
+                          : tr("chat.input.messageTo", { target: type === "conversation" ? displayName ?? name : "#" + name })
                       }
                       rows={1}
                       {...field}

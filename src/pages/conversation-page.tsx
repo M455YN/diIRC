@@ -80,8 +80,10 @@ export const ConversationPage = () => {
 
   const currentMember = getServerSelfMember(server, currentProfile.id);
   const conversationId = [currentMember.id, targetMember.id].sort().join("-");
-  const displayName = getMemberDisplayName(targetMember, server);
   const targetNick = targetMember.profile.name;
+  const realName = getMemberDisplayName(targetMember, server);
+  // Real name first, nick in brackets so the IRC target stays visible
+  const displayName = realName !== targetNick ? `${realName} (${targetNick})` : realName;
   const isAway = useMockStore(
     (state) => !!state.awayUsers[server.id]?.[targetNick.toLowerCase()]
   );
@@ -118,6 +120,7 @@ export const ConversationPage = () => {
           <ChatMessages
             member={currentMember}
             name={targetNick}
+            displayName={displayName}
             chatId={conversationId}
             serverId={server.id}
             type="conversation"
@@ -127,6 +130,7 @@ export const ConversationPage = () => {
           <div className="mobile-safe-bottom shrink-0 bg-background">
             <ChatInput
               name={targetNick}
+              displayName={displayName}
               type="conversation"
               query={{
                 conversationId,
@@ -173,6 +177,7 @@ export const ConversationPage = () => {
           <ChatMessages
             member={currentMember}
             name={targetNick}
+            displayName={displayName}
             chatId={conversationId}
             serverId={server.id}
             type="conversation"
@@ -181,6 +186,7 @@ export const ConversationPage = () => {
           />
           <ChatInput
             name={targetNick}
+            displayName={displayName}
             type="conversation"
             query={{
               conversationId,

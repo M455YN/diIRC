@@ -1233,5 +1233,17 @@
     "colTopic": "Temat",
     "join": "Dołącz",
     "empty": "Brak kanałów."
+  },
+  "connStatus": {
+    "ircServer": "Serwer IRC",
+    "resourceServer": "Serwer zasobów",
+    "internet": "Internet",
+    "connected": "Połączono",
+    "disconnected": "Rozłączono",
+    "disabled": "Wyłączone",
+    "online": "Online",
+    "offline": "Offline",
+    "clickDetailsLogs": "Kliknij, aby zobaczyć szczegóły i logi",
+    "clickDetails": "Kliknij, aby zobaczyć szczegóły"
   }
 }

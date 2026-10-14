@@ -24,9 +24,15 @@
 - **Android: połączenia w tle.** Aplikacja uruchamia usługę pierwszoplanową, gdy jest połączona z serwerem, więc połączenia nie zrywają się po zablokowaniu ekranu lub zminimalizowaniu.
 - **Notatki ogólne.** Prywatne notatki nie przypisane do żadnego kanału ani osoby. Na desktopie przycisk „Notatki” jest w nagłówku czatu, na Androidzie w zakładce „More”. Zmiany zapisują się od razu, a notatki zostają tylko na tym urządzeniu.
 
+- **Lista kanałów (LIST).** Z menu serwera albo komendą `/list` otwiera się okno z publicznymi kanałami serwera: filtr po nazwie lub temacie, minimalna liczba użytkowników i przycisk „Dołącz”. Lista pokazuje wszystkie widoczne publiczne kanały, także te, na których nigdy nie byłeś.
+
 ## Zmiany
 - **Ustawienia uporządkowane według kategorii.** Opcje treści czatu (Markdown, podgląd formatowania, przewijanie, rozmiar emoji) są w „Chat and messaging”. Sortowanie prywatnych wiadomości i wskaźnik statusu połączenia są w „Appearance”. Dotyczy desktopu i Androida.
 - **Podpowiedzi komend** są szersze, a opisy zawijają się zamiast być ucinane. Opisy wbudowanych komend są przetłumaczone.
+- **Przewijanie do nowych wiadomości** (Settings → Chat) działa także przy otwieraniu czatu z nieprzeczytanymi wiadomościami, nie tylko po powrocie do aplikacji.
+- **Powód auto-away z ZNC** („Away (Auto away at HH:MM)”) jest pokazywany w języku interfejsu.
+- **Wskaźnik połączenia** (kropki przy nagłówku) ma przetłumaczone podpowiedzi: IRC server, Resource server, Internet oraz stany Connected/Disconnected/Online/Offline.
+- **Rozmowy prywatne** pokazują nazwę rzeczywistą (gdy tryb wyświetlania na to pozwala) w nagłówku, powitaniu i podpowiedzi pola wpisywania. Nick jest w nawiasie, np. „Afelt Mateusz (m455yn)”. Wiadomości nadal idą na nick.
 - **Nagłówki grup listy użytkowników** (Właściciele, Operatorzy, Użytkownicy, Nieobecni itd.) są przetłumaczone.
 - **Edycja tematu offline** jest zablokowana: przycisk i pole są nieaktywne, dopóki nie jesteś połączony.
 - **Podpowiedzi komend** pozostają nieprzezroczyste przy materiale Mica/Akryl w Windows 11.
@@ -47,7 +53,7 @@
 - Powód „Away”, który inne klienty wysyłają domyślnie, nie jest pokazywany jako powód nieobecności.
 
 ## Znane ograniczenia
-- Panele komend, zakładki, wyszukiwarka ustawień i wskaźnik historii są tylko na desktopie. Na Androidzie ich nie ma.
+- Panele komend, zakładki, wyszukiwarka ustawień, wskaźnik historii i lista kanałów są tylko na desktopie. Na Androidzie ich nie ma.
 - `/code` i `/motd` nie mają jeszcze paneli. Zmiana istniejącego klucza kanału (`+k`) w panelu `/mode` nie jest obsługiwana (najpierw usuń klucz). Panel `/mode` nie obsługuje też `+r` ani trybów zarezerwowanych dla usług.
 - Status nieobecności innych widać na żywo tylko wtedy, gdy serwer obsługuje `away-notify`. W pozostałych przypadkach status pojawi się dopiero po wiadomości prywatnej do tej osoby (serwer odpowie powodem nieobecności). Komenda `/whois` nie jest jeszcze zaimplementowana.
 - Lista ostatnio otwieranych kanałów w panelu `/join` jest zapisana lokalnie na urządzeniu.

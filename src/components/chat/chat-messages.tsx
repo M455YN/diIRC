@@ -34,6 +34,8 @@ const WHEEL_GESTURE_GAP_MS = 400;
 
 interface ChatMessagesProps {
   name: string;
+  /** Shown in the welcome text; falls back to `name` (e.g. the realname in a conversation). */
+  displayName?: string;
   member: Member;
   chatId: string;
   serverId: string;
@@ -44,6 +46,7 @@ interface ChatMessagesProps {
 
 export const ChatMessages = ({
   name,
+  displayName,
   member,
   chatId,
   serverId,
@@ -907,7 +910,7 @@ export const ChatMessages = ({
                   className="absolute left-0 top-0 w-full"
                   style={{ transform: `translateY(${virtualRow.start}px)` }}
                 >
-                  <ChatWelcome type={type} name={name} />
+                  <ChatWelcome type={type} name={displayName ?? name} />
                 </div>
               );
             }
