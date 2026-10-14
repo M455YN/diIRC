@@ -1,4 +1,4 @@
-# Luna IRC v0.3.6 (numer do potwierdzenia)
+# Luna IRC v0.3.5-10
 
 ## Nowości
 - **Zakładki wiadomości.** Ikona zakładki przy wiadomości (po najechaniu) zapisuje ją lokalnie. Przycisk „Bookmarks” w nagłówku czatu otwiera listę. Kliknięcie wpisu przenosi do kanału lub rozmowy, w której wiadomość była.
@@ -23,10 +23,11 @@
 - **Dwa nowe dźwięki powiadomień:** „Marimba” i „Glass Tap”, dla kanałów i prywatnych wiadomości.
 - **Android: połączenia w tle.** Aplikacja uruchamia usługę pierwszoplanową, gdy jest połączona z serwerem, więc połączenia nie zrywają się po zablokowaniu ekranu lub zminimalizowaniu.
 - **Notatki ogólne.** Prywatne notatki nie przypisane do żadnego kanału ani osoby. Na desktopie przycisk „Notatki” jest w nagłówku czatu, na Androidzie w zakładce „More”. Zmiany zapisują się od razu, a notatki zostają tylko na tym urządzeniu.
-
+- **Odpowiedź na CTCP VERSION.** Na zapytanie innego użytkownika klient odpowiada nazwą i wersją (np. „Luna IRC 0.3.5-10”). Zapytanie nie trafia do czatu.
 - **Lista kanałów (LIST).** Z menu serwera albo komendą `/list` otwiera się okno z publicznymi kanałami serwera: filtr po nazwie lub temacie, minimalna liczba użytkowników i przycisk „Dołącz”. Lista pokazuje wszystkie widoczne publiczne kanały, także te, na których nigdy nie byłeś.
 
 ## Zmiany
+- **Usunięto „Tryb kompaktowy”** (ukrywanie awatarów). Ten sam efekt daje układ wiadomości „Kompaktowy (IRC)” w Settings → Appearance.
 - **Ustawienia uporządkowane według kategorii.** Opcje treści czatu (Markdown, podgląd formatowania, przewijanie, rozmiar emoji) są w „Chat and messaging”. Sortowanie prywatnych wiadomości i wskaźnik statusu połączenia są w „Appearance”. Dotyczy desktopu i Androida.
 - **Podpowiedzi komend** są szersze, a opisy zawijają się zamiast być ucinane. Opisy wbudowanych komend są przetłumaczone.
 - **Przewijanie do nowych wiadomości** (Settings → Chat) działa także przy otwieraniu czatu z nieprzeczytanymi wiadomościami, nie tylko po powrocie do aplikacji.
@@ -47,7 +48,6 @@
 ## Poprawki
 - Na żywo nazwa rzeczywista (realname) użytkownika jest wyświetlana od razu, a nie dopiero po zmianie kanału.
 - Po połączeniu lista użytkowników kanału pokazywała tylko siebie. Lista jest teraz pobierana ponownie zaraz po własnym wejściu na kanał.
-- Ikona Androida jest brana z `icons/android`. Po `npx tauri android init` widać ją poprawnie.
 - Panel `/mode` nie pokazuje już trybu `+r`. Tylko serwer może go ustawić, a wcześniej serwer odrzucał taką komendę błędem „Only servers can change that mode”.
 - Na liście zaproszeń do kanału nie pojawiają się już nazwy serwerów (np. `irc.example.net`), tylko prawdziwe nicki.
 - Powód „Away”, który inne klienty wysyłają domyślnie, nie jest pokazywany jako powód nieobecności.
@@ -59,10 +59,9 @@
 - Lista ostatnio otwieranych kanałów w panelu `/join` jest zapisana lokalnie na urządzeniu.
 - Blokada edycji tematu zależy od tego, czy serwer zgłosił tryby kanału. Gdy tryby nie są znane, decyzję podejmuje serwer.
 - Logo serwera, zakładki i ustawienia są zapisane tylko lokalnie na urządzeniu. Nie synchronizują się między klientami.
-- Komunikaty zwracane przez backend (Rust) i część komunikatów IRC pozostają po angielsku.
+- Część komunikatów (np. błędy zgłaszane przez aplikację) pozostaje po angielsku.
 - Usługa w tle na Androidzie pokazuje stałe powiadomienie „Connected to IRC servers”. Na Androidzie 15 i nowszym działa do około 6 godzin, potem połączenia wracają przez automatyczne ponowne połączenie. Powiadomienie wymaga zgody (Android 13+).
 - Skok do zakładki działa tylko wtedy, gdy wiadomość jest załadowana w oknie czatu.
-- Notatki ogólne są zapisane w pamięci przeglądarki aplikacji (`localStorage`), która ma limit kilku MB. Nie synchronizują się między urządzeniami, a na Androidzie znikają po odinstalowaniu aplikacji. Przy bardzo długich notatkach trzeba będzie przejść na zapis w pliku.
+- Notatki ogólne są zapisane w pamięci przeglądarki aplikacji (`localStorage`), która ma limit kilku MB. Nie synchronizują się między urządzeniami, a na Androidzie znikają po odinstalowaniu aplikacji.
 - Tłumaczenie komunikatów systemowych obejmuje tylko znane wzorce. Pozostałe komunikaty (np. błędy z backendu) mogą być po angielsku.
 - Powód nieobecności wysyłany do serwera (`/away`) jest w języku, który wybrałeś. Inni klienci, np. Hexchat, zobaczą go w tym języku.
-- Zmiany nie były testowane na działającej aplikacji. Przed publikacją warto przejść je ręcznie, zwłaszcza panele komend, edycję tematu i Androida.
