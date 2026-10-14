@@ -1,3 +1,4 @@
+import i18n from "@/lib/i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { CustomCommand, Member, Server } from "@/types";
 import { inviteUserToChannel } from "@/lib/irc-actions";
@@ -103,8 +104,8 @@ export function listSlashSuggestions(
             insert: slashLine,
             label: slashLine,
             description: userDescription
-              ? `${userDescription} · Sends: ${sent}`
-              : `Sends: ${sent}`,
+              ? `${userDescription} · ${i18n.t("cmd.sendsMessage", { message: sent })}`
+              : i18n.t("cmd.sendsMessage", { message: sent }),
           });
         }
         continue;
@@ -113,8 +114,8 @@ export function listSlashSuggestions(
       const hint = userDescription
         ? userDescription
         : presets.length > 0
-        ? `Sends: ${message} · ${presets.slice(0, 3).join(", ")}${presets.length > 3 ? "…" : ""}`
-        : `Sends: ${message}`;
+        ? i18n.t("cmd.sendsPresets", { message, presets: presets.slice(0, 3).join(", ") + (presets.length > 3 ? "…" : "") })
+        : i18n.t("cmd.sendsMessage", { message });
       items.push({
         insert: `/${name} `,
         label: `/${name}`,
@@ -147,8 +148,8 @@ export function listSlashSuggestions(
         insert: slashLine,
         label: slashLine,
         description: userDescription
-          ? `${userDescription} · Sends: ${sent}`
-          : `Sends: ${sent}`,
+          ? `${userDescription} · ${i18n.t("cmd.sendsMessage", { message: sent })}`
+          : i18n.t("cmd.sendsMessage", { message: sent }),
       };
     });
 }
@@ -193,7 +194,7 @@ export const commandRegistry = new CommandRegistry();
 // Register default commands
 commandRegistry.register({
   name: "me",
-  description: "Sends an action message",
+  description: "cmd.desc.me",
   execute: async (args: string, ctx: CommandContext) => {
     const actionText = args.trim();
     if (!actionText) return;
@@ -241,7 +242,7 @@ commandRegistry.register({
 
 commandRegistry.register({
   name: "join",
-  description: "Joins a channel: /join #channel [password]",
+  description: "cmd.desc.join",
   execute: async (args: string, ctx: CommandContext) => {
     const parts = args.trim().split(/\s+/);
     if (!parts[0]) return;
@@ -275,7 +276,7 @@ commandRegistry.register({
 
 commandRegistry.register({
   name: "invite",
-  description: "Invites a user to a channel: /invite <nickname> [#channel]",
+  description: "cmd.desc.invite",
   execute: async (args: string, ctx: CommandContext) => {
     const parts = args.trim().split(/\s+/).filter(Boolean);
     if (!parts[0]) return;
@@ -297,7 +298,7 @@ commandRegistry.register({
 
 commandRegistry.register({
   name: "mode",
-  description: "Sets or queries channel modes: /mode [#channel] [flags] [params]",
+  description: "cmd.desc.mode",
   execute: async (args: string, ctx: CommandContext) => {
     const trimmed = args.trim();
     let target = "";
@@ -382,31 +383,31 @@ async function handleRoleMode(flag: string, args: string, ctx: CommandContext) {
 
 commandRegistry.register({
   name: "op",
-  description: "Gives channel operator status to a user: /op [#channel] <nick...>",
+  description: "cmd.desc.op",
   execute: (args: string, ctx: CommandContext) => handleRoleMode("+o", args, ctx),
 });
 
 commandRegistry.register({
   name: "deop",
-  description: "Removes channel operator status from a user: /deop [#channel] <nick...>",
+  description: "cmd.desc.deop",
   execute: (args: string, ctx: CommandContext) => handleRoleMode("-o", args, ctx),
 });
 
 commandRegistry.register({
   name: "voice",
-  description: "Gives voice status to a user: /voice [#channel] <nick...>",
+  description: "cmd.desc.voice",
   execute: (args: string, ctx: CommandContext) => handleRoleMode("+v", args, ctx),
 });
 
 commandRegistry.register({
   name: "devoice",
-  description: "Removes voice status from a user: /devoice [#channel] <nick...>",
+  description: "cmd.desc.devoice",
   execute: (args: string, ctx: CommandContext) => handleRoleMode("-v", args, ctx),
 });
 
 commandRegistry.register({
   name: "query",
-  description: "Opens a private message conversation: /query [nickname] [message]",
+  description: "cmd.desc.query",
   execute: async (args: string, ctx: CommandContext) => {
     const trimmed = args.trim();
     if (!trimmed) {
@@ -463,7 +464,7 @@ commandRegistry.register({
 
 commandRegistry.register({
   name: "code",
-  description: "Sends code wrapped in a code block: /code [code]",
+  description: "cmd.desc.code",
   execute: async (args: string, ctx: CommandContext) => {
     const cleanedCode = dedentCode(args.trim());
     let detectedLang = detectCodeLanguage(cleanedCode) || "";
@@ -530,7 +531,7 @@ commandRegistry.register({
 
 commandRegistry.register({
   name: "motd",
-  description: "Displays the server's Message of the Day (MOTD): /motd",
+  description: "cmd.desc.motd",
   execute: async (_args: string, ctx: CommandContext) => {
     try {
       invoke("request_motd", { serverId: ctx.serverId }).catch(() => {});
@@ -548,7 +549,7 @@ commandRegistry.register({
 
 commandRegistry.register({
   name: "away",
-  description: "Sets away status or displays error if already away: /away [reason]",
+  description: "cmd.desc.away",
   execute: async (args: string, ctx: CommandContext) => {
     const { useMockStore } = await import("@/lib/mock-store");
     const store = useMockStore.getState();
@@ -579,7 +580,7 @@ commandRegistry.register({
 
 commandRegistry.register({
   name: "back",
-  description: "Returns from away status: /back",
+  description: "cmd.desc.back",
   execute: async (_args: string, ctx: CommandContext) => {
     const { useMockStore } = await import("@/lib/mock-store");
     const store = useMockStore.getState();

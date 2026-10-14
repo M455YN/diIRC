@@ -1733,9 +1733,9 @@ export const ChatInput = ({
                   )}
 
                   {showCommands && filteredCommands.length > 0 && (
-                    <div className="absolute bottom-full left-4 mb-2 w-80 bg-white dark:bg-[#2b2d31] border border-zinc-200 dark:border-zinc-800 rounded-md shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <div className="popover-surface absolute bottom-full left-4 mb-2 w-[28rem] max-w-[calc(100vw-2rem)] bg-white dark:bg-[#2b2d31] border border-zinc-200 dark:border-zinc-800 rounded-md shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
                       <div className="px-3 py-2 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50 dark:bg-[#232428] border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-                        <span className="truncate">Commands matching {content?.startsWith("/") ? content.split(/\s/)[0] : "/"}</span>
+                        <span className="truncate">{tr("chat.input.commandsMatching", { query: content?.startsWith("/") ? content.split(/\s/)[0] : "/" })}</span>
                         <span className="text-[10px] font-normal text-zinc-400 shrink-0 ml-1.5">{filteredCommands.length}</span>
                       </div>
                       <div ref={commandListRef} className="max-h-60 overflow-y-auto p-1 discord-scrollbar-ghost">
@@ -1759,8 +1759,8 @@ export const ChatInput = ({
                               <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                                 {cmd.label}
                               </span>
-                              <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                                {cmd.description}
+                              <span className="text-xs text-zinc-500 dark:text-zinc-400 break-words line-clamp-2" title={cmd.description.startsWith("cmd.desc.") ? tr(cmd.description) : cmd.description}>
+                                {cmd.description.startsWith("cmd.desc.") ? tr(cmd.description) : cmd.description}
                               </span>
                             </div>
                           </div>
@@ -1770,12 +1770,14 @@ export const ChatInput = ({
                   )}
 
                   {showNickMenu && nickSuggestions.length > 0 && (
-                    <div className="absolute bottom-full left-4 mb-2 w-80 bg-white dark:bg-[#2b2d31] border border-zinc-200 dark:border-zinc-800 rounded-md shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <div className="popover-surface absolute bottom-full left-4 mb-2 w-[28rem] max-w-[calc(100vw-2rem)] bg-white dark:bg-[#2b2d31] border border-zinc-200 dark:border-zinc-800 rounded-md shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
                       <div className="px-3 py-2 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50 dark:bg-[#232428] border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
                         <div className="flex items-center gap-x-1.5 min-w-0">
                           <Users className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                           <span className="truncate">
-                            Members {nickQueryInfo?.queryWord ? `matching "${nickQueryInfo.queryWord}"` : `in channel`}
+                            {nickQueryInfo?.queryWord
+                              ? tr("chat.input.membersMatching", { query: nickQueryInfo.queryWord })
+                              : tr("chat.input.membersInChannel")}
                           </span>
                         </div>
                         <span className="text-[10px] font-normal text-zinc-400">

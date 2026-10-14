@@ -492,7 +492,23 @@
       "attachSystem": "Dołącz pliki (okno systemowe)",
       "connectingTo": "Łączenie z {{server}}...",
       "disconnectedFrom": "Rozłączono z {{server}}",
-      "messageTo": "Wiadomość do {{target}}"
+      "messageTo": "Wiadomość do {{target}}",
+      "commandsMatching": "Komendy pasujące do {{query}}",
+      "membersMatching": "Członkowie pasujący do \"{{query}}\"",
+      "membersInChannel": "Członkowie na kanale"
+    },
+    "modes": {
+      "unknown": "Tryby kanału nie są jeszcze znane",
+      "none": "Brak ustawionych trybów kanału",
+      "n": "brak wiadomości z zewnątrz",
+      "t": "temat zablokowany dla operatorów",
+      "m": "moderowany",
+      "i": "tylko na zaproszenie",
+      "s": "tajny",
+      "p": "prywatny",
+      "k": "klucz kanału",
+      "l": "limit użytkowników",
+      "r": "tylko zarejestrowani użytkownicy"
     }
   },
   "server": {
@@ -621,7 +637,10 @@
     "edit": "Edytuj temat kanału",
     "operatorRequired": "Wymagany operator:",
     "placeholder": "Ustaw temat tego kanału...",
-    "save": "Zapisz temat"
+    "save": "Zapisz temat",
+    "locked": "Temat jest zablokowany (+t): zmienić go mogą tylko operatorzy kanału.",
+    "forChannel": "Temat kanału #{{name}}",
+    "offline": "Nie jesteś połączony z serwerem. Temat można zmienić tylko podczas połączenia."
   },
   "update": {
     "newVersion": "Dostępna nowa wersja",
@@ -668,7 +687,8 @@
   },
   "common": {
     "back": "Wstecz",
-    "close": "Zamknij"
+    "close": "Zamknij",
+    "cancel": "Anuluj"
   },
   "ctx": {
     "away": "Nieobecny",
@@ -1095,5 +1115,24 @@
     "voiced": "Voice",
     "users": "Użytkownicy",
     "away": "Nieobecni"
+  },
+  "cmd": {
+    "sendsMessage": "Wysyła: {{message}}",
+    "sendsPresets": "Wysyła: {{message}} · {{presets}}",
+    "desc": {
+      "me": "Wysyła wiadomość akcji",
+      "join": "Dołącza do kanału: /join #kanał [hasło]",
+      "invite": "Zaprasza użytkownika na kanał: /invite <nick> [#kanał]",
+      "mode": "Ustawia lub odczytuje tryby kanału: /mode [#kanał] [flagi] [parametry]",
+      "op": "Nadaje operatora kanału użytkownikowi: /op [#kanał] <nick...>",
+      "deop": "Odbiera operatora kanału użytkownikowi: /deop [#kanał] <nick...>",
+      "voice": "Nadaje voice użytkownikowi: /voice [#kanał] <nick...>",
+      "devoice": "Odbiera voice użytkownikowi: /devoice [#kanał] <nick...>",
+      "query": "Otwiera rozmowę prywatną: /query [nick] [wiadomość]",
+      "code": "Wysyła kod w bloku kodu: /code [kod]",
+      "motd": "Wyświetla wiadomość dnia serwera (MOTD): /motd",
+      "away": "Ustawia status nieobecności lub pokazuje błąd, jeśli już jesteś nieobecny: /away [powód]",
+      "back": "Wraca ze statusu nieobecności: /back"
+    }
   }
 }

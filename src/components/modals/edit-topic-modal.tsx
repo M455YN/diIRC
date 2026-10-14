@@ -14,24 +14,15 @@ import { useModal } from "@/hooks/use-modal-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMockStore, getServerActiveNick } from "@/lib/mock-store";
-import { ComingSoonModal } from "@/components/modals/coming-soon-modal";
-
-// ==========================================================================
-// TEMPORARY SAFETY GUARD FOR TOPIC EDITING
-// TO REVERT TO NORMAL TOPIC EDITING:
-// 1. Set `SHOW_COMING_SOON` to `false` below (or remove the `if (SHOW_COMING_SOON)` block).
-// 2. Delete `src/components/modals/coming-soon-modal.tsx`.
-// ==========================================================================
-const SHOW_COMING_SOON = true;
 
 export const EditTopicModal = () => {
-  const { t } = useTranslation();
+  const { t: tr } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
-  const updateChannelTopic = useMockStore((state) => state.updateChannelTopic);
   const ircConnectedServers = useMockStore((state) => state.ircConnectedServers);
   const currentProfile = useMockStore((state) => state.currentProfile);
   const channelOpsMap = useMockStore((state) => state.channelOps);
   const channelUserModesMap = useMockStore((state) => state.channelUserModes);
+  const channelModesMap = useMockStore((state) => state.channelModes);
 
   const isModalOpen = isOpen && type === "editTopic";
   const { server, channel } = data;
@@ -42,7 +33,7 @@ export const EditTopicModal = () => {
 
   const isConnected = !!(server?.id && ircConnectedServers[server.id]);
 
-  // Permission check
+  // Permission check: the server decides, we only mirror the rule. +t = operators only; otherwise anyone.
   const ourNick = server ? getServerActiveNick(server) : currentProfile.name;
   const isServerOwner = server?.profileId === currentProfile.id;
   const isChannelOwner = channel?.profileId === currentProfile.id;
@@ -53,8 +44,10 @@ export const EditTopicModal = () => {
     channelOps.some((opNick) => opNick.toLowerCase() === ourNick.toLowerCase()) ||
     ourModes.some((m) => ["o", "a", "q"].includes(m.toLowerCase()));
 
-  // User is considered to have permission if they are op in channel, or if ops list hasn't loaded (standalone/mock fallback)
-  const hasPermission = isChannelOp || channelOps.length === 0;
+  // Topic lock (+t). Unknown modes are not treated as locked, so the server gets the final say.
+  const channelFlags = channel?.id ? channelModesMap[channel.id] || [] : [];
+  const topicLocked = channelFlags.some((f) => f.toLowerCase() === "t");
+  const canEditTopic = isConnected && (!topicLocked || isChannelOp);
 
   useEffect(() => {
     if (channel) {
@@ -69,34 +62,28 @@ export const EditTopicModal = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!server?.id || !channel?.id) return;
+    if (!server?.id || !channel?.id || !canEditTopic) return;
 
     try {
       setIsLoading(true);
       setErrorMessage(null);
 
-      if (isConnected) {
-        // Send command to IRC server. If server accepts, it broadcasts TOPIC/RPL_TOPIC
-        // If server rejects (e.g. 482 ERR_CHANOPRIVSNEEDED), irc_topic_error event is emitted by server
-        await invoke("set_channel_topic", {
-          serverId: server.id,
-          channel: channel.name,
-          topic: topic,
-        });
-      } else {
-        // Standalone / offline mode - update store directly
-        updateChannelTopic(server.id, channel.id, topic);
-      }
+      // Only sent over a live connection; the server broadcasts TOPIC/RPL_TOPIC on success.
+      await invoke("set_channel_topic", {
+        serverId: server.id,
+        channel: channel.name,
+        topic: topic,
+      });
 
       handleClose();
     } catch (error: any) {
       console.error("Failed to update channel topic:", error);
       const errText = typeof error === "string" 
         ? error 
-        : error?.message || t("topic.failedPermissions");
+        : error?.message || tr("topic.failedPermissions");
       setErrorMessage(errText);
       useModal.getState().onOpen("ircError", {
-        title: t("topic.failedTitle"),
+        title: tr("topic.failedTitle"),
         description: errText,
       });
     } finally {
@@ -104,34 +91,27 @@ export const EditTopicModal = () => {
     }
   };
 
-  if (SHOW_COMING_SOON) {
-    return (
-      <ComingSoonModal
-        isOpen={isModalOpen}
-        onClose={handleClose}
-        title={t("topic.comingSoon")}
-        description={t("topic.disabledDesc")}
-      />
-    );
-  }
-
   return (
     <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
       <DialogContent className="bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 p-0 overflow-hidden max-w-md border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-xl">
         <DialogHeader className="pt-6 px-6 space-y-2">
           <DialogTitle className="text-2xl text-center font-bold text-zinc-900 dark:text-zinc-100">
-            {t("topic.edit")}
+            {tr("topic.edit")}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="px-6 py-2 space-y-3">
-            {isConnected && !hasPermission && (
+            {!isConnected && (
+              <div className="flex items-start gap-x-2 p-3 rounded-lg bg-zinc-500/10 text-zinc-600 dark:text-zinc-300 text-xs border border-zinc-500/20">
+                <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{tr("topic.offline")}</span>
+              </div>
+            )}
+            {isConnected && !canEditTopic && (
               <div className="flex items-start gap-x-2 p-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs border border-amber-500/20">
                 <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>
-                  <strong>{t("topic.operatorRequired")}</strong> You are not listed as a channel operator (@). If topic mode (+t) is active, your topic update may be rejected by the IRC server.
-                </span>
+                <span>{tr("topic.locked")}</span>
               </div>
             )}
 
@@ -144,12 +124,12 @@ export const EditTopicModal = () => {
 
             <div>
               <label className="uppercase text-xs font-bold text-zinc-500 dark:text-zinc-400">
-                Channel topic for #{channel?.name}
+                {tr("topic.forChannel", { name: channel?.name })}
               </label>
               <Input
-                disabled={isLoading}
+                disabled={isLoading || !canEditTopic}
                 className="bg-zinc-100 dark:bg-zinc-800/60 border-0 focus-visible:ring-1 focus-visible:ring-indigo-500 text-zinc-800 dark:text-zinc-100 mt-2"
-                placeholder={t("topic.placeholder")}
+                placeholder={tr("topic.placeholder")}
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 autoFocus
@@ -165,14 +145,14 @@ export const EditTopicModal = () => {
               variant="ghost"
               className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white"
             >
-              Cancel
+              {tr("common.cancel")}
             </Button>
             <Button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !canEditTopic}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 shadow-sm"
             >
-              {t("topic.save")}
+              {tr("topic.save")}
             </Button>
           </DialogFooter>
         </form>

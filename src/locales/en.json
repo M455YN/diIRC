@@ -492,7 +492,23 @@
       "attachSystem": "Attach files (System dialog)",
       "connectingTo": "Connecting to {{server}}...",
       "disconnectedFrom": "Disconnected from {{server}}",
-      "messageTo": "Message {{target}}"
+      "messageTo": "Message {{target}}",
+      "commandsMatching": "Commands matching {{query}}",
+      "membersMatching": "Members matching \"{{query}}\"",
+      "membersInChannel": "Members in channel"
+    },
+    "modes": {
+      "unknown": "Channel modes not known yet",
+      "none": "No channel modes set",
+      "n": "no external messages",
+      "t": "topic locked to operators",
+      "m": "moderated",
+      "i": "invite only",
+      "s": "secret",
+      "p": "private",
+      "k": "channel key",
+      "l": "user limit",
+      "r": "registered users only"
     }
   },
   "server": {
@@ -621,7 +637,10 @@
     "edit": "Edit channel topic",
     "operatorRequired": "Operator required:",
     "placeholder": "Set a topic for this channel...",
-    "save": "Save topic"
+    "save": "Save topic",
+    "locked": "Topic is locked (+t): only channel operators can change it.",
+    "forChannel": "Channel topic for #{{name}}",
+    "offline": "You are not connected to the server. The topic can only be changed while connected."
   },
   "update": {
     "newVersion": "New version available",
@@ -668,7 +687,8 @@
   },
   "common": {
     "back": "Back",
-    "close": "Close"
+    "close": "Close",
+    "cancel": "Cancel"
   },
   "ctx": {
     "away": "Away",
@@ -1093,5 +1113,24 @@
     "voiced": "Voiced",
     "users": "Users",
     "away": "Away"
+  },
+  "cmd": {
+    "sendsMessage": "Sends: {{message}}",
+    "sendsPresets": "Sends: {{message}} · {{presets}}",
+    "desc": {
+      "me": "Sends an action message",
+      "join": "Joins a channel: /join #channel [password]",
+      "invite": "Invites a user to a channel: /invite <nickname> [#channel]",
+      "mode": "Sets or queries channel modes: /mode [#channel] [flags] [params]",
+      "op": "Gives channel operator status to a user: /op [#channel] <nick...>",
+      "deop": "Removes channel operator status from a user: /deop [#channel] <nick...>",
+      "voice": "Gives voice status to a user: /voice [#channel] <nick...>",
+      "devoice": "Removes voice status from a user: /devoice [#channel] <nick...>",
+      "query": "Opens a private message conversation: /query [nickname] [message]",
+      "code": "Sends code wrapped in a code block: /code [code]",
+      "motd": "Displays the server's Message of the Day (MOTD): /motd",
+      "away": "Sets away status or displays error if already away: /away [reason]",
+      "back": "Returns from away status: /back"
+    }
   }
 }

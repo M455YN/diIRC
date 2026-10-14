@@ -6,6 +6,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { UserHoverCard } from "@/components/user-hover-card";
 import { ActionTooltip } from "@/components/action-tooltip";
 import { ChatSearchInput } from "@/components/chat/search/chat-search-input";
+import { useMockStore } from "@/lib/mock-store";
 import { useUIStore } from "@/hooks/use-ui-store";
 import { useModal } from "@/hooks/use-modal-store";
 import { useChangelog } from "@/lib/changelog-service";
@@ -33,6 +34,18 @@ interface ChatHeaderProps {
   searchMembers?: { name: string; realname?: string }[];
 }
 
+const KNOWN_MODE_KEYS: Record<string, string> = {
+  n: "chat.modes.n",
+  t: "chat.modes.t",
+  m: "chat.modes.m",
+  i: "chat.modes.i",
+  s: "chat.modes.s",
+  p: "chat.modes.p",
+  k: "chat.modes.k",
+  l: "chat.modes.l",
+  r: "chat.modes.r",
+};
+
 export const ChatHeader = ({
   serverId,
   name,
@@ -44,7 +57,7 @@ export const ChatHeader = ({
   searchContext,
   searchMembers,
 }: ChatHeaderProps) => {
-  const { t } = useTranslation();
+  const { t: tr } = useTranslation();
   const { 
     showNavigationSidebar, 
     toggleNavigationSidebar, 
@@ -57,8 +70,24 @@ export const ChatHeader = ({
   const { onOpen } = useModal();
   const { hasCurrentVersion } = useChangelog();
 
+  const isServerConnected = useMockStore((state) => !!(server?.id && state.ircConnectedServers[server.id]));
+  const channelModeFlags = useMockStore((state) => (channel?.id ? state.channelModes[channel.id] : undefined));
+
+  // Hover text for the channel name: the modes the server reported for this channel.
+  const modesTooltip = (() => {
+    if (channelModeFlags === undefined) return tr("chat.modes.unknown");
+    if (channelModeFlags.length === 0) return tr("chat.modes.none");
+    const letters = [...channelModeFlags].sort().join("");
+    const described = channelModeFlags
+      .slice()
+      .sort()
+      .map((f) => (KNOWN_MODE_KEYS[f] ? tr(KNOWN_MODE_KEYS[f]) : f))
+      .join(", ");
+    return `+${letters}: ${described}`;
+  })();
+
   const handleEditTopic = () => {
-    if (server && channel) {
+    if (server && channel && isServerConnected) {
       onOpen("editTopic", { server, channel });
     }
   };
@@ -94,7 +123,7 @@ export const ChatHeader = ({
       
       <ActionTooltip 
         side="bottom" 
-        label={showNavigationSidebar ? t("chat.header.hideServerList") : t("chat.header.showServerList")}
+        label={showNavigationSidebar ? tr("chat.header.hideServerList") : tr("chat.header.showServerList")}
       >
         <button
           onClick={toggleNavigationSidebar}
@@ -109,7 +138,7 @@ export const ChatHeader = ({
 
       <ActionTooltip 
         side="bottom" 
-        label={showServerSidebar ? t("chat.header.hideChannelList") : t("chat.header.showChannelList")}
+        label={showServerSidebar ? tr("chat.header.hideChannelList") : tr("chat.header.showChannelList")}
       >
         <button
           onClick={toggleServerSidebar}
@@ -125,9 +154,11 @@ export const ChatHeader = ({
       {type === "channel" && (
         <>
           <Hash className="w-5 h-5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-          <p className="font-semibold text-md text-black dark:text-white shrink-0">
-            {name}
-          </p>
+          <ActionTooltip side="bottom" label={modesTooltip}>
+            <p className="font-semibold text-md text-black dark:text-white shrink-0 cursor-default">
+              {name}
+            </p>
+          </ActionTooltip>
         </>
       )}
 
@@ -151,13 +182,14 @@ export const ChatHeader = ({
                 onClick={handleEditTopic}
                 className="text-xs text-zinc-400 dark:text-zinc-500 font-normal italic cursor-pointer hover:text-zinc-600 dark:hover:text-zinc-300 transition"
               >
-                {t("chat.header.noTopic")}
+                {tr("chat.header.noTopic")}
               </span>
             )}
             
-            <ActionTooltip side="bottom" label={t("chat.header.editTopic")}>
+            <ActionTooltip side="bottom" label={tr("chat.header.editTopic")}>
               <button
                 onClick={handleEditTopic}
+                disabled={!isServerConnected}
                 className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-zinc-200/60 dark:hover:bg-zinc-700/50 transition text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 shrink-0"
               >
                 <Edit3 className="w-3.5 h-3.5" />
@@ -168,16 +200,16 @@ export const ChatHeader = ({
       )}
 
       <div className="ml-auto flex items-center gap-x-3 shrink-0">
-        <ActionTooltip side="bottom" label={t("chat.header.bookmarks")}>
+        <ActionTooltip side="bottom" label={tr("chat.header.bookmarks")}>
           <button
             onClick={() => onOpen("bookmarks")}
-            aria-label={t("chat.header.bookmarks")}
+            aria-label={tr("chat.header.bookmarks")}
             className="h-7 w-7 rounded-lg flex items-center justify-center text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800 transition"
           >
             <Bookmark className="w-4 h-4" />
           </button>
         </ActionTooltip>
-        <ActionTooltip side="bottom" label={t("chat.header.changelog")}>
+        <ActionTooltip side="bottom" label={tr("chat.header.changelog")}>
           <button
             onClick={() => onOpen("changelog")}
             className={cn(
@@ -188,7 +220,7 @@ export const ChatHeader = ({
             )}
           >
             <History className="w-3.5 h-3.5" />
-            <span>{t("chat.header.changelog")}</span>
+            <span>{tr("chat.header.changelog")}</span>
           </button>
         </ActionTooltip>
 
@@ -200,7 +232,7 @@ export const ChatHeader = ({
 
         <ActionTooltip
           side="bottom" 
-          label={showMembersSidebar ? t("chat.header.hideUserList") : t("chat.header.showUserList")}
+          label={showMembersSidebar ? tr("chat.header.hideUserList") : tr("chat.header.showUserList")}
         >
           <button
             onClick={toggleMembersSidebar}

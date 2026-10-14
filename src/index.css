@@ -734,6 +734,19 @@ html[data-style="fluent"][data-material]:not(.dark):not(.oled) .bg-zinc-50 {
   background-color: rgba(251, 251, 251, 0.6);
 }
 
+/* Suggestion popups (commands, members) must stay readable: keep them almost opaque over any material. */
+html[data-style="fluent"][data-material].dark .popover-surface {
+  background-color: rgba(44, 44, 44, 0.94) !important;
+}
+
+html[data-style="fluent"][data-material]:not(.dark):not(.oled) .popover-surface {
+  background-color: rgba(252, 252, 252, 0.94) !important;
+}
+
+html[data-style="fluent"][data-material].oled .popover-surface {
+  background-color: rgba(10, 10, 10, 0.96) !important;
+}
+
 /* OLED: keep true black but let Mica show through lightly */
 html[data-style="fluent"][data-material].oled :is(
   .bg-\[\#313338\], .dark\:bg-\[\#313338\],
