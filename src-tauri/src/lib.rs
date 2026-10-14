@@ -1952,6 +1952,18 @@ async fn connect_irc(
                         },
                         Command::PRIVMSG(ref channel, ref raw_content) | Command::NOTICE(ref channel, ref raw_content) => {
                             let mut content = raw_content.clone();
+                            // CTCP VERSION from another user: answer it and keep the request out of the chat.
+                            if matches!(message.command, Command::PRIVMSG(..)) && raw_content.trim_matches('\u{1}') == "VERSION" {
+                                if let Some(Prefix::Nickname(nick, _, _)) = message.prefix.as_ref() {
+                                    if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
+                                        let _ = sender.send(Command::NOTICE(
+                                            nick.clone(),
+                                            format!("\u{1}VERSION Luna IRC {}\u{1}", env!("CARGO_PKG_VERSION")),
+                                        ));
+                                    }
+                                }
+                                continue;
+                            }
                             let (msgid, reply_to_msgid) = extract_reply_tags(&message.tags);
                             if let Some(edit_of) = irc_tag_value(&message.tags, &["draft/edit"]) {
                                 let edit_sender = match message.prefix.as_ref() {
