@@ -1,3 +1,4 @@
+import { translateAwayReason } from "@/lib/system-message-i18n";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Channel, Member, Server } from "@/types";
@@ -208,7 +209,7 @@ export const ChatMembersSidebar = ({
       ? awayReasonsMap[server.id]?.[ourNick.toLowerCase()] || awayReasonsMap[server.id]?.[memberNickLower]
       : awayReasonsMap[server.id]?.[memberNickLower];
     // "Away" is the generic default sent when no reason was given; it adds nothing to show.
-    const awayReason = rawAwayReason && rawAwayReason.trim().toLowerCase() !== "away" ? rawAwayReason : undefined;
+    const awayReason = rawAwayReason && rawAwayReason.trim().toLowerCase() !== "away" ? translateAwayReason(rawAwayReason) : undefined;
 
     return (
       <UserHoverCard member={member} server={server} channel={channel} side="left">

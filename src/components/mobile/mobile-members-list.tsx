@@ -1,3 +1,4 @@
+import { translateAwayReason } from "@/lib/system-message-i18n";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import Box from "@mui/material/Box";
@@ -46,7 +47,7 @@ const MemberItem = ({
 }) => {
   const { t: tr } = useTranslation();
   const t = useM3();
-  const visibleReason = row.awayReason && row.awayReason.trim().toLowerCase() !== "away" ? row.awayReason : undefined;
+  const visibleReason = row.awayReason && row.awayReason.trim().toLowerCase() !== "away" ? translateAwayReason(row.awayReason) : undefined;
   const supporting = row.isAway
     ? visibleReason
       ? `${tr("mi.away")}: ${visibleReason}`

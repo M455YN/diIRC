@@ -72,6 +72,19 @@ struct IrcNickChangeEvent {
 }
 
 #[derive(Serialize, Clone)]
+struct IrcListServerEvent {
+    server_id: String,
+}
+
+#[derive(Serialize, Clone)]
+struct IrcListItemEvent {
+    server_id: String,
+    channel: String,
+    users: u32,
+    topic: String,
+}
+
+#[derive(Serialize, Clone)]
 struct IrcTopicEvent {
     server_id: String,
     channel: String,
@@ -2307,6 +2320,25 @@ async fn connect_irc(
                                 }
                             }
                         }
+                        Command::Response(Response::RPL_LISTSTART, _) => {
+                            let _ = app_clone.emit("irc_list_start", IrcListServerEvent { server_id: stream_server_id.clone() });
+                        }
+                        Command::Response(Response::RPL_LIST, ref args) => {
+                            // 322: <me> <channel> <visible users> :<topic>
+                            if args.len() >= 3 {
+                                let users = args[2].trim().parse::<u32>().unwrap_or(0);
+                                let topic = args.get(3).cloned().unwrap_or_default();
+                                let _ = app_clone.emit("irc_list_item", IrcListItemEvent {
+                                    server_id: stream_server_id.clone(),
+                                    channel: args[1].clone(),
+                                    users,
+                                    topic,
+                                });
+                            }
+                        }
+                        Command::Response(Response::RPL_LISTEND, _) => {
+                            let _ = app_clone.emit("irc_list_end", IrcListServerEvent { server_id: stream_server_id.clone() });
+                        }
                         Command::Response(Response::RPL_NAMREPLY, ref args) => {
                             if args.len() >= 4 {
                                 let channel = args[2].to_lowercase();
@@ -4117,6 +4149,15 @@ async fn part_channel(
 }
 
 #[tauri::command]
+async fn request_channel_list(state: State<'_, IrcState>, server_id: String) -> Result<(), String> {
+    let senders = state.senders.lock().await;
+    let sender = senders.get(&server_id).ok_or_else(|| "Not connected to this server".to_string())?;
+    sender
+        .send(Command::Raw("LIST".to_string(), vec![]))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn set_channel_topic(
     app: AppHandle,
     state: State<'_, IrcState>,
@@ -4693,6 +4734,7 @@ pub fn run() {
             join_channel,
             part_channel,
             set_channel_topic,
+            request_channel_list,
             set_channel_key,
             send_mode,
             send_invite,

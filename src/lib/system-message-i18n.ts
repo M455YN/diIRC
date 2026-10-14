@@ -29,3 +29,12 @@ export const translateSystemMessage = (content: string): string => {
   }
   return content;
 };
+
+/**
+ * Away reasons come from the server or bouncer. ZNC sends "Away (Auto away at HH:MM)" when it marks
+ * a user away automatically; show that in the interface language, other reasons unchanged.
+ */
+export const translateAwayReason = (reason: string): string => {
+  const match = reason.match(/^Away \(Auto away at (.+)\)$/);
+  return match ? i18n.t("away.autoAt", { time: match[1] }) : reason;
+};

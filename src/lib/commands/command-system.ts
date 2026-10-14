@@ -601,5 +601,12 @@ commandRegistry.register({
   },
 });
 
-
-
+commandRegistry.register({
+  name: "list",
+  description: "cmd.desc.list",
+  execute: async (_args: string, ctx: CommandContext) => {
+    const { useModalStore } = await import("@/hooks/use-modal-store");
+    useModalStore.getState().onOpen("channelList", { server: ctx.activeServer });
+    return true;
+  },
+});

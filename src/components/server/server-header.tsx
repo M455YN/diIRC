@@ -7,6 +7,7 @@ import {
   Trash,
   Unplug,
   Radio,
+  List as ListIcon,
 } from "lucide-react";
 
 import { 
@@ -60,6 +61,13 @@ export const ServerHeader = ({
         >
           {t("srv.joinChannel")}
           <PlusCircle className="h-4 w-4 ml-auto" />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => setTimeout(() => onOpen("channelList", { server }), 0)}
+          className="px-3 py-2 text-sm cursor-pointer"
+        >
+          {t("cl.title")}
+          <ListIcon className="h-4 w-4 ml-auto" />
         </DropdownMenuItem>
         {isIrcConnected ? (
           <DropdownMenuItem

@@ -44,7 +44,7 @@
       "slashAutocomplete": "Slash command autocomplete",
       "markdown": "Markdown rendering",
       "formattingPreview": "Message formatting preview",
-      "scrollOnReturn": "Scroll to new messages on return",
+      "scrollOnReturn": "Scroll to new messages on return and when opening a chat",
       "jumboji": "Enlarged emoji size (Jumboji)",
       "replyFormat": "Default reply format",
       "nickCompletion": "Nickname completion format",
@@ -130,8 +130,8 @@
       "markdown": "Markdown rendering",
       "formattingPreview": "Message formatting preview",
       "formattingPreviewDesc": "Show a live preview of bold, italic, underline, and strikethrough while composing messages.",
-      "scrollOnReturn": "Scroll to new messages on return",
-      "scrollOnReturnDesc": "When you come back to the app and the open chat has unread messages, jump straight to the first one.",
+      "scrollOnReturn": "Scroll to new messages on return and when opening a chat",
+      "scrollOnReturnDesc": "When you come back to the app or open a chat that has unread messages, jump straight to the first one.",
       "jumboji": "Enlarged emoji size (Jumboji)",
       "jumbojiDesc": "Adjust size for emoji-only messages. Set to 0 to disable enlarged emojis and display standard text font size.",
       "confirmLeave": "Confirm before leaving channel",
@@ -302,7 +302,7 @@
       "compactMode": "Compact mode",
       "groupByRole": "Group users by role",
       "markdown": "Markdown rendering",
-      "scrollOnReturn": "Scroll to new messages on return",
+      "scrollOnReturn": "Scroll to new messages on return and when opening a chat",
       "formattingPreview": "Formatting preview",
       "dateFormat": "Date format",
       "emojiSize": "Emoji size",
@@ -366,7 +366,7 @@
     "onlyOnError": "Only on error",
     "hidden": "Hidden",
     "markdownDesc": "Bold, italic, code, spoilers, and links",
-    "scrollDesc": "Jump to the first unread message when you return to the app",
+    "scrollDesc": "Jump to the first unread message when you return to the app or open a chat",
     "formattingDesc": "Live preview above the composer",
     "disabled": "Disabled",
     "small": "Small",
@@ -688,7 +688,8 @@
     "desc": "You are already set to away state.",
     "returnHint": "Click \"Back\" to return from away and become active again.",
     "back": "Back",
-    "backTooltip": "Return to active status"
+    "backTooltip": "Return to active status",
+    "autoAt": "Away (auto away at {{time}})"
   },
   "common": {
     "back": "Back",
@@ -1131,19 +1132,7 @@
     "sendsMessage": "Sends: {{message}}",
     "sendsPresets": "Sends: {{message}} · {{presets}}",
     "desc": {
-      "me": "Sends an action message",
-      "join": "Joins a channel: /join #channel [password]",
-      "invite": "Invites a user to a channel: /invite <nickname> [#channel]",
-      "mode": "Sets or queries channel modes: /mode [#channel] [flags] [params]",
-      "op": "Gives channel operator status to a user: /op [#channel] <nick...>",
-      "deop": "Removes channel operator status from a user: /deop [#channel] <nick...>",
-      "voice": "Gives voice status to a user: /voice [#channel] <nick...>",
-      "devoice": "Removes voice status from a user: /devoice [#channel] <nick...>",
-      "query": "Opens a private message conversation: /query [nickname] [message]",
-      "code": "Sends code wrapped in a code block: /code [code]",
-      "motd": "Displays the server's Message of the Day (MOTD): /motd",
-      "away": "Sets away status or displays error if already away: /away [reason]",
-      "back": "Returns from away status: /back"
+      "list": "Shows the server's channel list: /list"
     }
   },
   "cp": {
@@ -1224,5 +1213,19 @@
     "kicked": "{{target}} was kicked from {{channel}} by {{by}}",
     "mode": "{{nick}} set mode: {{channel}} {{modes}}",
     "nick": "{{old}} is now known as {{new}}"
+  },
+  "cl": {
+    "title": "Channel list",
+    "summary": "Displaying {{channels}} channels with {{users}} users in total.",
+    "loading": "Loading channel list…",
+    "notConnected": "Not connected to the server.",
+    "find": "Find channel or topic",
+    "minUsers": "Min. users",
+    "refresh": "Refresh",
+    "colChannel": "Channel",
+    "colUsers": "Users",
+    "colTopic": "Topic",
+    "join": "Join",
+    "empty": "No channels found."
   }
 }

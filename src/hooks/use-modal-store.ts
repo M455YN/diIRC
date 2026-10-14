@@ -26,7 +26,8 @@ export type ModalType =
   | "alreadyAway"
   | "changelog"
   | "bookmarks"
-  | "notes";
+  | "notes"
+  | "channelList";
 
 interface ModalData {
   server?: Server;

@@ -44,7 +44,7 @@
       "slashAutocomplete": "Podpowiedzi komend /",
       "markdown": "Renderowanie Markdown",
       "formattingPreview": "Podgląd formatowania wiadomości",
-      "scrollOnReturn": "Przewijaj do nowych wiadomości po powrocie",
+      "scrollOnReturn": "Przewijaj do nowych wiadomości po powrocie i otwarciu czatu",
       "jumboji": "Powiększony rozmiar emoji (Jumboji)",
       "replyFormat": "Domyślny format odpowiedzi",
       "nickCompletion": "Format uzupełniania nicku",
@@ -130,8 +130,8 @@
       "markdown": "Renderowanie Markdown",
       "formattingPreview": "Podgląd formatowania wiadomości",
       "formattingPreviewDesc": "Pokazuj na żywo podgląd pogrubienia, kursywy, podkreślenia i przekreślenia podczas pisania.",
-      "scrollOnReturn": "Przewijaj do nowych wiadomości po powrocie",
-      "scrollOnReturnDesc": "Po powrocie do aplikacji, gdy otwarty czat ma nieprzeczytane wiadomości, przejdź od razu do pierwszej z nich.",
+      "scrollOnReturn": "Przewijaj do nowych wiadomości po powrocie i otwarciu czatu",
+      "scrollOnReturnDesc": "Po powrocie do aplikacji lub otwarciu czatu z nieprzeczytanymi wiadomościami przejdź od razu do pierwszej z nich.",
       "jumboji": "Powiększony rozmiar emoji (Jumboji)",
       "jumbojiDesc": "Ustaw rozmiar wiadomości złożonych tylko z emoji. Ustaw 0, aby wyłączyć powiększanie i użyć standardowego rozmiaru tekstu.",
       "confirmLeave": "Potwierdzaj wyjście z kanału",
@@ -302,7 +302,7 @@
       "compactMode": "Tryb kompaktowy",
       "groupByRole": "Grupuj użytkowników według roli",
       "markdown": "Renderowanie Markdown",
-      "scrollOnReturn": "Przewijaj do nowych wiadomości po powrocie",
+      "scrollOnReturn": "Przewijaj do nowych wiadomości po powrocie i otwarciu czatu",
       "formattingPreview": "Podgląd formatowania",
       "dateFormat": "Format daty",
       "emojiSize": "Rozmiar emoji",
@@ -366,7 +366,7 @@
     "onlyOnError": "Tylko przy błędzie",
     "hidden": "Ukryte",
     "markdownDesc": "Pogrubienie, kursywa, kod, spoilery i linki",
-    "scrollDesc": "Po powrocie do aplikacji przejdź do pierwszej nieprzeczytanej wiadomości",
+    "scrollDesc": "Po powrocie do aplikacji lub otwarciu czatu przejdź do pierwszej nieprzeczytanej wiadomości",
     "formattingDesc": "Podgląd na żywo nad polem pisania",
     "disabled": "Wyłączone",
     "small": "Mały",
@@ -688,7 +688,8 @@
     "desc": "Masz już ustawiony status nieobecności.",
     "returnHint": "Kliknij „Wróć”, aby wrócić z nieobecności i ponownie być aktywnym.",
     "back": "Wróć",
-    "backTooltip": "Wróć do obecności"
+    "backTooltip": "Wróć do obecności",
+    "autoAt": "Nieobecny (automatycznie od {{time}})"
   },
   "common": {
     "back": "Wstecz",
@@ -1137,19 +1138,7 @@
     "sendsMessage": "Wysyła: {{message}}",
     "sendsPresets": "Wysyła: {{message}} · {{presets}}",
     "desc": {
-      "me": "Wysyła wiadomość akcji",
-      "join": "Dołącza do kanału: /join #kanał [hasło]",
-      "invite": "Zaprasza użytkownika na kanał: /invite <nick> [#kanał]",
-      "mode": "Ustawia lub odczytuje tryby kanału: /mode [#kanał] [flagi] [parametry]",
-      "op": "Nadaje operatora kanału użytkownikowi: /op [#kanał] <nick...>",
-      "deop": "Odbiera operatora kanału użytkownikowi: /deop [#kanał] <nick...>",
-      "voice": "Nadaje voice użytkownikowi: /voice [#kanał] <nick...>",
-      "devoice": "Odbiera voice użytkownikowi: /devoice [#kanał] <nick...>",
-      "query": "Otwiera rozmowę prywatną: /query [nick] [wiadomość]",
-      "code": "Wysyła kod w bloku kodu: /code [kod]",
-      "motd": "Wyświetla wiadomość dnia serwera (MOTD): /motd",
-      "away": "Ustawia status nieobecności lub pokazuje błąd, jeśli już jesteś nieobecny: /away [powód]",
-      "back": "Wraca ze statusu nieobecności: /back"
+      "list": "Pokazuje listę kanałów serwera: /list"
     }
   },
   "cp": {
@@ -1230,5 +1219,19 @@
     "kicked": "{{target}} został wyrzucony z {{channel}} przez {{by}}",
     "mode": "{{nick}} ustawia tryb: {{channel}} {{modes}}",
     "nick": "{{old}} jest teraz znany jako {{new}}"
+  },
+  "cl": {
+    "title": "Lista kanałów",
+    "summary": "Wyświetlono kanałów: {{channels}}, użytkowników łącznie: {{users}}.",
+    "loading": "Wczytywanie listy kanałów…",
+    "notConnected": "Brak połączenia z serwerem.",
+    "find": "Szukaj kanału lub tematu",
+    "minUsers": "Min. użytkowników",
+    "refresh": "Odśwież",
+    "colChannel": "Kanał",
+    "colUsers": "Użytkownicy",
+    "colTopic": "Temat",
+    "join": "Dołącz",
+    "empty": "Brak kanałów."
   }
 }
