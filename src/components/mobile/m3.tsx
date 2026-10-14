@@ -547,6 +547,7 @@ export const M3SelectDialog = ({
   onConfirm: (value: string) => void;
   onDismiss: () => void;
 }) => {
+  const { t: tr } = useTranslation();
   const t = useM3();
   const [draft, setDraft] = useState(value);
 
@@ -562,7 +563,7 @@ export const M3SelectDialog = ({
       actions={
         <>
           <M3Button variant="text" onClick={onDismiss}>
-            Cancel
+            {tr("common.cancel")}
           </M3Button>
           <M3Button variant="text" onClick={() => onConfirm(draft)}>
             OK

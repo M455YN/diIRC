@@ -204,9 +204,11 @@ export const ChatMembersSidebar = ({
 
     const memberNickLower = member.profile.name.toLowerCase();
     const isAway = isMemberAway(member, isSelf);
-    const awayReason = isSelf
+    const rawAwayReason = isSelf
       ? awayReasonsMap[server.id]?.[ourNick.toLowerCase()] || awayReasonsMap[server.id]?.[memberNickLower]
       : awayReasonsMap[server.id]?.[memberNickLower];
+    // "Away" is the generic default sent when no reason was given; it adds nothing to show.
+    const awayReason = rawAwayReason && rawAwayReason.trim().toLowerCase() !== "away" ? rawAwayReason : undefined;
 
     return (
       <UserHoverCard member={member} server={server} channel={channel} side="left">
@@ -221,7 +223,7 @@ export const ChatMembersSidebar = ({
               className="h-8 w-8 md:h-8 md:w-8"
             />
             {isAway && (
-              <ActionTooltip label={awayReason ? `Away: ${awayReason}` : tr("chat.members.away")} side="left">
+              <ActionTooltip label={awayReason ? `${tr("chat.members.away")}: ${awayReason}` : tr("chat.members.away")} side="left">
                 <span 
                   className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-yellow-500 dark:bg-yellow-400 rounded-full ring-2 ring-[#F2F3F5] dark:ring-[#2B2D31] cursor-pointer"
                 />
@@ -232,6 +234,11 @@ export const ChatMembersSidebar = ({
             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate">
               {displayName}
             </p>
+            {isAway && (
+              <p className="text-[11px] leading-tight text-yellow-600 dark:text-yellow-400 truncate">
+                {awayReason ? `${tr("chat.members.away")}: ${awayReason}` : tr("chat.members.away")}
+              </p>
+            )}
           </div>
           {showRoleIcon && highestRole && (
             <UserRoleIcon role={highestRole} showTooltip={false} className="ml-auto" />

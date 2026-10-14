@@ -122,7 +122,7 @@ export const PrivateMessagesModal = () => {
                 disabled={isLoading}
                 className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white text-xs font-semibold"
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 type="submit"

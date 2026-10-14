@@ -194,7 +194,7 @@ export const JoinChannelPasswordModal = () => {
               onClick={handleClose}
               disabled={isLoading}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               type="submit"

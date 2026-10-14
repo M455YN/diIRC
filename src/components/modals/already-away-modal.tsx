@@ -9,6 +9,7 @@ import {
 import { useModal } from "@/hooks/use-modal-store";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ActionTooltip } from "@/components/action-tooltip";
 import { useMockStore, getServerActiveNick } from "@/lib/mock-store";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -50,15 +51,17 @@ export const AlreadyAwayModal = () => {
 
         <div className="bg-gray-100 dark:bg-zinc-900/50 p-6 flex flex-col gap-y-4">
           <div className="text-sm text-zinc-500 dark:text-zinc-400 text-center">
-            Clicking <b>{t("common.back")}</b> will return you from the away state, making you active again.
+            {t("away.returnHint")}
           </div>
           <div className="flex gap-x-4">
             <Button onClick={onClose} variant="ghost" className="w-full">
-              Ok
+              {t("common.ok")}
             </Button>
-            <Button onClick={handleReturnFromAway} variant="primary" className="w-full">
-              {t("common.back")}
-            </Button>
+            <ActionTooltip label={t("away.backTooltip")} side="top">
+              <Button onClick={handleReturnFromAway} variant="default" className="w-full">
+                {t("away.back")}
+              </Button>
+            </ActionTooltip>
           </div>
         </div>
       </DialogContent>

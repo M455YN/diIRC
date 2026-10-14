@@ -172,7 +172,9 @@
         "spoiler": "spoiler",
         "undo": "cofnij",
         "redo": "ponów"
-      }
+      },
+      "interactiveCommands": "Interaktywne panele komend",
+      "interactiveCommandsDesc": "Wybranie /mode, /op, /deop, /voice lub /devoice z podpowiedzi otwiera mały panel zamiast wstawiać tekst."
     },
     "previews": {
       "linkPreviews": "Podglądy linków (osadzenia)",
@@ -683,12 +685,16 @@
   },
   "away": {
     "title": "Już jesteś nieobecny",
-    "desc": "Masz już ustawiony status nieobecności."
+    "desc": "Masz już ustawiony status nieobecności.",
+    "returnHint": "Kliknij „Wróć”, aby wrócić z nieobecności i ponownie być aktywnym.",
+    "back": "Wróć",
+    "backTooltip": "Wróć do obecności"
   },
   "common": {
     "back": "Wstecz",
     "close": "Zamknij",
-    "cancel": "Anuluj"
+    "cancel": "Anuluj",
+    "ok": "OK"
   },
   "ctx": {
     "away": "Nieobecny",
@@ -1134,5 +1140,48 @@
       "away": "Ustawia status nieobecności lub pokazuje błąd, jeśli już jesteś nieobecny: /away [powód]",
       "back": "Wraca ze statusu nieobecności: /back"
     }
+  },
+  "cp": {
+    "title": {
+      "mode": "Ustaw tryby kanału",
+      "op": "Nadaj operatora",
+      "deop": "Odbierz operatora",
+      "voice": "Nadaj voice",
+      "devoice": "Odbierz voice",
+      "invite": "Zaproś na kanał",
+      "query": "Otwórz rozmowę prywatną",
+      "away": "Ustaw status nieobecności",
+      "join": "Dołącz do kanału"
+    },
+    "notConnected": "Brak połączenia z serwerem.",
+    "notOp": "Do tego potrzebujesz uprawnień operatora kanału.",
+    "close": "Zamknij",
+    "send": "Wyślij",
+    "preview": "Podgląd komendy",
+    "noChanges": "Brak zmian",
+    "keyLabel": "Klucz kanału",
+    "limitLabel": "Limit użytkowników",
+    "keyNeeded": "Podaj aktualny klucz, aby go usunąć.",
+    "searchMembers": "Szukaj członków",
+    "noMembers": "Brak członków do pokazania",
+    "away": {
+      "brb": "Zaraz wracam",
+      "lunch": "Obiad",
+      "afk": "Poza komputerem",
+      "current": "Jesteś nieobecny.",
+      "back": "Wróć",
+      "reason": "Powód (opcjonalnie)",
+      "set": "Ustaw"
+    },
+    "join": {
+      "channel": "Nazwa kanału",
+      "password": "Hasło (opcjonalnie)",
+      "submit": "Dołącz",
+      "recent": "Ostatnio",
+      "invalid": "Nazwa kanału i hasło nie mogą zawierać spacji."
+    }
+  },
+  "dc": {
+    "leaveQuestion": "Czy na pewno chcesz opuścić"
   }
 }

@@ -165,6 +165,8 @@ export const SettingsModal = () => {
   const setConfirmLeaveChannel = useMockStore((state) => state.setConfirmLeaveChannel);
 
   const enableCommandSuggestions = useMockStore((state) => state.enableCommandSuggestions ?? true);
+  const interactiveCommands = useMockStore((state) => state.interactiveCommands ?? true);
+  const setInteractiveCommands = useMockStore((state) => state.setInteractiveCommands);
   const setEnableCommandSuggestions = useMockStore((state) => state.setEnableCommandSuggestions);
 
   const enableLinkPreviews = useMockStore((state) => state.enableLinkPreviews);
@@ -857,6 +859,24 @@ export const SettingsModal = () => {
                 <Switch
                   checked={enableCommandSuggestions}
                   onCheckedChange={(checked) => setEnableCommandSuggestions(checked)}
+                />
+              </div>
+              {/* Interactive command panels (/mode, /op, /deop, /voice, /devoice) */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <Command className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      {t("settings.chat.interactiveCommands")}
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    {t("settings.chat.interactiveCommandsDesc")}
+                  </p>
+                </div>
+                <Switch
+                  checked={interactiveCommands}
+                  onCheckedChange={(checked) => setInteractiveCommands(checked)}
                 />
               </div>
               {/* Default Reply Format */}

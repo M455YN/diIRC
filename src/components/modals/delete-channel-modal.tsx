@@ -51,7 +51,7 @@ export const DeleteChannelModal = () => {
             {tr("rest.leaveChannel")}
           </DialogTitle>
           <DialogDescription className="text-center text-zinc-500 dark:text-zinc-400">
-            Are you sure you want to leave <span className="text-indigo-600 dark:text-indigo-400 font-semibold">#{channel?.name}</span>? <br />
+            {tr("dc.leaveQuestion")} <span className="text-indigo-600 dark:text-indigo-400 font-semibold">#{channel?.name}</span>? <br />
             {tr("rest.leaveChannelDesc")}
           </DialogDescription>
         </DialogHeader>
@@ -62,7 +62,7 @@ export const DeleteChannelModal = () => {
             variant="ghost"
             className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white"
           >
-            Cancel
+            {tr("common.cancel")}
           </Button>
           <Button
             disabled={isLoading}

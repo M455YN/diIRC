@@ -8,7 +8,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { readImage } from "@tauri-apps/plugin-clipboard-manager";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import {
   Form,
@@ -45,6 +45,7 @@ import { toggleMarkdownWrap, hasMarkdownSyntax, isMarkdownFormatActive, wrapCode
 import { MarkdownRenderer } from "@/lib/markdown/markdown-renderer";
 import { ActionTooltip } from "@/components/action-tooltip";
 import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { CommandPanel, panelNeedsChannel, type PanelCommand } from "@/components/chat/command-panel";
 
 const MARKDOWN_FORMATS = [
   { id: "bold", icon: Bold, before: "**", after: "**", label: "chat.input.bold", shortcut: "b", shift: false },
@@ -695,10 +696,39 @@ export const ChatInput = ({
     autoResize,
   ]);
 
+  // Channel commands that get an interactive panel when picked from the suggestions.
+  const interactiveCommands = useMockStore((state) => state.interactiveCommands ?? true);
+  const [commandPanel, setCommandPanel] = useState<PanelCommand | null>(null);
+  const PANEL_COMMANDS: string[] = ["mode", "op", "deop", "voice", "devoice", "invite", "query", "away", "join"];
+
+  // A panel belongs to one channel; leave with the channel (any route change closes it too).
+  const routeLocation = useLocation();
+  useEffect(() => {
+    setCommandPanel(null);
+    setShowCommands(false);
+  }, [activeId, routeLocation.key]);
+
   const onCommandSelect = (insert: string) => {
+    const name = insert.trim().replace(/^\//, "").split(/\s/)[0].toLowerCase();
+    const pickedChannel =
+      type === "channel" && activeServer && activeId ? activeServer.channels.find((c) => c.id === activeId) : undefined;
+    const panelReady = PANEL_COMMANDS.includes(name) && (panelNeedsChannel(name as PanelCommand) ? !!pickedChannel : !!activeServer);
+    if (interactiveCommands && panelReady) {
+      form.setValue("content", "");
+      setShowCommands(false);
+      setCommandPanel(name as PanelCommand);
+      return;
+    }
     form.setValue("content", insert);
     form.setFocus("content");
     setShowCommands(false);
+  };
+
+  // The panel sends through the normal submit path, so validation and command handling stay in one place.
+  const sendPanelCommand = (text: string) => {
+    setCommandPanel(null);
+    form.setValue("content", text);
+    form.handleSubmit(onSubmit)();
   };
 
   const [showNickMenu, setShowNickMenu] = useState(false);
@@ -1769,6 +1799,20 @@ export const ChatInput = ({
                     </div>
                   )}
 
+                  {commandPanel && activeServer && (() => {
+                    const panelChannel = activeId ? activeServer.channels.find((c) => c.id === activeId) : undefined;
+                    if (panelNeedsChannel(commandPanel) && !panelChannel) return null;
+                    return (
+                      <CommandPanel
+                        command={commandPanel}
+                        serverId={activeServer.id}
+                        channelId={panelChannel?.id ?? ""}
+                        channelName={panelChannel ? (panelChannel.name.startsWith("#") ? panelChannel.name : `#${panelChannel.name}`) : ""}
+                        onSend={sendPanelCommand}
+                        onClose={() => setCommandPanel(null)}
+                      />
+                    );
+                  })()}
                   {showNickMenu && nickSuggestions.length > 0 && (
                     <div className="popover-surface absolute bottom-full left-4 mb-2 w-[28rem] max-w-[calc(100vw-2rem)] bg-white dark:bg-[#2b2d31] border border-zinc-200 dark:border-zinc-800 rounded-md shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
                       <div className="px-3 py-2 text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider bg-zinc-50 dark:bg-[#232428] border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">

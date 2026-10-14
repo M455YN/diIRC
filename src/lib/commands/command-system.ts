@@ -561,11 +561,11 @@ commandRegistry.register({
       return true;
     }
 
-    const reason = args.trim() || "Away";
+    const reason = args.trim();
     try {
       await invoke("send_away", {
         serverId: ctx.serverId,
-        reason: reason,
+        reason: reason || "Away",
       });
     } catch (err) {
       console.error("Failed to send /away via Tauri IRC:", err);

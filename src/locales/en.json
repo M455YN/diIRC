@@ -172,7 +172,9 @@
         "spoiler": "spoiler",
         "undo": "undo",
         "redo": "redo"
-      }
+      },
+      "interactiveCommands": "Interactive command panels",
+      "interactiveCommandsDesc": "Choosing /mode, /op, /deop, /voice or /devoice from the suggestions opens a small panel instead of inserting text."
     },
     "previews": {
       "linkPreviews": "Link previews (embeds)",
@@ -683,12 +685,16 @@
   },
   "away": {
     "title": "Already away",
-    "desc": "You are already set to away state."
+    "desc": "You are already set to away state.",
+    "returnHint": "Click \"Back\" to return from away and become active again.",
+    "back": "Back",
+    "backTooltip": "Return to active status"
   },
   "common": {
     "back": "Back",
     "close": "Close",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "ok": "OK"
   },
   "ctx": {
     "away": "Away",
@@ -1132,5 +1138,48 @@
       "away": "Sets away status or displays error if already away: /away [reason]",
       "back": "Returns from away status: /back"
     }
+  },
+  "cp": {
+    "title": {
+      "mode": "Set channel modes",
+      "op": "Give operator status",
+      "deop": "Remove operator status",
+      "voice": "Give voice",
+      "devoice": "Remove voice",
+      "invite": "Invite to channel",
+      "query": "Open private message",
+      "away": "Set away status",
+      "join": "Join channel"
+    },
+    "notConnected": "Not connected to the server.",
+    "notOp": "You need to be a channel operator to do this.",
+    "close": "Close",
+    "send": "Send",
+    "preview": "Command preview",
+    "noChanges": "No changes",
+    "keyLabel": "Channel key",
+    "limitLabel": "User limit",
+    "keyNeeded": "Enter the current key to remove it.",
+    "searchMembers": "Search members",
+    "noMembers": "No members to show",
+    "away": {
+      "brb": "Be right back",
+      "lunch": "Lunch",
+      "afk": "Away from keyboard",
+      "current": "You are away.",
+      "back": "Back",
+      "reason": "Reason (optional)",
+      "set": "Set"
+    },
+    "join": {
+      "channel": "Channel name",
+      "password": "Password (optional)",
+      "submit": "Join",
+      "recent": "Recent",
+      "invalid": "Channel name and password cannot contain spaces."
+    }
+  },
+  "dc": {
+    "leaveQuestion": "Are you sure you want to leave"
   }
 }

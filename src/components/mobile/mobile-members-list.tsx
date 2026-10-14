@@ -46,9 +46,10 @@ const MemberItem = ({
 }) => {
   const { t: tr } = useTranslation();
   const t = useM3();
+  const visibleReason = row.awayReason && row.awayReason.trim().toLowerCase() !== "away" ? row.awayReason : undefined;
   const supporting = row.isAway
-    ? row.awayReason
-      ? `Away: ${row.awayReason}`
+    ? visibleReason
+      ? `${tr("mi.away")}: ${visibleReason}`
       : tr("mi.away")
     : row.isSelf
       ? tr("mi.you")

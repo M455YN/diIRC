@@ -475,6 +475,7 @@ interface MockState {
   scrollToUnreadOnFocus: boolean;
   confirmLeaveChannel: boolean;
   enableCommandSuggestions: boolean;
+  interactiveCommands: boolean;
   enableLinkPreviews: boolean;
   enableMotdMediaPreviews: boolean;
   enableWebPagePreviews: boolean;
@@ -557,6 +558,7 @@ interface MockState {
   setScrollToUnreadOnFocus: (enabled: boolean) => void;
   setConfirmLeaveChannel: (enabled: boolean) => void;
   setEnableCommandSuggestions: (enabled: boolean) => void;
+  setInteractiveCommands: (enabled: boolean) => void;
   setEnableLinkPreviews: (enabled: boolean) => void;
   setEnableMotdMediaPreviews: (enabled: boolean) => void;
   setEnableWebPagePreviews: (enabled: boolean) => void;
@@ -708,6 +710,7 @@ export const useMockStore = create<MockState>()(
       scrollToUnreadOnFocus: false,
       confirmLeaveChannel: true,
       enableCommandSuggestions: true,
+      interactiveCommands: true,
       enableLinkPreviews: true,
       enableMotdMediaPreviews: false,
       enableWebPagePreviews: true,
@@ -1170,6 +1173,7 @@ export const useMockStore = create<MockState>()(
       setScrollToUnreadOnFocus: (enabled: boolean) => set({ scrollToUnreadOnFocus: enabled }),
       setConfirmLeaveChannel: (enabled: boolean) => set({ confirmLeaveChannel: enabled }),
       setEnableCommandSuggestions: (enabled: boolean) => set({ enableCommandSuggestions: enabled }),
+      setInteractiveCommands: (enabled: boolean) => set({ interactiveCommands: enabled }),
       setEnableLinkPreviews: (enabled: boolean) => set({ enableLinkPreviews: enabled }),
       setEnableMotdMediaPreviews: (enabled: boolean) => set({ enableMotdMediaPreviews: enabled }),
       setEnableWebPagePreviews: (enabled: boolean) => set({ enableWebPagePreviews: enabled }),

@@ -177,7 +177,7 @@ const DesktopCreateChannelModal = () => {
                 disabled={isLoading}
                 className="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white"
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button variant="primary" disabled={isLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 shadow-sm">
                 Join
