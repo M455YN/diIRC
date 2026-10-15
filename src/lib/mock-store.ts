@@ -481,6 +481,7 @@ interface MockState {
   enableLinkPreviews: boolean;
   enableMotdMediaPreviews: boolean;
   enableWebPagePreviews: boolean;
+  blockLinkPreviewAds: boolean;
   linkPreviewApiUrl: string;
   uploadConfig: ImageUploadConfig;
   urlAuthRules: UrlAuthRule[];
@@ -569,6 +570,7 @@ interface MockState {
   setEnableLinkPreviews: (enabled: boolean) => void;
   setEnableMotdMediaPreviews: (enabled: boolean) => void;
   setEnableWebPagePreviews: (enabled: boolean) => void;
+  setBlockLinkPreviewAds: (enabled: boolean) => void;
   setLinkPreviewApiUrl: (url: string) => void;
   setUploadConfig: (config: ImageUploadConfig) => void;
   addUrlAuthRule: (rule: Omit<UrlAuthRule, "id">) => void;
@@ -724,6 +726,7 @@ export const useMockStore = create<MockState>()(
       enableLinkPreviews: true,
       enableMotdMediaPreviews: false,
       enableWebPagePreviews: true,
+      blockLinkPreviewAds: true,
       linkPreviewApiUrl: "https://api.microlink.io",
       uploadConfig: {
         provider: "litterbox",
@@ -1195,6 +1198,7 @@ export const useMockStore = create<MockState>()(
       setEnableLinkPreviews: (enabled: boolean) => set({ enableLinkPreviews: enabled }),
       setEnableMotdMediaPreviews: (enabled: boolean) => set({ enableMotdMediaPreviews: enabled }),
       setEnableWebPagePreviews: (enabled: boolean) => set({ enableWebPagePreviews: enabled }),
+      setBlockLinkPreviewAds: (enabled: boolean) => set({ blockLinkPreviewAds: enabled }),
       setLinkPreviewApiUrl: (url: string) => set({ linkPreviewApiUrl: url }),
       setUploadConfig: (config: ImageUploadConfig) => set({ uploadConfig: config }),
       addUrlAuthRule: (rule) =>

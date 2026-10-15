@@ -54,3 +54,6 @@ tauri-plugin-keep-alive = { path = "plugins/keep-alive" }
 # Windows 11 Mica / Acrylic window materials (Fluent style)
 [target.'cfg(windows)'.dependencies]
 window-vibrancy = "0.8"
+# Blocks requests in the link preview webview (WebView2 resource filter).
+webview2-com = "0.39.1"
+windows = "0.62"

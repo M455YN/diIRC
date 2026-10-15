@@ -4407,6 +4407,8 @@ async fn send_away(
 }
 
 /// Label of the native webview that shows a link inside the preview modal.
+mod ad_filter;
+
 const LINK_PREVIEW_LABEL: &str = "link-preview";
 
 /// Shows a chat link in a native child webview placed over the preview modal's content area.
@@ -4414,6 +4416,53 @@ const LINK_PREVIEW_LABEL: &str = "link-preview";
 /// The webview shows remote content: capabilities are scoped to the local `main` page so the remote
 /// page cannot call app commands, it is private (no shared cookies), and it may only navigate to
 /// http(s). Coordinates are logical pixels relative to the window's content area.
+/// Blocks requests the filter rules match inside the WebView2 link preview.
+#[cfg(windows)]
+unsafe fn install_ad_blocker(
+    controller: &webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller,
+    env: &webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Environment,
+    rules: std::sync::Arc<ad_filter::FilterRules>,
+) -> windows::core::Result<()> {
+    use webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL;
+    use webview2_com::{take_pwstr, WebResourceRequestedEventHandler};
+    use windows::core::{HSTRING, PWSTR};
+
+    let webview = controller.CoreWebView2()?;
+    webview.AddWebResourceRequestedFilter(&HSTRING::from("*"), COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL)?;
+    let env = env.clone();
+    let mut token: i64 = 0;
+    webview.add_WebResourceRequested(
+        &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
+            let Some(args) = args else {
+                return Ok(());
+            };
+            let mut uri = PWSTR::null();
+            args.Request()?.Uri(&mut uri)?;
+            if rules.blocks_url(&take_pwstr(uri)) {
+                let blocked = env.CreateWebResourceResponse(None, 403, &HSTRING::from("Blocked"), &HSTRING::from(""))?;
+                args.SetResponse(&blocked)?;
+            }
+            Ok(())
+        })),
+        &mut token,
+    )
+}
+
+/// Filter rules shared by every preview; the first use downloads or reads the cached lists.
+#[cfg(desktop)]
+static AD_RULES: tokio::sync::OnceCell<std::sync::Arc<ad_filter::FilterRules>> = tokio::sync::OnceCell::const_new();
+
+#[cfg(desktop)]
+async fn ad_rules(app: &AppHandle) -> std::sync::Arc<ad_filter::FilterRules> {
+    AD_RULES
+        .get_or_init(|| async {
+            let dir = app.path().app_cache_dir().unwrap_or_else(|_| std::env::temp_dir());
+            std::sync::Arc::new(ad_filter::load(&dir).await)
+        })
+        .await
+        .clone()
+}
+
 #[tauri::command]
 async fn link_preview_open(
     app: AppHandle,
@@ -4422,6 +4471,7 @@ async fn link_preview_open(
     y: f64,
     width: f64,
     height: f64,
+    block_ads: bool,
 ) -> Result<(), String> {
     #[cfg(desktop)]
     {
@@ -4446,12 +4496,28 @@ async fn link_preview_open(
         let window = app
             .get_window("main")
             .ok_or_else(|| "Main window not found".to_string())?;
-        let builder = WebviewBuilder::new(LINK_PREVIEW_LABEL, WebviewUrl::External(parsed))
+        let rules = if block_ads { Some(ad_rules(&app).await) } else { None };
+        let mut builder = WebviewBuilder::new(LINK_PREVIEW_LABEL, WebviewUrl::External(parsed))
             .incognito(true)
             .on_navigation(|target| matches!(target.scheme(), "http" | "https"));
+        if let Some(rules) = &rules {
+            builder = builder.initialization_script_for_all_frames(rules.hiding_script());
+        }
         window
             .add_child(builder, position, size)
             .map_err(|e| e.to_string())?;
+        #[cfg(windows)]
+        if let Some(rules) = rules {
+            if let Some(preview) = app.get_webview(LINK_PREVIEW_LABEL) {
+                preview
+                    .with_webview(move |wv| {
+                        if let Err(e) = unsafe { install_ad_blocker(&wv.controller(), &wv.environment(), rules) } {
+                            log::warn!("Could not enable the ad blocker for the link preview: {e}");
+                        }
+                    })
+                    .map_err(|e| e.to_string())?;
+            }
+        }
         Ok(())
     }
     #[cfg(not(desktop))]

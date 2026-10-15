@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Button } from "@/components/ui/button";
 import { useModal } from "@/hooks/use-modal-store";
 import { openExternalUrl } from "@/lib/system-utils";
+import { useMockStore } from "@/lib/mock-store";
 
 const hostOf = (url: string) => {
   try {
@@ -25,6 +26,7 @@ export const LinkPreviewModal = () => {
   const { isOpen, onClose, type, data } = useModal();
   const isModalOpen = isOpen && type === "linkPreview";
   const url = data?.url || "";
+  const blockAds = useMockStore((state) => state.blockLinkPreviewAds);
 
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const openedRef = useRef(false);
@@ -39,7 +41,7 @@ export const LinkPreviewModal = () => {
     try {
       if (!openedRef.current) {
         openedRef.current = true;
-        await invoke("link_preview_open", { url, ...args });
+        await invoke("link_preview_open", { url, ...args, blockAds });
       } else {
         await invoke("link_preview_bounds", args);
       }
@@ -48,7 +50,7 @@ export const LinkPreviewModal = () => {
       openedRef.current = false;
       setFailed(true);
     }
-  }, [url]);
+  }, [url, blockAds]);
 
   // Open the webview once the dialog is laid out, then follow it while it animates or the window resizes.
   useEffect(() => {

@@ -189,7 +189,9 @@
       "webMetadata": "Pobieraj metadane stron (API)",
       "webMetadataDesc": "Używaj API do pobierania tytułu, opisu i miniatur stron. Bezpośrednie obrazy nie korzystają z API.",
       "apiUrl": "Adres API podglądów",
-      "apiUrlDesc": "Adres API metadanych (open-source) do pobierania podglądów stron."
+      "apiUrlDesc": "Adres API metadanych (open-source) do pobierania podglądów stron.",
+      "blockAds": "Blokuj reklamy, trackery i banery cookie w podglądzie linków",
+      "blockAdsDesc": "Korzysta z filtrów EasyList, pobieranych raz w tygodniu. Blokada sieciowa działa na Windows; ukrywanie elementów działa wszędzie."
     },
     "uploads": {
       "provider": "Dostawca wysyłania obrazów",
@@ -845,7 +847,7 @@
     "installed": "Zainstalowana v{{version}}",
     "usersIn": "Użytkownicy w #{{channel}}",
     "notificationsHeading": "Powiadomienia",
-    "loadingNotes": "Wczytywanie notatek wydania...",
+    "loadingNotes": "Wczytywanie informacji o wydaniu…",
     "updateUpToDate": "Masz najnowszą wersję",
     "updateCheckFailed": "Nie udało się sprawdzić aktualizacji",
     "updateNow": "Zaktualizuj do v{{version}}",
@@ -867,7 +869,6 @@
     "online": "Online",
     "offline": "Offline",
     "connectionDetails": "Szczegóły połączenia",
-    "loadingNotes": "Wczytywanie informacji o wydaniu…",
     "notesFailed": "Nie udało się wczytać informacji o wydaniu",
     "tryAgain": "Spróbuj ponownie",
     "notesPending": "Informacje o tej wersji są w przygotowaniu",
@@ -1241,7 +1242,7 @@
     "saved": "Zapisano {{time}}",
     "delete": "Usuń notatkę",
     "pickOrCreate": "Wybierz notatkę albo utwórz nową.",
-    "back": "Wróć do listy",
+    "back": "Wróć do listy",
     "preview": "Podgląd (Markdown i HTML)",
     "edit": "Edytuj"
   },

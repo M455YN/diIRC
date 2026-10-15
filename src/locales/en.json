@@ -189,7 +189,9 @@
       "webMetadata": "Fetch web page metadata (API)",
       "webMetadataDesc": "Use API to fetch title, description, and thumbnails for web pages. Direct images don't use the API.",
       "apiUrl": "Preview API endpoint",
-      "apiUrlDesc": "Open-Source metadata API URL for fetching web page previews."
+      "apiUrlDesc": "Open-Source metadata API URL for fetching web page previews.",
+      "blockAds": "Block ads, trackers and cookie notices in link previews",
+      "blockAdsDesc": "Uses EasyList filters, downloaded once a week. Network blocking works on Windows; hiding elements works everywhere."
     },
     "uploads": {
       "provider": "Image upload provider",
@@ -845,7 +847,7 @@
     "installed": "Installed v{{version}}",
     "usersIn": "Users in #{{channel}}",
     "notificationsHeading": "Notifications",
-    "loadingNotes": "Loading release notes...",
+    "loadingNotes": "Loading release notes…",
     "updateUpToDate": "You are up to date",
     "updateCheckFailed": "Update check failed",
     "updateNow": "Update to v{{version}}",
@@ -867,7 +869,6 @@
     "online": "Online",
     "offline": "Offline",
     "connectionDetails": "Connection details",
-    "loadingNotes": "Loading release notes…",
     "notesFailed": "Unable to load release notes",
     "tryAgain": "Try again",
     "notesPending": "Notes for this version pending",
