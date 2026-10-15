@@ -14,12 +14,20 @@ import {
   normalizeCustomCommandsFromForm,
   parseCustomCommandsJson,
 } from "@/components/server/custom-commands-fields";
+import {
+  emptyFormCommand,
+  emptyFormStep,
+  toFormSteps,
+  type FormCommandRow,
+  type FormStep,
+} from "@/lib/commands/custom-command-steps";
 import type { NotificationSettingsValues } from "@/components/notifications/notification-settings-fields";
 import { MobileNotificationOverrides } from "@/components/mobile/mobile-notification-overrides";
 import { ServerLogoField } from "@/components/server/server-logo-field";
 import {
   M3Button,
   M3Card,
+  M3Chip,
   M3Dialog,
   M3FullScreenDialog,
   M3IconButton,
@@ -40,12 +48,13 @@ import type {
 
 type ServerReplyMode = "inherit" | ReplyMode;
 
-interface CommandRow {
-  trigger: string;
-  message: string;
-  description: string;
-  suggestions: string;
-}
+type CommandRow = FormCommandRow;
+
+const STEP_TYPES: { value: FormStep["type"]; label: string }[] = [
+  { value: "message", label: "cb.stepMessage" },
+  { value: "mention", label: "cb.stepMention" },
+  { value: "openUrl", label: "cb.stepOpenUrl" },
+];
 
 interface FormState {
   imageUrl: string;
@@ -107,6 +116,7 @@ const ServerFormBody = ({
   const t = useM3();
   const [showPassword, setShowPassword] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [openOptions, setOpenOptions] = useState<Set<number>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
 
   const globalNotif = useMockStore((s) => s.notificationSettings);
@@ -115,11 +125,20 @@ const ServerFormBody = ({
   const defaultReplyMode = useMockStore((s) => s.defaultReplyMode) || "auto";
   const setGlobalMotdPolicy = useMockStore((s) => s.setGlobalMotdPolicy);
 
-  const setCommand = (i: number, key: keyof CommandRow, value: string) =>
+  const setCommand = (i: number, key: "trigger" | "description" | "suggestions", value: string) =>
     set(
       "customCommands",
       form.customCommands.map((c, idx) => (idx === i ? { ...c, [key]: value } : c))
     );
+
+  const setSteps = (i: number, update: (steps: FormStep[]) => FormStep[]) =>
+    set(
+      "customCommands",
+      form.customCommands.map((c, idx) => (idx === i ? { ...c, steps: update(c.steps) } : c))
+    );
+
+  const patchStep = (i: number, stepIndex: number, patch: Partial<FormStep>) =>
+    setSteps(i, (steps) => steps.map((s, k) => (k === stepIndex ? { ...s, ...patch } : s)));
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -376,7 +395,7 @@ const ServerFormBody = ({
 
       <M3Subheader>{tr("mform.customCommands")}</M3Subheader>
       <Box sx={{ px: 0.5, pb: 1.5, fontSize: "0.875rem", lineHeight: "20px", color: t.onSurfaceVariant }}>
-        {tr("mform.commandsDesc")}
+        {tr("mform.commandsDesc")} {tr("cb.stepsHint")}
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
         {form.customCommands.map((c, i) => (
@@ -403,25 +422,95 @@ const ServerFormBody = ({
                   }
                 />
               </Box>
-              <M3TextField
-                label={tr("mform.sendsAs")}
-                value={c.message}
-                onChange={(v) => setCommand(i, "message", v)}
-                placeholder={tr("mform.sendsAsPlaceholder")}
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                {c.steps.map((step, k) => (
+                  <Box key={k} sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box sx={{ flex: 1, fontSize: "0.75rem", fontWeight: 500, color: t.onSurfaceVariant }}>
+                        {k + 1}. {tr(STEP_TYPES.find((o) => o.value === step.type)?.label ?? "cb.stepMessage")}
+                      </Box>
+                      {c.steps.length > 1 && (
+                        <M3IconButton
+                          label={tr("cb.removeStep")}
+                          icon={<CloseIcon />}
+                          onClick={() => setSteps(i, (steps) => steps.filter((_, idx) => idx !== k))}
+                        />
+                      )}
+                    </Box>
+                    {step.type === "message" && (
+                      <M3TextField
+                        label={tr("cb.stepMessage")}
+                        value={step.text}
+                        onChange={(v) => patchStep(i, k, { text: v })}
+                        placeholder={tr("cb.stepMessagePlaceholder")}
+                      />
+                    )}
+                    {step.type === "mention" && (
+                      <>
+                        <M3TextField
+                          label={tr("cb.stepMentionTarget")}
+                          value={step.target}
+                          onChange={(v) => patchStep(i, k, { target: v.replace(/\s+/g, "") })}
+                        />
+                        <M3TextField
+                          label={tr("cb.stepMentionText")}
+                          value={step.text}
+                          onChange={(v) => patchStep(i, k, { text: v })}
+                        />
+                      </>
+                    )}
+                    {step.type === "openUrl" && (
+                      <M3TextField
+                        label={tr("cb.stepOpenUrl")}
+                        value={step.url}
+                        onChange={(v) => patchStep(i, k, { url: v.trim() })}
+                        placeholder={tr("cb.stepUrlPlaceholder")}
+                        inputMode="url"
+                      />
+                    )}
+                  </Box>
+                ))}
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, alignItems: "center" }}>
+                  <Box sx={{ fontSize: "0.75rem", color: t.onSurfaceVariant }}>{tr("cb.addStep")}:</Box>
+                  {STEP_TYPES.map((o) => (
+                    <M3Chip
+                      key={o.value}
+                      label={tr(o.label)}
+                      icon={<AddIcon />}
+                      onClick={() => setSteps(i, (steps) => [...steps, emptyFormStep(o.value)])}
+                    />
+                  ))}
+                </Box>
+              </Box>
+              <M3Chip
+                label={tr("cb.moreOptions")}
+                tone={openOptions.has(i) ? "primary" : "neutral"}
+                onClick={() =>
+                  setOpenOptions((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(i)) next.delete(i);
+                    else next.add(i);
+                    return next;
+                  })
+                }
               />
-              <M3TextField
-                label={tr("mform.description")}
-                value={c.description}
-                onChange={(v) => setCommand(i, "description", v)}
-                supportingText={tr("mform.shownAutocomplete")}
-              />
-              <M3TextField
-                label={tr("mform.suggestions")}
-                value={c.suggestions}
-                onChange={(v) => setCommand(i, "suggestions", v)}
-                placeholder={tr("mform.suggestionsPlaceholder")}
-                supportingText={tr("mform.commaArgs")}
-              />
+              {openOptions.has(i) && (
+                <>
+                  <M3TextField
+                    label={tr("mform.description")}
+                    value={c.description}
+                    onChange={(v) => setCommand(i, "description", v)}
+                    supportingText={tr("mform.shownAutocomplete")}
+                  />
+                  <M3TextField
+                    label={tr("mform.suggestions")}
+                    value={c.suggestions}
+                    onChange={(v) => setCommand(i, "suggestions", v)}
+                    placeholder={tr("mform.suggestionsPlaceholder")}
+                    supportingText={tr("mform.commaArgs")}
+                  />
+                </>
+              )}
             </Box>
           </M3Card>
         ))}
@@ -433,10 +522,7 @@ const ServerFormBody = ({
             variant="tonal"
             icon={<AddIcon />}
             onClick={() =>
-              set("customCommands", [
-                ...form.customCommands,
-                { trigger: "", message: "", description: "", suggestions: "" },
-              ])
+              set("customCommands", [...form.customCommands, emptyFormCommand()])
             }
           >
             {tr("mform.addCommand")}
@@ -509,9 +595,9 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
             replyMode: (server.replyMode as ServerReplyMode) ?? "inherit",
             customCommands: (server.customCommands || []).map((c) => ({
               trigger: c.trigger,
-              message: c.message,
               description: c.description || "",
               suggestions: (c.suggestions || []).join(", "),
+              steps: toFormSteps(c),
             })),
             motdPolicy: serverMotdPolicies[server.id] || server.motdPolicy || "default",
             displayNameMode: server.displayNameMode || "default",

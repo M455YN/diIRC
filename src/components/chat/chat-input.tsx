@@ -29,7 +29,8 @@ import { uploadImage } from "@/lib/upload/services";
 import { ImageContextMenu } from "@/components/image-context-menu";
 import { isMediaUrl } from "@/lib/image-utils";
 import { cn } from "@/lib/utils";
-import { commandRegistry, expandCustomCommand, listSlashSuggestions } from "@/lib/commands/command-system";
+import { commandRegistry, resolveCustomCommand, listSlashSuggestions } from "@/lib/commands/command-system";
+import { openExternalUrl } from "@/lib/system-utils";
 import { useDraftStore, AttachedImage } from "@/hooks/use-draft-store";
 import { formatCompatReply, replyTagOverheadBytes, useReplyStore } from "@/hooks/use-reply-store";
 import {
@@ -1481,10 +1482,13 @@ export const ChatInput = ({
 
         }
 
-        const expanded = expandCustomCommand(textContent, activeServer.customCommands);
-        if (expanded !== null) {
+        const actions = resolveCustomCommand(textContent, activeServer.customCommands);
+        if (actions !== null) {
           linesToSend.length = 0;
-          linesToSend.push(expanded);
+          for (const action of actions) {
+            if (action.kind === "open") void openExternalUrl(action.url);
+            else linesToSend.push(action.text);
+          }
           readyImages.forEach((img) => {
             if (img.url) linesToSend.push(img.url);
           });

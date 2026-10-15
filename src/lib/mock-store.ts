@@ -3280,6 +3280,7 @@ export const useMockStore = create<MockState>()(
                 .map((c: any) => ({
                   trigger: String(c?.trigger || "").replace(/^\//, "").trim(),
                   message: String(c?.message || "").trim(),
+                  steps: Array.isArray(c?.steps) ? c.steps : undefined,
                   description: String(c?.description || "").trim() || undefined,
                   suggestions: Array.isArray(c?.suggestions)
                     ? c.suggestions.map((x: any) => String(x || "").trim()).filter(Boolean)
@@ -3290,7 +3291,7 @@ export const useMockStore = create<MockState>()(
                         .filter(Boolean)
                       : [],
                 }))
-                .filter((c: CustomCommand) => c.trigger && c.message)
+                .filter((c: CustomCommand) => c.trigger && (c.message || (c.steps && c.steps.length > 0)))
               : [],
           };
         });

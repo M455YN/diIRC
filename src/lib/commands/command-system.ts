@@ -4,6 +4,7 @@ import { CustomCommand, Member, Server } from "@/types";
 import { inviteUserToChannel } from "@/lib/irc-actions";
 import { dedentCode, detectCodeLanguage } from "@/lib/markdown/markdown-utils";
 import { getIrcByteCount, getIrcMaxMessageBytes } from "@/lib/system-utils";
+import { describeSteps, getCommandSteps } from "@/lib/commands/custom-command-steps";
 
 export interface CommandContext {
   serverId: string;
@@ -30,10 +31,29 @@ export function normalizeCommandTrigger(trigger: string): string {
   return trigger.trim().replace(/^\//, "").toLowerCase();
 }
 
-export function expandCustomCommand(
+/** What running a custom command does: lines to send and links to open, in step order. */
+export type CustomCommandAction =
+  | { kind: "send"; text: string }
+  | { kind: "open"; url: string };
+
+const PLACEHOLDER_RE = /\$\*|\$args|\$[1-9]/i;
+
+/** `$*` / `$args` is everything after the command, `$1`..`$9` are single words. */
+function fillPlaceholders(
+  template: string,
+  args: string,
+  words: string[],
+  encode: (value: string) => string = (v) => v
+): string {
+  return template
+    .replace(/\$\*|\$args/gi, () => encode(args))
+    .replace(/\$([1-9])/g, (_all, n: string) => encode(words[Number(n) - 1] ?? ""));
+}
+
+function findCustomCommand(
   input: string,
   customs: CustomCommand[] | undefined
-): string | null {
+): { match: CustomCommand; args: string } | null {
   if (!customs?.length) return null;
 
   const trimmed = input.trim();
@@ -47,15 +67,64 @@ export function expandCustomCommand(
   if (!name) return null;
 
   const match = customs.find(
-    (c) => normalizeCommandTrigger(c.trigger) === name && c.message.trim()
+    (c) => normalizeCommandTrigger(c.trigger) === name && getCommandSteps(c).length > 0
   );
-  if (!match) return null;
+  return match ? { match, args } : null;
+}
 
-  const template = match.message.trim();
-  if (/\$\*|\$args/i.test(template)) {
-    return template.replace(/\$\*|\$args/gi, args).replace(/[ \t]+/g, " ").trim();
-  }
-  return args ? `${template} ${args}` : template;
+/** Runs the steps of a matching custom command against the typed arguments. */
+export function resolveCustomCommand(
+  input: string,
+  customs: CustomCommand[] | undefined
+): CustomCommandAction[] | null {
+  const found = findCustomCommand(input, customs);
+  if (!found) return null;
+
+  const { match, args } = found;
+  const words = args.split(/\s+/).filter(Boolean);
+  const steps = getCommandSteps(match);
+  const usesPlaceholder = steps.some((step) =>
+    step.type === "message"
+      ? PLACEHOLDER_RE.test(step.text)
+      : step.type === "mention"
+      ? PLACEHOLDER_RE.test(step.target) || PLACEHOLDER_RE.test(step.text || "")
+      : PLACEHOLDER_RE.test(step.url)
+  );
+  // Without any placeholder the arguments are appended to the first text step (the old behaviour).
+  const appendIndex = usesPlaceholder || !args
+    ? -1
+    : steps.findIndex((step) => step.type === "message" || step.type === "mention");
+
+  const tidy = (text: string) => text.replace(/[ \t]+/g, " ").trim();
+  const actions: CustomCommandAction[] = [];
+
+  steps.forEach((step, index) => {
+    const append = index === appendIndex ? ` ${args}` : "";
+    if (step.type === "message") {
+      const text = tidy(fillPlaceholders(step.text, args, words) + append);
+      if (text) actions.push({ kind: "send", text });
+    } else if (step.type === "mention") {
+      const nick = fillPlaceholders(step.target, args, words).trim().replace(/^@/, "").split(/\s+/)[0];
+      if (!nick) return;
+      const text = tidy(fillPlaceholders(step.text || "", args, words) + append);
+      actions.push({ kind: "send", text: text ? `@${nick} ${text}` : `@${nick}` });
+    } else {
+      const url = fillPlaceholders(step.url, args, words, encodeURIComponent).trim();
+      if (/^https?:\/\//i.test(url)) actions.push({ kind: "open", url });
+    }
+  });
+
+  return actions;
+}
+
+/** One-line preview of what a custom command does with the typed arguments (autocomplete hints). */
+export function expandCustomCommand(
+  input: string,
+  customs: CustomCommand[] | undefined
+): string | null {
+  const actions = resolveCustomCommand(input, customs);
+  if (!actions) return null;
+  return actions.map((a) => (a.kind === "send" ? a.text : `↗ ${a.url}`)).join(" · ");
 }
 
 export interface CommandSuggestionItem {
@@ -89,7 +158,7 @@ export function listSlashSuggestions(
 
     for (const c of customs || []) {
       const name = normalizeCommandTrigger(c.trigger);
-      const message = c.message.trim();
+      const message = describeSteps(getCommandSteps(c));
       if (!name || !message || reserved.has(name)) continue;
       if (q && !name.includes(q)) continue;
 
@@ -143,7 +212,8 @@ export function listSlashSuggestions(
     .filter((arg) => !aq || arg.toLowerCase().startsWith(aq) || arg.toLowerCase().includes(aq))
     .map((arg) => {
       const slashLine = `/${cmdName} ${arg}`;
-      const sent = expandCustomCommand(slashLine, [custom]) || `${custom.message.trim()} ${arg}`;
+      const sent =
+        expandCustomCommand(slashLine, [custom]) || `${describeSteps(getCommandSteps(custom))} ${arg}`;
       return {
         insert: slashLine,
         label: slashLine,

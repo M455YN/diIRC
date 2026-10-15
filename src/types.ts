@@ -196,9 +196,18 @@ export interface Conversation {
   directMessages?: DirectMessage[];
 }
 
+/** One step of a custom command workflow, run in order when the command is used. */
+export type CommandStep =
+  | { type: "message"; text: string }
+  | { type: "mention"; target: string; text?: string }
+  | { type: "openUrl"; url: string };
+
 export interface CustomCommand {
   trigger: string;
+  /** Text of the first message step; the whole command for commands saved before workflows. */
   message: string;
+  /** Workflow steps. Absent for a plain single-message command. */
+  steps?: CommandStep[];
   description?: string;
   suggestions?: string[];
 }

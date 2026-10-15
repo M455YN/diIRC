@@ -41,6 +41,7 @@ import {
 } from "@/types";
 import { NotificationSettingsFields } from "@/components/notifications/notification-settings-fields";
 import { CustomCommandsFields, normalizeCustomCommandsFromForm } from "@/components/server/custom-commands-fields";
+import { toFormSteps } from "@/lib/commands/custom-command-steps";
 import { ServerLogoField } from "@/components/server/server-logo-field";
 
 const buildFormSchema = (t: (key: string) => string) => z.object({
@@ -66,9 +67,18 @@ const buildFormSchema = (t: (key: string) => string) => z.object({
   customCommands: z.array(
     z.object({
       trigger: z.string(),
-      message: z.string(),
       description: z.string().optional().default(""),
       suggestions: z.string().optional().default(""),
+      steps: z
+        .array(
+          z.object({
+            type: z.enum(["message", "mention", "openUrl"]),
+            text: z.string().default(""),
+            target: z.string().default(""),
+            url: z.string().default(""),
+          })
+        )
+        .default([]),
     })
   ).default([]),
 });
@@ -234,9 +244,9 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
         replyMode: server?.replyMode ?? "inherit",
         customCommands: (server?.customCommands || []).map((c) => ({
           trigger: c.trigger,
-          message: c.message,
           description: c.description || "",
           suggestions: (c.suggestions || []).join(", "),
+          steps: toFormSteps(c),
         })),
       });
     }

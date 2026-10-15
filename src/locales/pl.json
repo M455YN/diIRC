@@ -424,7 +424,7 @@
       "users": "Użytkownicy",
       "conversations": "Rozmowy",
       "away": "Nieobecny",
-      "present": "Obecny",
+      "present": "Online",
       "moreOptions": "Więcej opcji"
     },
     "item": {
@@ -922,7 +922,7 @@
     "addServerToSee": "Dodaj serwer, aby zobaczyć kanały i wiadomości.",
     "noChatsMatch": "Żaden czat nie pasuje do filtrów.",
     "away": "Nieobecny",
-    "present": "Obecny",
+    "present": "Online",
     "awayLabel": "Nieobecny",
     "you": "Ty",
     "users": "Użytkownicy",
@@ -942,6 +942,18 @@
     "internetGroup": "Internet"
   },
   "cb": {
+    "moreOptions": "Opis i podpowiedzi",
+    "steps": "Kroki",
+    "addStep": "Dodaj krok",
+    "removeStep": "Usuń krok",
+    "stepMessage": "Wyślij wiadomość",
+    "stepMention": "Oznacz osobę",
+    "stepOpenUrl": "Otwórz link w przeglądarce",
+    "stepMessagePlaceholder": "Wiadomość, np. Cześć $1!",
+    "stepMentionTarget": "Nick lub $1",
+    "stepMentionText": "Opcjonalny tekst po oznaczeniu",
+    "stepUrlPlaceholder": "https://example.com/szukaj?q=$*",
+    "stepsHint": "Kroki wykonują się po kolei. $1, $2… to pojedyncze słowa wpisane po komendzie, a $* to wszystko.",
     "searching": "Szukam…",
     "searchError": "Błąd wyszukiwania",
     "sortNewest": "Sortowanie: najnowsze najpierw (kliknij, aby zmienić na najstarsze)",
@@ -1215,8 +1227,7 @@
     "saved": "Zapisano {{time}}",
     "delete": "Usuń notatkę",
     "pickOrCreate": "Wybierz notatkę albo utwórz nową.",
-    "back": "Wróć do listy",
-    "addImage": "Wstaw obrazek",
+    "back": "Wróć do listy",
     "preview": "Podgląd (Markdown i HTML)",
     "edit": "Edytuj"
   },

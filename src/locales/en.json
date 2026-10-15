@@ -424,7 +424,7 @@
       "users": "Users",
       "conversations": "Conversations",
       "away": "Away",
-      "present": "Present",
+      "present": "Online",
       "moreOptions": "More options"
     },
     "item": {
@@ -922,7 +922,7 @@
     "addServerToSee": "Add a server to see channels and messages.",
     "noChatsMatch": "No chats match your filters.",
     "away": "Away",
-    "present": "Present",
+    "present": "Online",
     "awayLabel": "Away",
     "you": "You",
     "users": "Users",
@@ -942,6 +942,18 @@
     "internetGroup": "Internet"
   },
   "cb": {
+    "moreOptions": "Description and suggestions",
+    "steps": "Steps",
+    "addStep": "Add step",
+    "removeStep": "Remove step",
+    "stepMessage": "Send message",
+    "stepMention": "Mention someone",
+    "stepOpenUrl": "Open link in browser",
+    "stepMessagePlaceholder": "Message, e.g. Hello $1!",
+    "stepMentionTarget": "Nick or $1",
+    "stepMentionText": "Optional text after the mention",
+    "stepUrlPlaceholder": "https://example.com/search?q=$*",
+    "stepsHint": "Steps run in order. Use $1, $2… for single words typed after the command and $* for everything.",
     "searching": "Searching…",
     "searchError": "Search error",
     "sortNewest": "Sort: newest first (click to switch to oldest)",
@@ -1209,8 +1221,7 @@
     "saved": "Saved {{time}}",
     "delete": "Delete note",
     "pickOrCreate": "Select a note or create a new one.",
-    "back": "Back to list",
-    "addImage": "Insert image",
+    "back": "Back to list",
     "preview": "Preview (Markdown and HTML)",
     "edit": "Edit"
   },
