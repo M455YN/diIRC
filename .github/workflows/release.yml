@@ -153,6 +153,10 @@ jobs:
           export NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
           npx tauri android init --ci
 
+      # init writes the default Tauri launcher icon; put the Luna icon in place.
+      - name: Use Luna launcher icon
+        run: cp -r src-tauri/icons/android/. src-tauri/gen/android/app/src/main/res/
+
       - name: Build release APK (arm64)
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
