@@ -183,7 +183,7 @@ export const NavigationItem = ({
                 />
               </div>
               {!isIrcConnected && (
-                <span className="absolute bottom-0 right-2 z-10 w-3 h-3 bg-amber-500 rounded-full ring-2 ring-[#E3E5E8] dark:ring-[#1E1F22]" title="Disconnected" />
+                <span className="absolute bottom-0 right-2 z-10 w-3 h-3 bg-amber-500 rounded-full ring-2 ring-[#E3E5E8] dark:ring-[#1E1F22]" title={t("mi.disconnected")} />
               )}
               {isUnread && (
                 <span className={cn(

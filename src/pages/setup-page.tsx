@@ -48,7 +48,7 @@ export const SetupPage = () => {
             )}
           />
         </div>
-        <h2 className="text-2xl font-bold">No servers added</h2>
+        <h2 className="text-2xl font-bold">{tr("cb.setupNoServersTitle")}</h2>
         <p
           className={cn(
             "max-w-xs text-sm",

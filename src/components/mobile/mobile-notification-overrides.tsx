@@ -74,7 +74,7 @@ export const MobileNotificationOverrides = ({
 
   return (
     <>
-      <M3Subheader>Notifications</M3Subheader>
+      <M3Subheader>{tr("mi.notificationsHeading")}</M3Subheader>
       <M3ListGroup>
         {showChannel && (
           <M3SelectItem

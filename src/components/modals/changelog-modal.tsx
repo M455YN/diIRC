@@ -252,7 +252,7 @@ const DesktopChangelogModal = () => {
           {loading && versions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 my-auto space-y-3 text-zinc-500 dark:text-zinc-400">
               <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-              <p className="text-sm font-medium">Loading release notes...</p>
+              <p className="text-sm font-medium">{tr("mi.loadingNotes")}</p>
             </div>
           ) : error && versions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 space-y-4 text-center my-auto">
@@ -275,7 +275,7 @@ const DesktopChangelogModal = () => {
                 className="mt-2 text-xs font-semibold border-zinc-300 dark:border-zinc-700 flex items-center gap-x-2 px-4 py-2"
               >
                 <RotateCw className={cn("w-3.5 h-3.5", loading && "animate-spin text-indigo-500")} />
-                <span>{loading ? "Connecting..." : tr("mi.tryAgain")}</span>
+                <span>{loading ? tr("chat.input.connectingShort") : tr("mi.tryAgain")}</span>
               </Button>
             </div>
           ) : versions.length === 0 ? (

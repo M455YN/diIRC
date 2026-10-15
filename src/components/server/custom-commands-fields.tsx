@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import i18n from "@/lib/i18n";
 import { useRef, useState } from "react";
 import { Control, useFieldArray } from "react-hook-form";
 import {
@@ -92,7 +93,7 @@ export function parseCustomCommandsJson(raw: unknown): FormCommandRow[] {
     );
 
   if (rows.length === 0) {
-    throw new Error("No valid commands found in the JSON file.");
+    throw new Error(i18n.t("mform.noValidCommands"));
   }
 
   return rows;
@@ -253,7 +254,7 @@ export const CustomCommandsFields = ({
     } catch (err: any) {
       const message =
         err instanceof SyntaxError
-          ? "Invalid JSON file."
+          ? tr("mform.invalidJson")
           : err?.message || tr("cb.loadCommandsFailed");
       setImportError(message);
     }
@@ -357,7 +358,7 @@ export const CustomCommandsFields = ({
             render={({ field }) => (
               <FormItem className="space-y-1">
                 <FormLabel className="text-[10px] uppercase tracking-wider text-zinc-500">
-                  Description
+                  {tr("mform.description")}
                 </FormLabel>
                 <FormControl>
                   <Input
@@ -377,7 +378,7 @@ export const CustomCommandsFields = ({
             render={({ field }) => (
               <FormItem className="space-y-1">
                 <FormLabel className="text-[10px] uppercase tracking-wider text-zinc-500">
-                  Suggestions
+                  {tr("mform.suggestions")}
                 </FormLabel>
                 <FormControl>
                   <Input

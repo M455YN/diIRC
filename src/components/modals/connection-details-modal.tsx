@@ -133,7 +133,7 @@ const DesktopConnectionDetailsModal = () => {
                     }`}
                 >
                   {irc ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-                  {irc ? "Connected" : "Disconnected"}
+                  {irc ? tr("mi.connected") : tr("mi.disconnected")}
                 </span>
 
                 {irc ? (
@@ -159,7 +159,7 @@ const DesktopConnectionDetailsModal = () => {
                     className="h-8 px-2.5 text-xs gap-x-1"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isReconnecting ? "animate-spin" : ""}`} />
-                    {isReconnecting ? "Connecting..." : "Connect"}
+                    {isReconnecting ? tr("chat.input.connectingShort") : tr("mi.connect")}
                   </Button>
                 )}
               </div>
@@ -197,7 +197,7 @@ const DesktopConnectionDetailsModal = () => {
                   : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                   }`}
               >
-                {resourceServer ? "Connected" : "Disabled"}
+                {resourceServer ? tr("mi.connected") : tr("mi.disabled")}
               </span>
             </div>
 

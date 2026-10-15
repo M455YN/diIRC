@@ -712,7 +712,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                   className="w-full bg-white dark:bg-[#1e1f22] border border-zinc-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
                   <option value="default">
-                    Default (Use global setting: {globalMotdPolicy === "always" ? t("server.motd.always") : globalMotdPolicy === "never" ? t("server.motd.dontShowAll") : t("server.motd.whenChangedShort")})
+                    {t("server.motd.defaultGlobal", { value: globalMotdPolicy === "always" ? t("server.motd.always") : globalMotdPolicy === "never" ? t("server.motd.dontShowAll") : t("server.motd.whenChangedShort") })}
                   </option>
                   <option value="on_change">{t("server.motd.whenChanged")}</option>
                   <option value="always">{t("server.motd.alwaysOnConnect")}</option>

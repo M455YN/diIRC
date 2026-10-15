@@ -591,7 +591,8 @@
       "dontShowThisServer": "Nie pokazuj ponownie (ten serwer)",
       "dontShowAll": "Nie pokazuj ponownie (wszystkie serwery)",
       "always": "Zawsze",
-      "whenChangedShort": "Po zmianie"
+      "whenChangedShort": "Po zmianie",
+      "defaultGlobal": "Domyślne (ustawienie globalne: {{value}})"
     },
     "btn": {
       "cancel": "Anuluj",
@@ -758,6 +759,7 @@
     "main": "Główne"
   },
   "mform": {
+    "noValidCommands": "Nie znaleziono prawidłowych komend w pliku JSON.",
     "connection": "Połączenie",
     "on": "Włączone",
     "portRange": "Port musi mieć wartość od 1 do 65535.",
@@ -837,6 +839,10 @@
     "fallbackNick": "Zapasowy nick"
   },
   "mi": {
+    "installed": "Zainstalowana v{{version}}",
+    "usersIn": "Użytkownicy w #{{channel}}",
+    "notificationsHeading": "Powiadomienia",
+    "loadingNotes": "Wczytywanie notatek wydania...",
     "updateUpToDate": "Masz najnowszą wersję",
     "updateCheckFailed": "Nie udało się sprawdzić aktualizacji",
     "updateNow": "Zaktualizuj do v{{version}}",
@@ -942,6 +948,7 @@
     "internetGroup": "Internet"
   },
   "cb": {
+    "setupNoServersTitle": "Brak serwerów",
     "moreOptions": "Opis i podpowiedzi",
     "steps": "Kroki",
     "addStep": "Dodaj krok",

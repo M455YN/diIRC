@@ -93,6 +93,10 @@ const ChatItemInner = ({
   const replyMeta = storedReplyMeta || replyTo;
 
   const chatId = channelId || conversationId;
+  // The message a reply is being written to stays highlighted, so it is clear what the reply applies to.
+  const isReplyTarget = useReplyStore(
+    (state) => !!chatId && state.pendingByChatId[chatId]?.messageId === id
+  );
 
   const handleReply = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -575,7 +579,9 @@ const ChatItemInner = ({
       ircLayout ? "py-[1px] px-3" : compact ? "py-[2px]" : "pt-2.5 pb-[2px]",
       isMention
         ? "bg-amber-500/10 hover:bg-amber-500/15 dark:bg-amber-500/15 dark:hover:bg-amber-500/20 border-amber-500"
-        : "border-transparent"
+        : isReplyTarget
+          ? "bg-indigo-500/10 dark:bg-indigo-500/15 border-indigo-500"
+          : "border-transparent hover:bg-zinc-200/60 dark:hover:bg-zinc-700/40"
     )}>
       <div className="group flex gap-x-2 items-start w-full min-w-0">
         {ircLayout ? (

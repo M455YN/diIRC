@@ -270,7 +270,7 @@ const ChangelogBody = ({ open }: { open: boolean }) => {
   return (
     <>
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, pt: 1, pb: 2 }}>
-        <M3Chip tone="primary" label={`Installed v${current}`} />
+        <M3Chip tone="primary" label={tr("mi.installed", { version: current })} />
         {!hasCurrentVersion && <M3Chip label={tr("mi.notesPending")} />}
       </Box>
 

@@ -1,3 +1,4 @@
+import i18n from "@/lib/i18n";
 import { Channel, Server } from "@/types";
 import { ChatMembersSidebar } from "@/components/chat/chat-members-sidebar";
 import { M3FullScreenDialog } from "@/components/mobile/m3";
@@ -17,7 +18,11 @@ export const MobileMembersSheet = ({
 }: MobileMembersSheetProps) => (
   <M3FullScreenDialog
     open={open}
-    title={channel ? `Users in #${channel.name.replace(/^#/, "")}` : "Conversations"}
+    title={
+      channel
+        ? i18n.t("mi.usersIn", { channel: channel.name.replace(/^#/, "") })
+        : i18n.t("mi.conversations")
+    }
     leading="back"
     onClose={() => onOpenChange(false)}
   >

@@ -196,12 +196,12 @@ export const MobileChannelSettingsModal = () => {
         inherited={{
           channelNotifications:
             parent.channelNotifications === "all"
-              ? "All messages"
+              ? tr("mform.allMessages")
               : parent.channelNotifications === "off"
-                ? "Off"
-                : "Mentions only",
-          dmNotifications: parent.dmNotifications === "off" ? "Off" : "All messages",
-          sound: parent.sound ? "On" : "Muted",
+                ? tr("mform.off")
+                : tr("mform.mentionsOnly"),
+          dmNotifications: parent.dmNotifications === "off" ? tr("mform.off") : tr("mform.allMessages"),
+          sound: parent.sound ? tr("mform.on") : tr("mform.muted"),
           soundPreset: parent.soundPreset,
           cooldownSec: (parent.soundCooldownMs / 1000).toString(),
           popup: parent.popup ? "On" : "Off",

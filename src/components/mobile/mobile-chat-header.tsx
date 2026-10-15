@@ -41,7 +41,7 @@ export const MobileChatHeader = ({
           type="button"
           onClick={onBack}
           className="flex h-10 w-9 shrink-0 items-center justify-center text-blue-500 active:opacity-60"
-          aria-label="Back"
+          aria-label={tr("mobile.back")}
         >
           <ChevronLeft className="h-7 w-7 stroke-[2]" />
         </button>
@@ -63,7 +63,7 @@ export const MobileChatHeader = ({
                 {online && (
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 )}
-                {statusLabel || (online ? "Online" : "Away")}
+                {statusLabel || (online ? tr("mi.online") : tr("mi.away"))}
               </p>
             )}
           </div>
@@ -88,7 +88,7 @@ export const MobileChatHeader = ({
               "flex h-10 w-10 shrink-0 items-center justify-center active:opacity-60",
               showMembers ? "text-blue-600" : "text-blue-500"
             )}
-            aria-label={type === "channel" ? "Members" : "More"}
+            aria-label={type === "channel" ? tr("srv.members") : tr("nav.more")}
           >
             {type === "channel" ? (
               <Users className="h-[18px] w-[18px]" />

@@ -591,7 +591,8 @@
       "dontShowThisServer": "Don't show again (this server)",
       "dontShowAll": "Don't show again (all servers)",
       "always": "Always",
-      "whenChangedShort": "When changed"
+      "whenChangedShort": "When changed",
+      "defaultGlobal": "Default (Use global setting: {{value}})"
     },
     "btn": {
       "cancel": "Cancel",
@@ -758,6 +759,7 @@
     "main": "Main"
   },
   "mform": {
+    "noValidCommands": "No valid commands found in the JSON file.",
     "connection": "Connection",
     "on": "On",
     "portRange": "Port must be 1–65535.",
@@ -837,6 +839,10 @@
     "fallbackNick": "Fallback nickname"
   },
   "mi": {
+    "installed": "Installed v{{version}}",
+    "usersIn": "Users in #{{channel}}",
+    "notificationsHeading": "Notifications",
+    "loadingNotes": "Loading release notes...",
     "updateUpToDate": "You are up to date",
     "updateCheckFailed": "Update check failed",
     "updateNow": "Update to v{{version}}",
@@ -942,6 +948,7 @@
     "internetGroup": "Internet"
   },
   "cb": {
+    "setupNoServersTitle": "No servers added",
     "moreOptions": "Description and suggestions",
     "steps": "Steps",
     "addStep": "Add step",

@@ -6,8 +6,12 @@
 
 ## Zmiany
 - **Notatki otwierają się w podglądzie.** Istniejąca notatka pokazuje się od razu sformatowana (przycisk ołówka przełącza na edycję), a nowo dodana notatka otwiera się w trybie edycji.
+- **Podświetlenie wiadomości po najechaniu** (desktop). Wiadomość, na którą wskazuje przycisk odpowiedzi, ma podświetlone tło, a ta, na którą piszesz odpowiedź, zostaje podświetlona do wysłania lub anulowania.
 - **Notatki są znowu w pełni lokalne.** Usunięto wstawianie obrazków (przycisk, wklejanie i przeciąganie), więc nic z notatek nie jest wysyłane na zewnętrzne serwery. Podgląd notatki (Markdown i HTML) nie wyświetla obrazków.
 - **Status „Online”** pod osobami, które nie są nieobecne, zamiast „Obecny” (desktop i Android).
+
+## Poprawki
+- Przetłumaczono brakujące napisy: „Domyślne (ustawienie globalne)” w oknie serwera, edytor własnych komend (Opis, Sugestie, błędy pliku JSON) oraz na Androidzie m.in. ekran bez serwerów, „Zainstalowana”, nagłówek ustawień, podsumowania powiadomień i szczegóły połączenia.
 
 ## Znane ograniczenia
 - HTML w notatkach jest ograniczony do bezpiecznego podzbioru znaczników (bez skryptów, stylów, ramek i formularzy).

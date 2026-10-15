@@ -807,7 +807,7 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
             component="h1"
             sx={{ m: 0, px: 2.5, pt: 1, pb: 3, fontSize: "2.25rem", fontWeight: 400, lineHeight: "44px" }}
           >
-            Settings
+            {tr("mi.settings")}
           </Box>
         </DialogTitle>
       )}

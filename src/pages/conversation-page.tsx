@@ -1,4 +1,5 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import i18n from "@/lib/i18n";
 import { useEffect, useRef, useState } from "react";
 import { useMockStore, getServerSelfMember } from "@/lib/mock-store";
 import { useUIStore } from "@/hooks/use-ui-store";
@@ -107,7 +108,7 @@ export const ConversationPage = () => {
           type="conversation"
           imageUrl={targetMember.profile.imageUrl}
           online={!isAway}
-          statusLabel={isAway ? "Away" : "Online"}
+          statusLabel={isAway ? i18n.t("mi.away") : i18n.t("mi.online")}
           onBack={() => navigate(`/servers/${server.id}`)}
           onMembers={() => setMembersOpen(true)}
           onSearch={() => {
