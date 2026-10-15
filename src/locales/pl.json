@@ -11,7 +11,8 @@
       "previews": "Podglądy linków",
       "uploads": "Wysyłanie obrazów",
       "auth": "Autoryzacja",
-      "updates": "Aktualizacje"
+      "updates": "Aktualizacje",
+      "about": "O programie"
     },
     "language": {
       "label": "Język",
@@ -271,6 +272,11 @@
       "customCooldownOpt": "⚡ Własna przerwa",
       "desktopPopup": "Powiadomienie na pulpicie",
       "taskbarAlert": "Alert na pasku zadań"
+    },
+    "about": {
+      "version": "Wersja {{version}}",
+      "authors": "Autorzy",
+      "repo": "Kod źródłowy na GitHubie"
     }
   },
   "mobile": {

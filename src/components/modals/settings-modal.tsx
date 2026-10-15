@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore, type AppLanguage } from "@/hooks/use-language-store";
+import { getCurrentAppVersion } from "@/lib/changelog-service";
+import { openExternalUrl } from "@/lib/system-utils";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +23,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  Info,
   Link2,
   Server,
   Globe,
@@ -82,9 +85,16 @@ const APPEARANCE_STYLES: { id: AppearanceStyle; title: string; description: stri
   { id: "fluent", title: "settings.appearance.style.fluent", description: "settings.appearance.style.fluentDesc" },
 ];
 
-type SettingsTab = "notifications" | "appearance" | "chat" | "previews" | "uploads" | "auth" | "updates";
+type SettingsTab = "notifications" | "appearance" | "chat" | "previews" | "uploads" | "auth" | "updates" | "about";
 
 // Same categories as the mobile settings screen, plus desktop-only "Updates".
+const ABOUT_AUTHORS = [
+  { name: "Jakub Baka", url: "https://github.com/TheStami" },
+  { name: "Bartosz Sebastian Kasprzycki", url: "https://github.com/Bar-Kas" },
+  { name: "Mateusz Afelt", url: "https://github.com/M455YN" },
+];
+const ABOUT_REPO_URL = "https://github.com/M455YN/diIRC";
+
 const SETTINGS_TABS: { id: SettingsTab; title: string; icon: typeof Bell }[] = [
   { id: "notifications", title: "settings.tabs.notifications", icon: Bell },
   { id: "appearance", title: "settings.tabs.appearance", icon: Palette },
@@ -93,6 +103,7 @@ const SETTINGS_TABS: { id: SettingsTab; title: string; icon: typeof Bell }[] = [
   { id: "uploads", title: "settings.tabs.uploads", icon: UploadCloud },
   { id: "auth", title: "settings.tabs.auth", icon: Key },
   { id: "updates", title: "settings.tabs.updates", icon: DownloadCloud },
+  { id: "about", title: "settings.tabs.about", icon: Info },
 ];
 
 const SETTINGS_SEARCH_INDEX: { key: string; tab: SettingsTab }[] = [
@@ -1303,6 +1314,40 @@ export const SettingsModal = () => {
                   </Button>
                 </form>
               </div>
+            </div>
+          )}
+
+          {!searching && tab === "about" && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm space-y-3">
+                <div>
+                  <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Luna IRC</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("settings.about.version", { version: getCurrentAppVersion() })}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{t("settings.about.authors")}</p>
+                  <ul className="mt-1 list-disc pl-5 text-sm text-zinc-700 dark:text-zinc-300">
+                    {ABOUT_AUTHORS.map((author) => (
+                      <li key={author.url}>
+                        <button
+                          type="button"
+                          onClick={() => openExternalUrl(author.url)}
+                          className="hover:underline"
+                        >
+                          {author.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => openExternalUrl(ABOUT_REPO_URL)}
+                className="text-xs font-medium text-indigo-500 hover:underline dark:text-indigo-400"
+              >
+                {t("settings.about.repo")}
+              </button>
             </div>
           )}
 

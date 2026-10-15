@@ -11,7 +11,8 @@
       "previews": "Link previews",
       "uploads": "Image uploads",
       "auth": "Authorization",
-      "updates": "Updates"
+      "updates": "Updates",
+      "about": "About"
     },
     "language": {
       "label": "Language",
@@ -271,6 +272,11 @@
       "customCooldownOpt": "⚡ Custom Cooldown",
       "desktopPopup": "System Desktop Popup",
       "taskbarAlert": "Taskbar Alert"
+    },
+    "about": {
+      "version": "Version {{version}}",
+      "authors": "Authors",
+      "repo": "Source code on GitHub"
     }
   },
   "mobile": {
