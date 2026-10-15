@@ -36,6 +36,7 @@
       "displayNameFormat": "User display name format",
       "groupByRole": "Group users by role",
       "dateFormat": "Date display format",
+      "sortDmByRecent": "Newest private messages first",
       "sortDmByUnread": "Sort private messages by unread",
       "sortDm": "Sort private messages",
       "statusIndicator": "Connection status indicator",
@@ -92,6 +93,8 @@
       "dateCustom": "Custom format",
       "customPattern": "Custom format pattern",
       "preview": "Preview:",
+      "sortDmRecent": "Newest private messages first",
+      "sortDmRecentDesc": "Always keep the conversation with the latest message at the top. Turn off to use the order set below.",
       "sortDmUnread": "Sort private messages by unread",
       "sortDmUnreadDesc": "Move private messages with unread messages to the top of the list.",
       "sortDm": "Sort private messages",
@@ -304,6 +307,7 @@
       "emojiSize": "Emoji size",
       "confirmLeave": "Confirm before leaving channel",
       "slashSuggestions": "Slash command suggestions",
+      "sortDmRecent": "Newest private messages first",
       "sortDmUnread": "Sort private messages by unread",
       "dmSortOrder": "Private message sort order",
       "statusIndicator": "Connection status indicator",
@@ -420,6 +424,7 @@
       "users": "Users",
       "conversations": "Conversations",
       "away": "Away",
+      "present": "Present",
       "moreOptions": "More options"
     },
     "item": {
@@ -753,6 +758,8 @@
     "main": "Main"
   },
   "mform": {
+    "connection": "Connection",
+    "on": "On",
     "portRange": "Port must be 1–65535.",
     "replyAuto": "Auto",
     "replyModern": "Modern IRCv3 only",
@@ -830,6 +837,10 @@
     "fallbackNick": "Fallback nickname"
   },
   "mi": {
+    "updateUpToDate": "You are up to date",
+    "updateCheckFailed": "Update check failed",
+    "updateNow": "Update to v{{version}}",
+    "updateChannelHint": "Checks the \"{{channel}}\" update channel (change it in Settings → Updates)",
     "uploadsDisabled": "Uploads disabled",
     "noServer": "No server",
     "connected": "Connected",
@@ -911,6 +922,7 @@
     "addServerToSee": "Add a server to see channels and messages.",
     "noChatsMatch": "No chats match your filters.",
     "away": "Away",
+    "present": "Present",
     "awayLabel": "Away",
     "you": "You",
     "users": "Users",
@@ -1197,7 +1209,10 @@
     "saved": "Saved {{time}}",
     "delete": "Delete note",
     "pickOrCreate": "Select a note or create a new one.",
-    "back": "Back to list"
+    "back": "Back to list",
+    "addImage": "Insert image",
+    "preview": "Preview (Markdown and HTML)",
+    "edit": "Edit"
   },
   "welcome": {
     "toChannel": "Welcome to #",
@@ -1220,7 +1235,12 @@
     "kickedReason": "{{target}} was kicked from {{channel}} by {{by}} ({{reason}})",
     "kicked": "{{target}} was kicked from {{channel}} by {{by}}",
     "mode": "{{nick}} set mode: {{channel}} {{modes}}",
-    "nick": "{{old}} is now known as {{new}}"
+    "nick": "{{old}} is now known as {{new}}",
+    "channelModes": "Channel {{channel}} modes: {{modes}}",
+    "modeError": "Mode error: ",
+    "unknownModeFlag": "Unknown mode flag '{{flag}}'",
+    "notUserMode": "{{mode}} is not a recognised user mode.",
+    "notChannelMode": "{{mode}} is not a recognised channel mode."
   },
   "cl": {
     "title": "Channel list",

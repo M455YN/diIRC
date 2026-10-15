@@ -108,6 +108,7 @@ const SEARCH_INDEX: { title: string; category: SettingsCategory }[] = [
   { title: "mobile.search.emojiSize", category: "chat" },
   { title: "mobile.search.confirmLeave", category: "chat" },
   { title: "mobile.search.slashSuggestions", category: "chat" },
+  { title: "mobile.search.sortDmRecent", category: "appearance" },
   { title: "mobile.search.sortDmUnread", category: "appearance" },
   { title: "mobile.search.dmSortOrder", category: "appearance" },
   { title: "mobile.search.statusIndicator", category: "appearance" },
@@ -462,6 +463,11 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
 
             <M3Subheader>{tr("mobile.lists")}</M3Subheader>
             <Card>
+              {toggle(
+                tr("mobile.search.sortDmRecent"),
+                store.sortDmByRecent ?? true,
+                store.setSortDmByRecent
+              )}
               {toggle(
                 tr("mobile.search.sortDmUnread"),
                 store.sortDmByUnread ?? true,

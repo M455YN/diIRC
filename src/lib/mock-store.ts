@@ -522,6 +522,12 @@ interface MockState {
   shouldAutoShowMotd: (serverId: string, motd: string[]) => boolean;
   sortDmByUnread: boolean;
   dmSortOrder: "opening" | "alphabetical";
+  /** Newest private conversation first (default). Turn off to restore the opening/alphabetical order. */
+  sortDmByRecent: boolean;
+  /** Timestamp (ms) of the latest message per conversation id, used to sort the private message list. */
+  dmLastActivity: Record<string, number>;
+  setSortDmByRecent: (enabled: boolean) => void;
+  touchDmActivity: (conversationId: string, timestamp: number) => void;
   setSortDmByUnread: (enabled: boolean) => void;
   setDmSortOrder: (order: "opening" | "alphabetical") => void;
   userDisplayNameMode: UserDisplayNameMode;
@@ -607,8 +613,10 @@ interface MockState {
   awayUsers: Record<string, Record<string, boolean>>;
   awayReasons: Record<string, Record<string, string>>;
   selfAway: Record<string, boolean>;
+  /** Our own away reason per server, independent of which nick the server knows us by. */
+  selfAwayReasons: Record<string, string>;
   setUserAway: (serverId: string, nick: string, isAway: boolean, reason?: string) => void;
-  setSelfAway: (serverId: string, isAway: boolean) => void;
+  setSelfAway: (serverId: string, isAway: boolean, reason?: string) => void;
   updateChannelMembers: (serverId: string, channelName: string, users: string[], eventType: "NAMES" | "JOIN" | "PART" | "QUIT") => void;
   updateChannelOps: (serverId: string, channelName: string, ops: string[]) => void;
   updateChannelModes: (serverId: string, channelName: string, modeString: string, isFullListing?: boolean) => void;
@@ -848,6 +856,15 @@ export const useMockStore = create<MockState>()(
       },
       sortDmByUnread: true,
       dmSortOrder: "opening",
+      sortDmByRecent: true,
+      dmLastActivity: {},
+      setSortDmByRecent: (enabled) => set({ sortDmByRecent: enabled }),
+      touchDmActivity: (conversationId, timestamp) =>
+        set((state) => {
+          const current = state.dmLastActivity?.[conversationId] ?? 0;
+          if (timestamp <= current) return state;
+          return { dmLastActivity: { ...(state.dmLastActivity || {}), [conversationId]: timestamp } };
+        }),
       setSortDmByUnread: (enabled) => set({ sortDmByUnread: enabled }),
       setDmSortOrder: (order) => set({ dmSortOrder: order }),
 
@@ -1759,6 +1776,7 @@ export const useMockStore = create<MockState>()(
       awayUsers: {},
       awayReasons: {},
       selfAway: {},
+      selfAwayReasons: {},
 
       setUserAway: (serverId, nick, isAway, reason) => {
         if (!serverId || !nick) return;
@@ -1790,14 +1808,23 @@ export const useMockStore = create<MockState>()(
         });
       },
 
-      setSelfAway: (serverId, isAway) => {
+      setSelfAway: (serverId, isAway, reason) => {
         if (!serverId) return;
-        set((state) => ({
-          selfAway: {
-            ...state.selfAway,
-            [serverId]: isAway,
-          },
-        }));
+        set((state) => {
+          const nextReasons = { ...(state.selfAwayReasons || {}) };
+          if (!isAway) {
+            delete nextReasons[serverId];
+          } else if (reason && reason.trim()) {
+            nextReasons[serverId] = reason.trim();
+          }
+          return {
+            selfAway: {
+              ...state.selfAway,
+              [serverId]: isAway,
+            },
+            selfAwayReasons: nextReasons,
+          };
+        });
       },
 
       updateChannelOps: (serverId, channelName, ops) => {
@@ -1989,7 +2016,7 @@ export const useMockStore = create<MockState>()(
         if (eventType === "NAMES" || eventType === "JOIN") {
           users.forEach((u) => {
             if (u && u.trim()) {
-              const cleanNick = u.trim().replace(/^[~&@%+]+/, "");
+              const cleanNick = u.trim().split("!")[0].replace(/^[~&@%+]+/, "");
               get().addServerMember(serverId, cleanNick);
             }
           });
@@ -2018,10 +2045,20 @@ export const useMockStore = create<MockState>()(
               if (eventType === "NAMES") {
                 const newOps: string[] = [];
                 const newChannelUserModes: Record<string, string[]> = {};
+                // Nothing parsed (a 366 we failed to pair with 353s) must not wipe the roster.
+                const named = users.map((u) => u.trim()).filter(Boolean);
+                if (named.length === 0) {
+                  return {
+                    channelMembers: updatedChannelMembers,
+                    channelOps: updatedChannelOps,
+                    channelUserModes: updatedChannelUserModes,
+                  };
+                }
 
-                const plainUsers = users.map((u) => {
-                  const prefixMatch = u.match(/^([~&@%+]+)/);
-                  const nick = prefixMatch ? u.substring(prefixMatch[1].length) : u;
+                const plainUsers = named.map((u) => {
+                  const withoutHost = u.split("!")[0];
+                  const prefixMatch = withoutHost.match(/^([~&@%+]+)/);
+                  const nick = prefixMatch ? withoutHost.substring(prefixMatch[1].length) : withoutHost;
                   const prefixes = prefixMatch ? prefixMatch[1] : "";
 
                   const modes: string[] = [];
@@ -2043,7 +2080,7 @@ export const useMockStore = create<MockState>()(
                 updatedChannelUserModes[chId] = newChannelUserModes;
                 updatedChannelOps[chId] = newOps;
               } else if (eventType === "JOIN") {
-                const plainUsers = users.map((u) => u.trim().replace(/^[~&@%+]+/, ""));
+                const plainUsers = users.map((u) => u.trim().split("!")[0].replace(/^[~&@%+]+/, ""));
                 updatedChannelMembers[chId] = Array.from(new Set([...currentUsers, ...plainUsers]));
               } else if (eventType === "PART") {
                 const toRemove = new Set(users.map((u) => u.toLowerCase()));
@@ -3019,6 +3056,11 @@ export const useMockStore = create<MockState>()(
           }
         }
 
+        if (!effectiveIsSystem) {
+          const parsed = Date.parse(msgTime);
+          get().touchDmActivity(conversationId, Number.isFinite(parsed) ? parsed : Date.now());
+        }
+
         const key = chatKey("conversation", conversationId);
         const state = get();
 
@@ -3182,6 +3224,7 @@ export const useMockStore = create<MockState>()(
         awayUsers: {},
         awayReasons: {},
         selfAway: {},
+        selfAwayReasons: {},
         ircConnectedServers: {},
         ircConnectingServers: {},
         ircConnectionErrors: {},

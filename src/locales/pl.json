@@ -36,6 +36,7 @@
       "displayNameFormat": "Format nazwy użytkownika",
       "groupByRole": "Grupuj użytkowników według roli",
       "dateFormat": "Format wyświetlania daty",
+      "sortDmByRecent": "Najnowsze prywatne wiadomości na górze",
       "sortDmByUnread": "Sortuj prywatne wiadomości wg nieprzeczytanych",
       "sortDm": "Sortowanie prywatnych wiadomości",
       "statusIndicator": "Wskaźnik statusu połączenia",
@@ -92,6 +93,8 @@
       "dateCustom": "Własny format",
       "customPattern": "Własny wzorzec formatu",
       "preview": "Podgląd:",
+      "sortDmRecent": "Najnowsze prywatne wiadomości na górze",
+      "sortDmRecentDesc": "Rozmowa z najnowszą wiadomością zawsze jest na górze listy. Wyłącz, aby użyć kolejności ustawionej niżej.",
       "sortDmUnread": "Sortuj prywatne wiadomości wg nieprzeczytanych",
       "sortDmUnreadDesc": "Przenoś prywatne rozmowy z nieprzeczytanymi wiadomościami na górę listy.",
       "sortDm": "Sortowanie prywatnych wiadomości",
@@ -304,6 +307,7 @@
       "emojiSize": "Rozmiar emoji",
       "confirmLeave": "Potwierdzaj wyjście z kanału",
       "slashSuggestions": "Podpowiedzi komend /",
+      "sortDmRecent": "Najnowsze prywatne wiadomości na górze",
       "sortDmUnread": "Sortuj prywatne wiadomości wg nieprzeczytanych",
       "dmSortOrder": "Kolejność prywatnych wiadomości",
       "statusIndicator": "Wskaźnik statusu połączenia",
@@ -420,6 +424,7 @@
       "users": "Użytkownicy",
       "conversations": "Rozmowy",
       "away": "Nieobecny",
+      "present": "Obecny",
       "moreOptions": "Więcej opcji"
     },
     "item": {
@@ -753,6 +758,8 @@
     "main": "Główne"
   },
   "mform": {
+    "connection": "Połączenie",
+    "on": "Włączone",
     "portRange": "Port musi mieć wartość od 1 do 65535.",
     "replyAuto": "Auto",
     "replyModern": "Tylko nowoczesne IRCv3",
@@ -830,6 +837,10 @@
     "fallbackNick": "Zapasowy nick"
   },
   "mi": {
+    "updateUpToDate": "Masz najnowszą wersję",
+    "updateCheckFailed": "Nie udało się sprawdzić aktualizacji",
+    "updateNow": "Zaktualizuj do v{{version}}",
+    "updateChannelHint": "Sprawdza kanał aktualizacji „{{channel}}” (zmienisz go w Ustawienia → Aktualizacje)",
     "uploadsDisabled": "Wysyłanie wyłączone",
     "noServer": "Brak serwera",
     "connected": "Połączono",
@@ -911,6 +922,7 @@
     "addServerToSee": "Dodaj serwer, aby zobaczyć kanały i wiadomości.",
     "noChatsMatch": "Żaden czat nie pasuje do filtrów.",
     "away": "Nieobecny",
+    "present": "Obecny",
     "awayLabel": "Nieobecny",
     "you": "Ty",
     "users": "Użytkownicy",
@@ -1203,7 +1215,10 @@
     "saved": "Zapisano {{time}}",
     "delete": "Usuń notatkę",
     "pickOrCreate": "Wybierz notatkę albo utwórz nową.",
-    "back": "Wróć do listy"
+    "back": "Wróć do listy",
+    "addImage": "Wstaw obrazek",
+    "preview": "Podgląd (Markdown i HTML)",
+    "edit": "Edytuj"
   },
   "welcome": {
     "toChannel": "Witaj na #",
@@ -1226,7 +1241,12 @@
     "kickedReason": "{{target}} został wyrzucony z {{channel}} przez {{by}} ({{reason}})",
     "kicked": "{{target}} został wyrzucony z {{channel}} przez {{by}}",
     "mode": "{{nick}} ustawia tryb: {{channel}} {{modes}}",
-    "nick": "{{old}} jest teraz znany jako {{new}}"
+    "nick": "{{old}} jest teraz znany jako {{new}}",
+    "channelModes": "Tryby kanału {{channel}}: {{modes}}",
+    "modeError": "Błąd trybu: ",
+    "unknownModeFlag": "Nieznana flaga trybu '{{flag}}'",
+    "notUserMode": "{{mode}} nie jest rozpoznanym trybem użytkownika.",
+    "notChannelMode": "{{mode}} nie jest rozpoznanym trybem kanału."
   },
   "cl": {
     "title": "Lista kanałów",

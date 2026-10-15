@@ -58,6 +58,8 @@ export const ServerSidebar = ({
   const directMessagesMap = useMockStore((state) => state.directMessages);
   const sortDmByUnread = useMockStore((state) => state.sortDmByUnread ?? true);
   const dmSortOrder = useMockStore((state) => state.dmSortOrder ?? "opening");
+  const sortDmByRecent = useMockStore((state) => state.sortDmByRecent ?? true);
+  const dmLastActivity = useMockStore((state) => state.dmLastActivity);
   const unreadState = useMockStore((state) => state.unreadState);
 
   useEffect(() => {
@@ -298,6 +300,15 @@ export const ServerSidebar = ({
       const nameB = getMemberDisplayName(b, server) || b.profile?.name || "";
       return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
     });
+  }
+
+  if (sortDmByRecent) {
+    // Array.prototype.sort is stable, so conversations without recorded activity keep the base order.
+    const activityOf = (memberId: string) =>
+      currentMember
+        ? dmLastActivity?.[[currentMember.id, memberId].sort().join("-")] ?? 0
+        : 0;
+    sortedPmMembers.sort((a, b) => activityOf(b.id) - activityOf(a.id));
   }
 
   if (sortDmByUnread) {

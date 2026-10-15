@@ -551,7 +551,7 @@ commandRegistry.register({
   name: "away",
   description: "cmd.desc.away",
   execute: async (args: string, ctx: CommandContext) => {
-    const { useMockStore } = await import("@/lib/mock-store");
+    const { useMockStore, getServerActiveNick } = await import("@/lib/mock-store");
     const store = useMockStore.getState();
     const isAlreadyAway = !!store.selfAway[ctx.serverId];
 
@@ -571,9 +571,9 @@ commandRegistry.register({
       console.error("Failed to send /away via Tauri IRC:", err);
     }
 
-    const ourNick = ctx.activeServer.nicknames?.[0] || store.currentProfile.name;
+    const ourNick = getServerActiveNick(ctx.activeServer) || store.currentProfile.name;
     store.setUserAway(ctx.serverId, ourNick, true, reason);
-    store.setSelfAway(ctx.serverId, true);
+    store.setSelfAway(ctx.serverId, true, reason);
     return true;
   },
 });
@@ -582,7 +582,7 @@ commandRegistry.register({
   name: "back",
   description: "cmd.desc.back",
   execute: async (_args: string, ctx: CommandContext) => {
-    const { useMockStore } = await import("@/lib/mock-store");
+    const { useMockStore, getServerActiveNick } = await import("@/lib/mock-store");
     const store = useMockStore.getState();
 
     try {
@@ -594,7 +594,7 @@ commandRegistry.register({
       console.error("Failed to send /back via Tauri IRC:", err);
     }
 
-    const ourNick = ctx.activeServer.nicknames?.[0] || store.currentProfile.name;
+    const ourNick = getServerActiveNick(ctx.activeServer) || store.currentProfile.name;
     store.setUserAway(ctx.serverId, ourNick, false);
     store.setSelfAway(ctx.serverId, false);
     return true;

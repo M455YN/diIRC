@@ -15,7 +15,8 @@ import { useMockStore } from "@/lib/mock-store";
 import { inviteUserToChannel } from "@/lib/irc-actions";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, ShieldAlert, ShieldOff, Mic, MicOff, UserPlus, Hash, Clock, UserCheck } from "lucide-react";
+import { MessageSquare, ShieldOff, Mic, MicOff, UserPlus, Hash, Clock, UserCheck } from "lucide-react";
+import { ChessQueen } from "@/components/user-role-icon";
 
 interface UserContextMenuProps {
   member: Member & { profile: Profile };
@@ -87,7 +88,7 @@ export const UserContextMenu = React.forwardRef<
         console.error("Failed to send /away via context menu:", err);
       }
       store.setUserAway(activeServer.id, ourNick, true, reason);
-      store.setSelfAway(activeServer.id, true);
+      store.setSelfAway(activeServer.id, true, reason);
     }
   };
 
@@ -261,7 +262,7 @@ export const UserContextMenu = React.forwardRef<
                 </>
               ) : (
                 <>
-                  <ShieldAlert className="w-4 h-4 text-emerald-500" />
+                  <ChessQueen className="w-4 h-4 text-emerald-500" />
                   <span>{t("ctx.giveOp")}</span>
                 </>
               )}

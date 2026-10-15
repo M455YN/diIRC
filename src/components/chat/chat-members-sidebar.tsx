@@ -42,6 +42,7 @@ export const ChatMembersSidebar = ({
   const awayUsersMap = useMockStore((state) => state.awayUsers);
   const awayReasonsMap = useMockStore((state) => state.awayReasons);
   const selfAwayMap = useMockStore((state) => state.selfAway);
+  const selfAwayReasonsMap = useMockStore((state) => state.selfAwayReasons);
   const groupMembersByRole = useMockStore((state) => state.groupMembersByRole);
   const collapsedGroups = useMockStore((state) => state.collapsedMemberGroups);
   const toggleGroupCollapsed = useMockStore((state) => state.toggleMemberGroupCollapsed);
@@ -206,7 +207,7 @@ export const ChatMembersSidebar = ({
     const memberNickLower = member.profile.name.toLowerCase();
     const isAway = isMemberAway(member, isSelf);
     const rawAwayReason = isSelf
-      ? awayReasonsMap[server.id]?.[ourNick.toLowerCase()] || awayReasonsMap[server.id]?.[memberNickLower]
+      ? selfAwayReasonsMap?.[server.id] || awayReasonsMap[server.id]?.[ourNick.toLowerCase()] || awayReasonsMap[server.id]?.[memberNickLower]
       : awayReasonsMap[server.id]?.[memberNickLower];
     // "Away" is the generic default sent when no reason was given; it adds nothing to show.
     const awayReason = rawAwayReason && rawAwayReason.trim().toLowerCase() !== "away" ? translateAwayReason(rawAwayReason) : undefined;
@@ -235,9 +236,13 @@ export const ChatMembersSidebar = ({
             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate">
               {displayName}
             </p>
-            {isAway && (
+            {isAway ? (
               <p className="text-[11px] leading-tight text-yellow-600 dark:text-yellow-400 truncate">
                 {awayReason ? `${tr("chat.members.away")}: ${awayReason}` : tr("chat.members.away")}
+              </p>
+            ) : (
+              <p className="text-[11px] leading-tight text-emerald-600 dark:text-emerald-400 truncate">
+                {tr("chat.members.present")}
               </p>
             )}
           </div>
@@ -352,7 +357,7 @@ export const ChatMembersSidebar = ({
             !!awayUsersMap[server.id]?.[nickLower]
           : !!awayUsersMap[server.id]?.[nickLower],
         awayReason: isSelf
-          ? awayReasonsMap[server.id]?.[ourNickLower] || awayReasonsMap[server.id]?.[nickLower]
+          ? selfAwayReasonsMap?.[server.id] || awayReasonsMap[server.id]?.[ourNickLower] || awayReasonsMap[server.id]?.[nickLower]
           : awayReasonsMap[server.id]?.[nickLower],
       };
     };

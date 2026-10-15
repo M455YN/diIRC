@@ -10,7 +10,14 @@ import {
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
 import { useChangelog } from "@/lib/changelog-service";
-import { UPDATE_CHANNELS } from "@/lib/update-service";
+import {
+  UPDATE_CHANNELS,
+  BUILD_UPDATE_CHANNEL,
+  resolveUpdateChannelId,
+  checkForAppUpdate,
+  isTauriEnvironment,
+} from "@/lib/update-service";
+import type { Update } from "@tauri-apps/plugin-updater";
 import { MarkdownRenderer } from "@/lib/markdown/markdown-renderer";
 import { parseMarkdownContentBlocks } from "@/lib/markdown/markdown-utils";
 import { LinkPreview } from "@/components/chat/link-preview";
@@ -21,6 +28,8 @@ import {
   Loader2, 
   AlertCircle, 
   RotateCw,
+  RefreshCw,
+  DownloadCloud,
   Sparkles,
   Tag,
   WifiOff
@@ -35,9 +44,52 @@ export const ChangelogModal = () =>
 
 const DesktopChangelogModal = () => {
   const { t: tr } = useTranslation();
-  const { isOpen, onClose, type } = useModal();
+  const { isOpen, onClose, onOpen, type } = useModal();
   const isModalOpen = isOpen && type === "changelog";
   const isMobile = useIsMobileShell();
+
+  // Manual update check against the channel selected in Settings -> Updates.
+  const updateSourceMode = useMockStore((state) => state.updateSourceMode);
+  const activeChannelId = resolveUpdateChannelId(updateSourceMode);
+  const activeChannelLabel =
+    activeChannelId === "custom"
+      ? tr("settings.updates.customUrl")
+      : UPDATE_CHANNELS[activeChannelId ?? BUILD_UPDATE_CHANNEL].label;
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "upToDate" | "available" | "error">("idle");
+  const [foundUpdate, setFoundUpdate] = useState<Update | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  const handleCheckUpdates = async () => {
+    setUpdateStatus("checking");
+    setUpdateError(null);
+    try {
+      const update = await checkForAppUpdate();
+      if (update && update.available) {
+        setFoundUpdate(update);
+        setUpdateStatus("available");
+      } else {
+        setFoundUpdate(null);
+        setUpdateStatus("upToDate");
+      }
+    } catch (err: any) {
+      setFoundUpdate(null);
+      setUpdateStatus("error");
+      setUpdateError(err?.message || String(err));
+    }
+  };
+
+  const handleOpenUpdate = () => {
+    if (!foundUpdate) return;
+    onOpen("updateAvailable", {
+      updateInfo: {
+        currentVersion,
+        version: foundUpdate.version,
+        body: foundUpdate.body,
+        date: foundUpdate.date,
+      },
+      updateRef: foundUpdate,
+    } as any);
+  };
 
   const { versions, hasCurrentVersion, currentVersion, loading, error, refresh } = useChangelog();
 
@@ -142,16 +194,57 @@ const DesktopChangelogModal = () => {
             </div>
           </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => refresh()}
-            disabled={loading}
-            className="h-8 w-8 p-0 rounded-lg text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200"
-            title={tr("mi.refreshChangelog")}
-          >
-            <RotateCw className={cn("w-4 h-4", loading && "animate-spin text-indigo-500")} />
-          </Button>
+          <div className="flex items-center gap-x-2">
+            {isTauriEnvironment() && (
+              <>
+                {updateStatus === "upToDate" && (
+                  <span className="hidden text-xs text-emerald-600 dark:text-emerald-400 sm:inline">
+                    {tr("mi.updateUpToDate")}
+                  </span>
+                )}
+                {updateStatus === "error" && (
+                  <span
+                    className="hidden max-w-[220px] truncate text-xs text-rose-500 sm:inline"
+                    title={updateError ?? undefined}
+                  >
+                    {tr("mi.updateCheckFailed")}
+                  </span>
+                )}
+                {updateStatus === "available" && foundUpdate ? (
+                  <Button
+                    size="sm"
+                    onClick={handleOpenUpdate}
+                    className="h-8 gap-x-1.5 bg-indigo-600 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"
+                  >
+                    <DownloadCloud className="h-3.5 w-3.5" />
+                    {tr("mi.updateNow", { version: foundUpdate.version })}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCheckUpdates}
+                    disabled={updateStatus === "checking"}
+                    title={tr("mi.updateChannelHint", { channel: activeChannelLabel })}
+                    className="h-8 gap-x-1.5 border-zinc-300 text-xs font-semibold dark:border-zinc-700"
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", updateStatus === "checking" && "animate-spin")} />
+                    {updateStatus === "checking" ? tr("settings.updates.checking") : tr("settings.updates.checkNow")}
+                  </Button>
+                )}
+              </>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => refresh()}
+              disabled={loading}
+              className="h-8 w-8 p-0 rounded-lg text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200"
+              title={tr("mi.refreshChangelog")}
+            >
+              <RotateCw className={cn("w-4 h-4", loading && "animate-spin text-indigo-500")} />
+            </Button>
+          </div>
         </DialogHeader>
 
         {/* Modal Body */}

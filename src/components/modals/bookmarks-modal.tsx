@@ -29,10 +29,10 @@ export const BookmarksModal = () => {
 
   return (
     <Dialog open={isModalOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800">
         <DialogHeader>
-          <DialogTitle>{t("chat.header.bookmarks")}</DialogTitle>
-          <DialogDescription>{t("chat.bookmarks.desc")}</DialogDescription>
+          <DialogTitle className="text-zinc-900 dark:text-zinc-100">{t("chat.header.bookmarks")}</DialogTitle>
+          <DialogDescription className="text-zinc-500 dark:text-zinc-400">{t("chat.bookmarks.desc")}</DialogDescription>
         </DialogHeader>
 
         {bookmarks.length === 0 ? (

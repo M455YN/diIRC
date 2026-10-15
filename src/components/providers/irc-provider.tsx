@@ -1379,7 +1379,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             const server = store.servers.find((s) => s.id === server_id);
             const ourNick = server ? getServerActiveNick(server) : store.currentProfile.name;
             if (nick.toLowerCase() === ourNick.toLowerCase()) {
-              store.setSelfAway(server_id, away);
+              store.setSelfAway(server_id, away, reason);
             }
           }
         );

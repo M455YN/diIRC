@@ -51,6 +51,8 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
   const servers = useMockStore((s) => s.servers);
   const currentProfile = useMockStore((s) => s.currentProfile);
   const activeConversations = useMockStore((s) => s.activeConversations);
+  const sortDmByRecent = useMockStore((s) => s.sortDmByRecent ?? true);
+  const dmLastActivity = useMockStore((s) => s.dmLastActivity);
   const messages = useMockStore((s) => s.messages);
   const directMessages = useMockStore((s) => s.directMessages);
   const unreadState = useMockStore((s) => s.unreadState);
@@ -69,6 +71,7 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
     if (!server) return [] as ChatRow[];
     const self = getServerSelfMember(server, currentProfile?.id);
     const list: ChatRow[] = [];
+    const activityByKey: Record<string, number> = {};
 
     for (const channel of server.channels) {
       const msgs = messages[channel.id] || [];
@@ -96,6 +99,7 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
       const msgs = directMessages[convId] || [];
       const last = msgs[msgs.length - 1];
       const unread = unreadState[`conversation:${convId}`]?.count || 0;
+      activityByKey[`dm:${member.id}`] = dmLastActivity?.[convId] ?? 0;
       const nick = getMemberDisplayName(member, server);
       const nickLower = member.profile.name.toLowerCase();
       const isAway = !!awayUsers[server.id]?.[nickLower];
@@ -114,6 +118,16 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
       });
     }
 
+    if (sortDmByRecent) {
+      // Re-order only the DM rows (by latest activity) inside the slots they already occupy.
+      const dmRows = list
+        .filter((row) => row.kind === "dm")
+        .sort((a, b) => (activityByKey[b.key] ?? 0) - (activityByKey[a.key] ?? 0));
+      let next = 0;
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].kind === "dm") list[i] = dmRows[next++];
+      }
+    }
     list.sort((a, b) => (b.unread > 0 ? 1 : 0) - (a.unread > 0 ? 1 : 0));
     return list;
   }, [
@@ -124,6 +138,8 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
     unreadState,
     activeConversations,
     awayUsers,
+    sortDmByRecent,
+    dmLastActivity,
   ]);
 
   const visible = rows.filter((row) => {

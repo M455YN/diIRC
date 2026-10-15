@@ -84,3 +84,25 @@ export const markdownSanitizeSchema: SanitizeOptions = {
 } as any;
 
 export const markdownAllowedElements = baseTagNames;
+
+/**
+ * Schema for places that opt in to raw HTML (notes). Still an allowlist: no scripts, styles, event
+ * handlers, forms, iframes or non-http(s) URLs; only structural/text-level tags and images survive.
+ */
+const htmlExtraTagNames = [
+  "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption",
+  "sub", "sup", "kbd", "mark", "small", "details", "summary",
+  "figure", "figcaption", "center",
+];
+
+export const htmlSanitizeSchema: SanitizeOptions = {
+  ...markdownSanitizeSchema,
+  tagNames: [...baseTagNames, ...htmlExtraTagNames],
+  attributes: {
+    ...markdownSanitizeSchema.attributes,
+    img: ["src", "alt", "title", "width", "height"],
+    th: ["align", "colSpan", "rowSpan"],
+    td: ["align", "colSpan", "rowSpan"],
+    details: ["open"],
+  },
+} as any;

@@ -109,6 +109,7 @@ const SETTINGS_SEARCH_INDEX: { key: string; tab: SettingsTab }[] = [
   { key: "settings.items.displayNameFormat", tab: "appearance" },
   { key: "settings.items.groupByRole", tab: "appearance" },
   { key: "settings.items.dateFormat", tab: "appearance" },
+  { key: "settings.items.sortDmByRecent", tab: "appearance" },
   { key: "settings.items.sortDmByUnread", tab: "appearance" },
   { key: "settings.items.sortDm", tab: "appearance" },
   { key: "settings.items.statusIndicator", tab: "appearance" },
@@ -233,6 +234,8 @@ export const SettingsModal = () => {
   const setCustomUpdatePubkey = useMockStore((state) => state.setCustomUpdatePubkey);
   const activeUpdateChannel = resolveUpdateChannelId(updateSourceMode);
 
+  const sortDmByRecent = useMockStore((state) => state.sortDmByRecent ?? true);
+  const setSortDmByRecent = useMockStore((state) => state.setSortDmByRecent);
   const sortDmByUnread = useMockStore((state) => state.sortDmByUnread ?? true);
   const setSortDmByUnread = useMockStore((state) => state.setSortDmByUnread);
 
@@ -649,6 +652,24 @@ export const SettingsModal = () => {
                     {formatMessageDate(new Date(), dateFormatPreset, customDateFormat)}
                   </span>
                 </div>
+              </div>
+              {/* Newest Private Messages First */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      {t("settings.appearance.sortDmRecent")}
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    {t("settings.appearance.sortDmRecentDesc")}
+                  </p>
+                </div>
+                <Switch
+                  checked={sortDmByRecent}
+                  onCheckedChange={(checked) => setSortDmByRecent(checked)}
+                />
               </div>
               {/* Sort Private Messages by Unread */}
               <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">

@@ -20,6 +20,7 @@ interface UserHoverCardProps {
 }
 
 import { getMemberDisplayName } from "@/lib/display-name-utils";
+import { translateAwayReason } from "@/lib/system-message-i18n";
 export { getMemberDisplayName };
 
 
@@ -40,6 +41,8 @@ export const UserHoverCard = ({
   const channelUserModesMap = useMockStore((state) => state.channelUserModes);
   const awayUsersMap = useMockStore((state) => state.awayUsers);
   const awayReasonsMap = useMockStore((state) => state.awayReasons);
+  const selfAwayMap = useMockStore((state) => state.selfAway);
+  const selfAwayReasonsMap = useMockStore((state) => state.selfAwayReasons);
 
   const activeServer = server || servers[0];
   const freshMember = activeServer?.members.find(
@@ -49,8 +52,21 @@ export const UserHoverCard = ({
   const activeChannel = customChannel || activeServer?.channels.find((c) => c.id === params?.channelId);
   const nickname = freshMember.profile.name;
 
-  const isAway = activeServer ? !!awayUsersMap[activeServer.id]?.[nickname.toLowerCase()] : false;
-  const awayReason = activeServer ? awayReasonsMap[activeServer.id]?.[nickname.toLowerCase()] : undefined;
+  const ourNickLower = activeServer ? getServerActiveNick(activeServer).toLowerCase() : "";
+  const isOurNick = !!ourNickLower && nickname.toLowerCase() === ourNickLower;
+  const isAway = activeServer
+    ? !!awayUsersMap[activeServer.id]?.[nickname.toLowerCase()] ||
+      (isOurNick && !!selfAwayMap[activeServer.id])
+    : false;
+  const rawAwayReason = activeServer
+    ? (isOurNick ? selfAwayReasonsMap?.[activeServer.id] : undefined) ||
+      awayReasonsMap[activeServer.id]?.[nickname.toLowerCase()]
+    : undefined;
+  // "Away" is the generic default sent when no reason was given; it adds nothing to show.
+  const awayReason =
+    rawAwayReason && rawAwayReason.trim().toLowerCase() !== "away"
+      ? translateAwayReason(rawAwayReason)
+      : undefined;
 
   const userModes = activeChannel ? channelUserModesMap[activeChannel.id]?.[nickname.toLowerCase()] || [] : [];
   const highestRole = getHighestChannelRole(userModes);
@@ -134,7 +150,7 @@ export const UserHoverCard = ({
             {isAway && (
               <div className="flex justify-between items-center text-yellow-600 dark:text-yellow-400 font-semibold">
                 <span>{t("hover.status")}</span>
-                <span className="truncate max-w-[160px]">{awayReason ? `Away (${awayReason})` : t("ctx.away")}</span>
+                <span className="truncate max-w-[160px]">{awayReason ? `${t("ctx.away")}: ${awayReason}` : t("ctx.away")}</span>
               </div>
             )}
             <div className="flex justify-between">

@@ -4,10 +4,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import rehypeSanitize from "rehype-sanitize";
+import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Copy, Check } from "lucide-react";
-import { markdownSanitizeSchema } from "./markdown-config";
+import { markdownSanitizeSchema, htmlSanitizeSchema } from "./markdown-config";
 import { remarkSpoiler, remarkUnderline, remarkMention } from "./remark-plugins";
 import { openExternalUrl, copyToClipboard } from "@/lib/system-utils";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,10 @@ interface MarkdownRendererProps {
   myNicks?: string[];
   allMemberNicks?: string[];
   allowImages?: boolean;
+  /** Parse raw HTML (sanitized by an allowlist). Off for chat; used by notes. */
+  allowHtml?: boolean;
+  /** Keep links to image/video files visible instead of hiding them behind a chat preview. */
+  keepMediaLinks?: boolean;
 }
 
 // CodeBlock component with syntax highlighting & copy button
@@ -131,6 +136,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   myNicks = [],
   allMemberNicks = [],
   allowImages = true,
+  allowHtml = false,
+  keepMediaLinks = false,
 }) => {
   const { t: tr } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -151,7 +158,13 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     () => [[remarkMention, { myNicks, allMemberNicks }] as any, remarkSpoiler, remarkUnderline, remarkGfm, remarkBreaks],
     [myNicks, allMemberNicks]
   );
-  const rehypePlugins = useMemo(() => [[rehypeSanitize, markdownSanitizeSchema] as any], []);
+  const rehypePlugins = useMemo(
+    () =>
+      allowHtml
+        ? [rehypeRaw as any, [rehypeSanitize, htmlSanitizeSchema] as any]
+        : [[rehypeSanitize, markdownSanitizeSchema] as any],
+    [allowHtml]
+  );
 
   if (!content || !content.trim()) return null;
 
@@ -220,7 +233,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       if (!safe || !href) {
         return <span className="text-zinc-600 dark:text-zinc-300">{children}</span>;
       }
-      if (allowImages && enableLinkPreviews && isMediaUrl(href)) {
+      if (!keepMediaLinks && allowImages && enableLinkPreviews && isMediaUrl(href)) {
         return null;
       }
       return (
@@ -235,6 +248,15 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       );
     },
     hr: () => <hr className="my-2 border-zinc-200 dark:border-zinc-700" />,
+    table: ({ children }: any) => (
+      <div className="my-2 max-w-full overflow-x-auto">
+        <table className="w-full border-collapse text-left text-sm">{children}</table>
+      </div>
+    ),
+    th: ({ children }: any) => (
+      <th className="border border-zinc-300 bg-zinc-100 px-2 py-1 font-semibold dark:border-zinc-600 dark:bg-zinc-800">{children}</th>
+    ),
+    td: ({ children }: any) => <td className="border border-zinc-300 px-2 py-1 dark:border-zinc-600">{children}</td>,
     img: ({ src, alt }: any) => {
       if (!allowImages || !src || !isSafeHref(src)) return null;
       return (

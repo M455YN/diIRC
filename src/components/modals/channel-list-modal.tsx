@@ -110,10 +110,10 @@ export const ChannelListModal = () => {
 
   return (
     <Dialog open={isModalOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800">
         <DialogHeader>
-          <DialogTitle>{t("cl.title")}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-zinc-900 dark:text-zinc-100">{t("cl.title")}</DialogTitle>
+          <DialogDescription className="text-zinc-500 dark:text-zinc-400">
             {loading
               ? t("cl.loading")
               : t("cl.summary", { channels: channels.length, users: totalUsers })}
@@ -127,14 +127,14 @@ export const ChannelListModal = () => {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder={t("cl.find")}
-            className="h-8 text-xs"
+            className="h-8 text-xs bg-white dark:bg-[#1e1f22] text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700"
           />
           <Input
             value={minUsers}
             onChange={(e) => setMinUsers(e.target.value.replace(/\D/g, ""))}
             placeholder={t("cl.minUsers")}
             inputMode="numeric"
-            className="h-8 w-28 text-xs"
+            className="h-8 w-28 text-xs bg-white dark:bg-[#1e1f22] text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700"
           />
           <Button type="button" variant="secondary" size="sm" onClick={request} disabled={!serverConnected || loading}>
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />

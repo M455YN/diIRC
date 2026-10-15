@@ -139,7 +139,7 @@ const ServerFormBody = ({
 
   return (
     <>
-      <M3Subheader>Connection</M3Subheader>
+      <M3Subheader>{tr("mform.connection")}</M3Subheader>
       <Box sx={fields}>
         <ServerLogoField value={form.imageUrl} onChange={(v) => set("imageUrl", v)} />
         <M3TextField
@@ -363,11 +363,11 @@ const ServerFormBody = ({
                   ? tr("mform.off")
                   : tr("mform.mentionsOnly"),
             dmNotifications: globalNotif?.dmNotifications === "off" ? tr("mform.off") : tr("mform.allMessages"),
-            sound: globalNotif?.soundEnabled ? "On" : tr("mform.muted"),
+            sound: globalNotif?.soundEnabled ? tr("mform.on") : tr("mform.muted"),
             soundPreset: globalNotif?.soundPreset || "chime",
             dmSoundPreset: globalNotif?.dmSoundPreset || "chime",
             cooldownSec: ((globalNotif?.soundCooldownMs ?? 3000) / 1000).toString(),
-            popup: globalNotif?.popupEnabled ? "On" : tr("mform.off"),
+            popup: globalNotif?.popupEnabled ? tr("mform.on") : tr("mform.off"),
           }}
           onChange={(field, value) => set("notifications", { ...form.notifications, [field]: value })}
           openPicker={openPicker}

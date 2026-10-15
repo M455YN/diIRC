@@ -1,9 +1,7 @@
 import { useTranslation } from "react-i18next";
 import React from "react";
 import {
-  Crown,
-  ShieldCheck,
-  ShieldAlert,
+  KeySquare,
   Mic,
   Network,
   Terminal,
@@ -15,8 +13,8 @@ import {
 import { ActionTooltip } from "@/components/action-tooltip";
 import { cn } from "@/lib/utils";
 
-// Custom Lucide-style ShieldHalf component since it's not in standard lucide-react export
-export const ShieldHalf: React.FC<LucideProps> = ({ className, ...props }) => (
+// Chess icons from newer lucide releases (not in the pinned lucide-react version), same style/geometry.
+const LucideSvg: React.FC<LucideProps & { name: string }> = ({ name, className, children, ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="24"
@@ -27,12 +25,43 @@ export const ShieldHalf: React.FC<LucideProps> = ({ className, ...props }) => (
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={cn("lucide lucide-shield-half", className)}
+    className={cn("lucide", `lucide-${name}`, className)}
     {...props}
   >
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    <path d="M12 22V2" />
+    {children}
   </svg>
+);
+
+export const ChessKing: React.FC<LucideProps> = (props) => (
+  <LucideSvg name="chess-king" {...props}>
+    <path d="M4 20a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
+    <path d="m6.7 18-1-1C4.35 15.682 3 14.09 3 12a5 5 0 0 1 4.95-5c1.584 0 2.7.455 4.05 1.818C13.35 7.455 14.466 7 16.05 7A5 5 0 0 1 21 12c0 2.082-1.359 3.673-2.7 5l-1 1" />
+    <path d="M10 4h4" />
+    <path d="M12 2v6.818" />
+  </LucideSvg>
+);
+
+export const ChessQueen: React.FC<LucideProps> = (props) => (
+  <LucideSvg name="chess-queen" {...props}>
+    <path d="M4 20a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
+    <path d="m12.474 5.943 1.567 5.34a1 1 0 0 0 1.75.328l2.616-3.402" />
+    <path d="m20 9-3 9" />
+    <path d="m5.594 8.209 2.615 3.403a1 1 0 0 0 1.75-.329l1.567-5.34" />
+    <path d="M7 18 4 9" />
+    <circle cx="12" cy="4" r="2" />
+    <circle cx="20" cy="7" r="2" />
+    <circle cx="4" cy="7" r="2" />
+  </LucideSvg>
+);
+
+export const ChessKnight: React.FC<LucideProps> = (props) => (
+  <LucideSvg name="chess-knight" {...props}>
+    <path d="M5 20a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z" />
+    <path d="M16.5 18c1-2 2.5-5 2.5-9a7 7 0 0 0-7-7H6.635a1 1 0 0 0-.768 1.64L7 5l-2.32 5.802a2 2 0 0 0 .95 2.526l2.87 1.456" />
+    <path d="m15 5 1.425-1.425" />
+    <path d="m17 8 1.53-1.53" />
+    <path d="M9.713 12.185 7 18" />
+  </LucideSvg>
 );
 
 export type ChannelRoleKey = "owner" | "admin" | "op" | "halfop" | "voice";
@@ -57,7 +86,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   owner: {
     key: "owner",
     label: "role.owner",
-    icon: Crown,
+    icon: KeySquare,
     colorClass: "text-amber-500",
     fillClass: "fill-amber-500/20",
     hexColor: "#f59e0b",
@@ -69,7 +98,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   admin: {
     key: "admin",
     label: "role.admin",
-    icon: ShieldCheck,
+    icon: ChessKing,
     colorClass: "text-indigo-500",
     fillClass: "fill-indigo-500/20",
     hexColor: "#6366f1",
@@ -81,7 +110,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   op: {
     key: "op",
     label: "role.op",
-    icon: ShieldAlert,
+    icon: ChessQueen,
     colorClass: "text-emerald-500",
     fillClass: "fill-emerald-500/20",
     hexColor: "#10b981",
@@ -93,7 +122,7 @@ export const ROLE_CONFIGS: Record<UserRoleKey, RoleConfig> = {
   halfop: {
     key: "halfop",
     label: "role.halfop",
-    icon: ShieldHalf,
+    icon: ChessKnight,
     colorClass: "text-teal-500",
     fillClass: "fill-teal-500/20",
     hexColor: "#14b8a6",

@@ -48,15 +48,18 @@ const MemberItem = ({
   const { t: tr } = useTranslation();
   const t = useM3();
   const visibleReason = row.awayReason && row.awayReason.trim().toLowerCase() !== "away" ? translateAwayReason(row.awayReason) : undefined;
+  const roleLabel = row.isSelf
+    ? tr("mi.you")
+    : row.role && showRole
+      ? tr(ROLE_CONFIGS[row.role].label)
+      : undefined;
   const supporting = row.isAway
     ? visibleReason
       ? `${tr("mi.away")}: ${visibleReason}`
       : tr("mi.away")
-    : row.isSelf
-      ? tr("mi.you")
-      : row.role && showRole
-        ? tr(ROLE_CONFIGS[row.role].label)
-        : undefined;
+    : roleLabel
+      ? `${roleLabel} · ${tr("mi.present")}`
+      : tr("mi.present");
 
   return (
     // content-visibility keeps very large channels cheap to render
