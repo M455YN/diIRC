@@ -175,7 +175,33 @@ const WANTED_CAPS: &[&str] = &[
     "draft/message-redaction",
 ];
 
-const NAMES_PREFIXES: &[char] = &['@', '+', '%', '~', '&'];
+const NAMES_PREFIXES: &[char] = &['@', '+', '%', '~', '&', '!'];
+
+fn is_channel_arg(arg: &str) -> bool {
+    let arg = arg.trim();
+    arg.starts_with('#') || arg.starts_with('&')
+}
+
+/// Channel name inside a 353 or 366. The nick and the `=`/`@`/`*` symbol are not
+/// always at a fixed index, so pick the argument that is actually a channel.
+fn names_reply_channel(args: &[String]) -> Option<String> {
+    args.iter().find(|arg| is_channel_arg(arg)).cloned()
+}
+
+/// Every nick token in a 353. Names may be one trailing argument (`:nick nick`)
+/// or one argument per nick when the server omits the trailing colon.
+fn names_reply_tokens(args: &[String]) -> Vec<String> {
+    let Some(channel_at) = args.iter().position(|arg| is_channel_arg(arg)) else {
+        return Vec::new();
+    };
+    args.iter()
+        .skip(channel_at + 1)
+        .flat_map(|arg| arg.split_whitespace())
+        .filter(|token| !token.is_empty() && *token != ":")
+        .map(|token| token.trim_start_matches(':').to_string())
+        .filter(|token| !token.is_empty())
+        .collect()
+}
 
 /// Splits one 353 token (`@+nick` or, with userhost-in-names, `@+nick!user@host`)
 /// into the leading status prefixes, the bare nick, and an optional (user, host).
@@ -2352,13 +2378,12 @@ async fn connect_irc(
                             let _ = app_clone.emit("irc_list_end", IrcListServerEvent { server_id: stream_server_id.clone() });
                         }
                         Command::Response(Response::RPL_NAMREPLY, ref args) => {
-                            if args.len() >= 4 {
-                                let channel = args[2].to_lowercase();
-                                let buf = names_buffer.entry(channel).or_default();
-                                for token in args[3].split_whitespace() {
+                            if let Some(channel) = names_reply_channel(args) {
+                                let buf = names_buffer.entry(channel.to_lowercase()).or_default();
+                                for token in names_reply_tokens(args) {
                                     // userhost-in-names sends `@nick!user@host`; keep only `@nick`
                                     // in the roster and publish the host separately.
-                                    let (prefixes, nick, userhost) = parse_names_token(token);
+                                    let (prefixes, nick, userhost) = parse_names_token(&token);
                                     if nick.is_empty() {
                                         continue;
                                     }
@@ -2370,11 +2395,21 @@ async fn connect_irc(
                             }
                         }
                         Command::Response(Response::RPL_ENDOFNAMES, ref args) => {
-                            let channel = match args.get(1) {
-                                Some(c) => c.clone(),
+                            let channel = match names_reply_channel(args) {
+                                Some(c) => c,
                                 None => continue,
                             };
                             let users = names_buffer.remove(&channel.to_lowercase()).unwrap_or_default();
+                            // A 366 with no buffered 353s means we failed to parse the roster.
+                            // Publishing that as an empty NAMES list would wipe everyone but us.
+                            if users.is_empty() {
+                                log::warn!(
+                                    "IRC [{}] End of NAMES for {} with an empty roster; keeping the current list",
+                                    stream_server_id,
+                                    channel
+                                );
+                                continue;
+                            }
                             let strip = &['@', '+', '%', '~', '&'][..];
                             let ops: Vec<String> = users
                                 .iter()
@@ -4830,6 +4865,40 @@ pub fn run() {
 #[cfg(test)]
 mod reply_compat_tests {
     use super::*;
+
+    #[test]
+    fn names_reply_keeps_every_nick_when_there_is_no_trailing_colon() {
+        let args = vec![
+            "me".into(),
+            "=".into(),
+            "#chan".into(),
+            "@alice!a@host".into(),
+            "bob!b@host".into(),
+            "+carol".into(),
+        ];
+        assert_eq!(names_reply_channel(&args).as_deref(), Some("#chan"));
+        let tokens = names_reply_tokens(&args);
+        let nicks: Vec<String> = tokens
+            .iter()
+            .map(|token| parse_names_token(token).1)
+            .collect();
+        assert_eq!(nicks, vec!["alice", "bob", "carol"]);
+    }
+
+    #[test]
+    fn names_reply_reads_a_single_trailing_list() {
+        let args = vec![
+            "me".into(),
+            "=".into(),
+            "#chan".into(),
+            "@alice!a@host bob!b@host +carol".into(),
+        ];
+        let nicks: Vec<String> = names_reply_tokens(&args)
+            .iter()
+            .map(|token| parse_names_token(token).1)
+            .collect();
+        assert_eq!(nicks, vec!["alice", "bob", "carol"]);
+    }
 
     #[test]
     fn format_and_strip_roundtrip() {
