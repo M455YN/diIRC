@@ -31,11 +31,18 @@ jobs:
         if: github.repository != 'TheStami/diIRC'
         shell: bash
         run: |
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          notes_file="RELEASE_NOTES_v${version}.md"
           prev=$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)
           range=${prev:+$prev..}HEAD
           {
             echo 'body<<NOTES_EOF'
-            git log --no-merges --pretty='- %s' "$range" | grep -v '^- chore: release' || true
+            if [ -f "$notes_file" ]; then
+              # A hand-written note for this version wins over the generated commit list.
+              cat "$notes_file"
+            else
+              git log --no-merges --pretty='- %s' "$range" | grep -v '^- chore: release' || true
+            fi
             echo 'NOTES_EOF'
           } >> "$GITHUB_OUTPUT"
 
