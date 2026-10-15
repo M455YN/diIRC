@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Eye, ImagePlus, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Bold,
+  Code,
+  Eye,
+  Italic,
+  List,
+  ListOrdered,
+  Pencil,
+  Plus,
+  Quote,
+  Strikethrough,
+  Trash2,
+  Underline,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,9 +29,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { useMockStore } from "@/lib/mock-store";
-import { uploadImage } from "@/lib/upload/services";
 import { MarkdownRenderer } from "@/lib/markdown/markdown-renderer";
+import {
+  isMarkdownFormatActive,
+  toggleLinePrefix,
+  toggleMarkdownWrap,
+  wrapCodeBlock,
+} from "@/lib/markdown/markdown-utils";
+
+const WRAP_FORMATS = [
+  { id: "bold", icon: Bold, before: "**", after: "**", label: "chat.input.bold", key: "b", shift: false },
+  { id: "italic", icon: Italic, before: "*", after: "*", label: "chat.input.italic", key: "i", shift: false },
+  { id: "underline", icon: Underline, before: "__", after: "__", label: "chat.input.underline", key: "u", shift: false },
+  { id: "strikethrough", icon: Strikethrough, before: "~~", after: "~~", label: "chat.input.strikethrough", key: "x", shift: true },
+] as const;
+
+const BLOCK_FORMATS = [
+  { id: "code-block", icon: Code, label: "chat.input.codeBlock", apply: (el: HTMLTextAreaElement) => wrapCodeBlock(el) },
+  { id: "quote", icon: Quote, label: "chat.input.quote", apply: (el: HTMLTextAreaElement) => toggleLinePrefix(el, "> ") },
+  { id: "bullet-list", icon: List, label: "chat.input.bulletList", apply: (el: HTMLTextAreaElement) => toggleLinePrefix(el, "- ") },
+  {
+    id: "numbered-list",
+    icon: ListOrdered,
+    label: "chat.input.numberedList",
+    apply: (el: HTMLTextAreaElement) => toggleLinePrefix(el, "", { numbered: true }),
+  },
+] as const;
 
 /**
  * General private notes. Edits are saved as you type; nothing leaves this device.
@@ -37,11 +74,8 @@ export const NotesModal = () => {
   const sorted = useMemo(() => [...notes].sort((a, b) => b.updatedAt - a.updatedAt), [notes]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
-  const [uploading, setUploading] = useState(0);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const uploadConfig = useMockStore((state) => state.uploadConfig);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Desktop: open on the newest note; if the selected one was deleted, fall back to the first remaining.
   // Phone: start on the list, so nothing is selected automatically.
@@ -54,14 +88,18 @@ export const NotesModal = () => {
 
   const selected = notes.find((n) => n.id === selectedId) ?? null;
 
-  // A different note always opens in the editor.
+  // Existing notes open in the preview; a note that was just created (or is still empty) opens in the editor.
+  const createdIdRef = useRef<string | null>(null);
   useEffect(() => {
-    setPreview(false);
-    setUploadError(null);
+    const note = useNotesStore.getState().notes.find((n) => n.id === selectedId);
+    const openInEditor = !note || selectedId === createdIdRef.current || !note.body.trim();
+    setPreview(!openInEditor);
+    setSelection({ start: 0, end: 0 });
   }, [selectedId]);
 
   const handleNew = () => {
     const id = add();
+    createdIdRef.current = id;
     setSelectedId(id);
   };
 
@@ -71,56 +109,39 @@ export const NotesModal = () => {
     if (isMobile) setSelectedId(null);
   };
 
-  // Same upload path as chat attachments: the configured provider returns a URL inserted as Markdown.
-  const insertImages = useCallback(
-    async (files: File[]) => {
-      if (!selected) return;
-      const images = files.filter((f) => f.type.startsWith("image/"));
-      if (images.length === 0) return;
-      if (uploadConfig.provider === "disabled") {
-        setUploadError(t("chat.input.uploadDisabled"));
-        return;
-      }
-      setUploadError(null);
-      const noteId = selected.id;
-      for (const file of images) {
-        setUploading((n) => n + 1);
-        try {
-          const url = await uploadImage(file, uploadConfig);
-          const alt = file.name.replace(/[\[\]]/g, "");
-          const snippet = `![${alt}](${url})`;
-          const state = useNotesStore.getState();
-          const current = state.notes.find((n) => n.id === noteId);
-          if (current) {
-            const el = bodyRef.current;
-            const pos = el && document.activeElement === el ? el.selectionStart : current.body.length;
-            const before = current.body.slice(0, pos);
-            const after = current.body.slice(pos);
-            const lead = before && !before.endsWith("\n") ? "\n" : "";
-            state.update(noteId, { body: `${before}${lead}${snippet}\n${after}` });
-          }
-        } catch (err: any) {
-          setUploadError(err?.message || t("chat.input.uploadFailed"));
-        } finally {
-          setUploading((n) => n - 1);
-        }
-      }
-    },
-    [selected, uploadConfig, t]
-  );
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const files = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/"));
-    if (files.length === 0) return;
-    e.preventDefault();
-    void insertImages(files);
+  const syncSelection = () => {
+    const el = bodyRef.current;
+    if (el) setSelection({ start: el.selectionStart, end: el.selectionEnd });
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLTextAreaElement>) => {
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
-    if (files.length === 0) return;
+  // Applies a formatting helper to the editor and stores the result as the note body.
+  const applyTransform = useCallback(
+    (
+      transform: (el: HTMLTextAreaElement) => {
+        newValue: string;
+        newSelectionStart: number;
+        newSelectionEnd: number;
+      }
+    ) => {
+      const el = bodyRef.current;
+      if (!el || !selected) return;
+      const { newValue, newSelectionStart, newSelectionEnd } = transform(el);
+      update(selected.id, { body: newValue });
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(newSelectionStart, newSelectionEnd);
+        setSelection({ start: newSelectionStart, end: newSelectionEnd });
+      }, 0);
+    },
+    [selected, update]
+  );
+
+  const handleBodyKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const format = WRAP_FORMATS.find((f) => f.key === e.key.toLowerCase() && f.shift === e.shiftKey);
+    if (!format) return;
     e.preventDefault();
-    void insertImages(files);
+    applyTransform((el) => toggleMarkdownWrap(el, format.before, format.after));
   };
 
   const showList = !isMobile || !selected;
@@ -199,40 +220,56 @@ export const NotesModal = () => {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={preview}
-                      aria-label={t("notes.addImage")}
-                      title={t("notes.addImage")}
-                    >
-                      {uploading > 0 ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
                       onClick={() => setPreview((p) => !p)}
                       aria-label={preview ? t("notes.edit") : t("notes.preview")}
                       title={preview ? t("notes.edit") : t("notes.preview")}
                     >
                       {preview ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => {
-                        void insertImages(Array.from(e.target.files ?? []));
-                        e.target.value = "";
-                      }}
-                    />
                   </div>
-                  {uploadError && <p className="text-xs text-rose-500">{uploadError}</p>}
+                  {!preview && (
+                    <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-zinc-300 px-1 py-0.5 dark:border-zinc-700">
+                      {WRAP_FORMATS.map(({ id, icon: Icon, before, after, label }) => {
+                        const active = isMarkdownFormatActive(selected.body, selection.start, selection.end, before, after);
+                        return (
+                          <Button
+                            key={id}
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            title={t(label)}
+                            aria-label={t(label)}
+                            aria-pressed={active}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => applyTransform((el) => toggleMarkdownWrap(el, before, after))}
+                            className={cn("h-7 w-7 p-0", active && "bg-indigo-500/15 text-indigo-600 dark:text-indigo-300")}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </Button>
+                        );
+                      })}
+                      <span className="mx-1 h-4 w-px bg-zinc-300 dark:bg-zinc-700" />
+                      {BLOCK_FORMATS.map(({ id, icon: Icon, label, apply }) => (
+                        <Button
+                          key={id}
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          title={t(label)}
+                          aria-label={t(label)}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => applyTransform(apply)}
+                          className="h-7 w-7 p-0"
+                        >
+                          <Icon className="h-4 w-4" />
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                   {preview ? (
                     <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-zinc-300 p-3 dark:border-zinc-700">
                       {selected.body.trim() ? (
-                        <MarkdownRenderer content={selected.body} allowImages allowHtml keepMediaLinks />
+                        <MarkdownRenderer content={selected.body} allowImages={false} allowHtml keepMediaLinks />
                       ) : (
                         <p className="text-sm text-zinc-500 dark:text-zinc-400">{t("notes.bodyPlaceholder")}</p>
                       )}
@@ -242,8 +279,10 @@ export const NotesModal = () => {
                       ref={bodyRef}
                       value={selected.body}
                       onChange={(e) => update(selected.id, { body: e.target.value })}
-                      onPaste={handlePaste}
-                      onDrop={handleDrop}
+                      onKeyDown={handleBodyKeyDown}
+                      onSelect={syncSelection}
+                      onKeyUp={syncSelection}
+                      onClick={syncSelection}
                       placeholder={t("notes.bodyPlaceholder")}
                       className="min-h-0 flex-1 resize-none bg-white dark:bg-[#1e1f22] text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700"
                     />
