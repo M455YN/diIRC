@@ -1,5 +1,5 @@
 import React from "react";
-import { openExternalUrl } from "@/lib/system-utils";
+import { openLink } from "@/lib/system-utils";
 
 export const MIRC_COLORS: Record<number, string> = {
   0: "#ffffff", // White
@@ -222,7 +222,7 @@ export const IrcSpanNode: React.FC<{ span: IrcFormattedSpan }> = ({ span }) => {
             <button
               key={index}
               type="button"
-              onClick={() => openExternalUrl(part)}
+              onClick={() => openLink(part)}
               className="text-indigo-500 dark:text-indigo-400 hover:underline inline font-inherit text-left cursor-pointer p-0 bg-transparent border-none align-baseline"
             >
               {part}

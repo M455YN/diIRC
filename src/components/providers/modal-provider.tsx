@@ -24,6 +24,7 @@ import { AlreadyAwayModal } from "@/components/modals/already-away-modal";
 import { ChangelogModal } from "@/components/modals/changelog-modal";
 import { BookmarksModal } from "@/components/modals/bookmarks-modal";
 import { NotesModal } from "@/components/modals/notes-modal";
+import { LinkPreviewModal } from "@/components/modals/link-preview-modal";
 import { ChannelListModal } from "@/components/modals/channel-list-modal";
 
 export const ModalProvider = () => {
@@ -63,6 +64,7 @@ export const ModalProvider = () => {
       <ChangelogModal />
       <BookmarksModal />
       <NotesModal />
+      <LinkPreviewModal />
       <ChannelListModal />
     </>
   );

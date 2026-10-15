@@ -4406,6 +4406,98 @@ async fn send_away(
     }
 }
 
+/// Label of the native webview that shows a link inside the preview modal.
+const LINK_PREVIEW_LABEL: &str = "link-preview";
+
+/// Shows a chat link in a native child webview placed over the preview modal's content area.
+///
+/// The webview shows remote content: capabilities are scoped to the local `main` page so the remote
+/// page cannot call app commands, it is private (no shared cookies), and it may only navigate to
+/// http(s). Coordinates are logical pixels relative to the window's content area.
+#[tauri::command]
+async fn link_preview_open(
+    app: AppHandle,
+    url: String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        use tauri::webview::WebviewBuilder;
+        use tauri::{LogicalPosition, LogicalSize, WebviewUrl};
+
+        let parsed = tauri::Url::parse(url.trim()).map_err(|e| e.to_string())?;
+        if !matches!(parsed.scheme(), "http" | "https") {
+            return Err("Only http and https links can be previewed".to_string());
+        }
+        let position = LogicalPosition::new(x, y);
+        let size = LogicalSize::new(width.max(1.0), height.max(1.0));
+
+        if let Some(existing) = app.get_webview(LINK_PREVIEW_LABEL) {
+            existing.set_position(position).map_err(|e| e.to_string())?;
+            existing.set_size(size).map_err(|e| e.to_string())?;
+            existing.navigate(parsed).map_err(|e| e.to_string())?;
+            let _ = existing.show();
+            return Ok(());
+        }
+
+        let window = app
+            .get_window("main")
+            .ok_or_else(|| "Main window not found".to_string())?;
+        let builder = WebviewBuilder::new(LINK_PREVIEW_LABEL, WebviewUrl::External(parsed))
+            .incognito(true)
+            .on_navigation(|target| matches!(target.scheme(), "http" | "https"));
+        window
+            .add_child(builder, position, size)
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = (app, url, x, y, width, height);
+        Err("Link preview is only available on desktop".to_string())
+    }
+}
+
+/// Moves/resizes the preview webview to follow its modal (window resize, open animation).
+#[tauri::command]
+async fn link_preview_bounds(
+    app: AppHandle,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        use tauri::{LogicalPosition, LogicalSize};
+        if let Some(webview) = app.get_webview(LINK_PREVIEW_LABEL) {
+            webview
+                .set_position(LogicalPosition::new(x, y))
+                .map_err(|e| e.to_string())?;
+            webview
+                .set_size(LogicalSize::new(width.max(1.0), height.max(1.0)))
+                .map_err(|e| e.to_string())?;
+        }
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = (app, x, y, width, height);
+    }
+    Ok(())
+}
+
+/// Removes the preview webview when its modal closes.
+#[tauri::command]
+async fn link_preview_close(app: AppHandle) -> Result<(), String> {
+    if let Some(webview) = app.get_webview(LINK_PREVIEW_LABEL) {
+        webview.close().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn toggle_devtools(window: tauri::WebviewWindow) {
     if window.is_devtools_open() {
@@ -4766,6 +4858,9 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_keep_alive::init())
         .invoke_handler(tauri::generate_handler![
+            link_preview_open,
+            link_preview_bounds,
+            link_preview_close,
             connect_irc,
             send_message,
             edit_message,

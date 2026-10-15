@@ -27,7 +27,8 @@ export type ModalType =
   | "changelog"
   | "bookmarks"
   | "notes"
-  | "channelList";
+  | "channelList"
+  | "linkPreview";
 
 interface ModalData {
   server?: Server;

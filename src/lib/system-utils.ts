@@ -1,4 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useMockStore } from "@/lib/mock-store";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
@@ -15,6 +16,24 @@ export async function openExternalUrl(url: string): Promise<void> {
     console.warn("Tauri plugin-opener failed, using fallback:", err);
     window.open(url, "_blank", "noopener,noreferrer");
   }
+}
+
+/**
+ * Opens a link clicked in the chat: in the in-app preview window when that is enabled (desktop),
+ * otherwise in the system browser.
+ */
+export async function openLink(url: string): Promise<void> {
+  if (!url) return;
+  const previewEnabled = useMockStore.getState().openLinksInPreview ?? true;
+  const isMobileShell =
+    typeof document !== "undefined" && document.documentElement.classList.contains("mobile-shell");
+  const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  if (previewEnabled && isTauri && !isMobileShell && /^https?:\/\//i.test(url)) {
+    const { useModalStore } = await import("@/hooks/use-modal-store");
+    useModalStore.getState().onOpen("linkPreview", { url });
+    return;
+  }
+  await openExternalUrl(url);
 }
 
 /**

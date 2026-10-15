@@ -6,7 +6,7 @@ import { useMockStore } from "@/lib/mock-store";
 import { isImageUrl, isVideoUrl, checkIsMediaUrlAsync, subscribeImageCache } from "@/lib/image-utils";
 import { useModal } from "@/hooks/use-modal-store";
 import { ImageContextMenu } from "@/components/image-context-menu";
-import { openExternalUrl, getFilenameFromUrl } from "@/lib/system-utils";
+import { openExternalUrl, openLink, getFilenameFromUrl } from "@/lib/system-utils";
 import { SmartImage } from "@/components/chat/smart-image";
 import { LazyYouTubeEmbed } from "@/components/chat/youtube-embed";
 import { LazyVideoEmbed } from "@/components/chat/lazy-video-embed";
@@ -309,7 +309,7 @@ export const LinkPreview: React.FC<LinkPreviewProps> = ({ url, onContentSizeChan
       {ogData.title && (
         <button
           type="button"
-          onClick={() => openExternalUrl(url)}
+          onClick={() => openLink(url)}
           className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline text-sm leading-snug flex items-center gap-x-1.5 text-left"
         >
           <span>{ogData.title}</span>

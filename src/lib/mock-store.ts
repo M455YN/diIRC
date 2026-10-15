@@ -473,6 +473,9 @@ interface MockState {
   enableFormattingPreview: boolean;
   scrollToUnreadOnFocus: boolean;
   confirmLeaveChannel: boolean;
+  /** Desktop: open chat links in a preview window instead of the default browser. */
+  openLinksInPreview: boolean;
+  setOpenLinksInPreview: (enabled: boolean) => void;
   enableCommandSuggestions: boolean;
   interactiveCommands: boolean;
   enableLinkPreviews: boolean;
@@ -714,6 +717,8 @@ export const useMockStore = create<MockState>()(
       enableFormattingPreview: true,
       scrollToUnreadOnFocus: false,
       confirmLeaveChannel: true,
+      openLinksInPreview: true,
+      setOpenLinksInPreview: (enabled: boolean) => set({ openLinksInPreview: enabled }),
       enableCommandSuggestions: true,
       interactiveCommands: true,
       enableLinkPreviews: true,

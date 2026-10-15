@@ -23,7 +23,7 @@ import { ChatItemAttachment } from "./chat-item-attachment";
 import { LinkPreview } from "./link-preview";
 
 import { isMediaUrl, subscribeImageCache } from "@/lib/image-utils";
-import { openExternalUrl } from "@/lib/system-utils";
+import { openLink } from "@/lib/system-utils";
 import { MarkdownRenderer } from "@/lib/markdown/markdown-renderer";
 import { extractUrlsFromMarkdownText, stripTrailingPunct, hasMarkdownSyntax } from "@/lib/markdown/markdown-utils";
 import { isBrokenHeader, stripSteganography } from "@/lib/markdown/multiline-steganography";
@@ -357,7 +357,7 @@ const ChatItemInner = ({
           <button
             key={index}
             type="button"
-            onClick={() => openExternalUrl(part)}
+            onClick={() => openLink(part)}
             className="text-indigo-500 dark:text-indigo-400 hover:underline break-all inline text-left p-0 bg-transparent border-none font-normal"
           >
             {part}

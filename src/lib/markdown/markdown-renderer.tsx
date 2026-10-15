@@ -10,7 +10,7 @@ import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Copy, Check } from "lucide-react";
 import { markdownSanitizeSchema, htmlSanitizeSchema } from "./markdown-config";
 import { remarkSpoiler, remarkUnderline, remarkMention } from "./remark-plugins";
-import { openExternalUrl, copyToClipboard } from "@/lib/system-utils";
+import { openLink, copyToClipboard } from "@/lib/system-utils";
 import { cn } from "@/lib/utils";
 import { isSafeHref } from "./markdown-utils";
 import { isMediaUrl } from "@/lib/image-utils";
@@ -239,7 +239,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       return (
         <button
           type="button"
-          onClick={() => openExternalUrl(href)}
+          onClick={() => openLink(href)}
           className="text-indigo-500 dark:text-indigo-400 hover:underline break-all inline text-left p-0 bg-transparent border-none font-normal"
           title={href}
         >

@@ -28,7 +28,7 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 chrono = "0.4"
 log = "0.4"
-tauri = { version = "2.11.3", features = ["devtools"] }
+tauri = { version = "2.11.3", features = ["devtools", "unstable"] }
 tauri-plugin-log = "2"
 # tls-rust avoids OpenSSL (needed for Android cross-compile; native-tls pulls openssl-sys)
 irc = { version = "1.1.0", default-features = false, features = ["ctcp", "tls-rust", "channel-lists", "toml_config", "encoding"] }

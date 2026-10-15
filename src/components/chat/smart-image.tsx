@@ -4,7 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { resolveImageSourceUrl } from "@/lib/image-utils";
-import { ImageOff, ImageIcon } from "lucide-react";
+import { openLink } from "@/lib/system-utils";
+import { ImageOff, ImageIcon, ExternalLink } from "lucide-react";
 
 interface SmartImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -164,6 +165,19 @@ const SmartImageInner: React.FC<SmartImageProps> = ({
         <div className="flex flex-col items-center justify-center p-4 text-zinc-400 dark:text-zinc-500 gap-1.5 text-xs text-center w-full h-full min-h-[120px] bg-zinc-100 dark:bg-zinc-900/60 rounded-lg border border-zinc-200 dark:border-zinc-800">
           <ImageOff className="w-6 h-6 opacity-60" />
           <span>{tr("cb.imageFailed")}</span>
+          {/* A site that blocks the app (e.g. a Cloudflare check) usually still opens in a real browser view. */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              void openLink(src);
+            }}
+            className="mt-0.5 inline-flex items-center gap-1 rounded-md border border-zinc-300 px-2 py-1 text-[11px] font-medium text-zinc-600 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-indigo-300"
+          >
+            <ExternalLink className="h-3 w-3" />
+            {tr("cb.imageViewInBrowser")}
+          </button>
         </div>
       ) : (
         /* Actual Image with Fade-in Effect */

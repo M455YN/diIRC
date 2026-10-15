@@ -41,6 +41,7 @@
       "sortDm": "Sort private messages",
       "statusIndicator": "Connection status indicator",
       "confirmLeave": "Confirm before leaving channel",
+      "linkPreview": "Open links in a preview window",
       "slashAutocomplete": "Slash command autocomplete",
       "markdown": "Markdown rendering",
       "formattingPreview": "Message formatting preview",
@@ -134,6 +135,8 @@
       "scrollOnReturnDesc": "When you come back to the app or open a chat that has unread messages, jump straight to the first one.",
       "jumboji": "Enlarged emoji size (Jumboji)",
       "jumbojiDesc": "Adjust size for emoji-only messages. Set to 0 to disable enlarged emojis and display standard text font size.",
+      "linkPreview": "Open links in a preview window",
+      "linkPreviewDesc": "Clicking a link opens it in a separate in-app window instead of the default browser. Desktop only.",
       "confirmLeave": "Confirm before leaving channel",
       "confirmLeaveDesc": "Show a confirmation dialog when leaving a channel.",
       "slashAutocomplete": "Slash command autocomplete",
@@ -993,6 +996,7 @@
     "ytPlayer": "YouTube video player",
     "playYt": "Play YouTube video",
     "ytThumb": "YouTube video thumbnail",
+    "imageViewInBrowser": "View in browser",
     "imageFailed": "Failed to load image",
     "clickToPlay": "Click to play",
     "noValidCommands": "No valid commands found in the JSON file.",
@@ -1217,6 +1221,9 @@
   "dc": {
     "leaveQuestion": "Are you sure you want to leave"
   },
+  "linkPreview": {
+    "openInBrowser": "Open in browser"
+  },
   "notes": {
     "title": "Notes",
     "desc": "Private notes, saved only on this device.",
@@ -1228,7 +1235,7 @@
     "saved": "Saved {{time}}",
     "delete": "Delete note",
     "pickOrCreate": "Select a note or create a new one.",
-    "back": "Back to list",
+    "back": "Back to list",
     "preview": "Preview (Markdown and HTML)",
     "edit": "Edit"
   },
