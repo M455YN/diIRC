@@ -1,31 +1,53 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
+import { useModal, type ModalType } from "@/hooks/use-modal-store";
 
-import { EditServerModal } from "@/components/modals/edit-server-modal";
-import { InviteModal } from "@/components/modals/invite-modal";
-import { CreateServerModal } from "@/components/modals/create-server-modal";
-import { MembersModal } from "@/components/modals/members-modal";
-import { CreateChannelModal } from "@/components/modals/create-channel-modal";
-import { LeaveServerModal } from "@/components/modals/leave-server-modal";
-import { DeleteServerModal } from "@/components/modals/delete-server-modal";
-import { DeleteChannelModal } from "@/components/modals/delete-channel-modal";
-import { SettingsModal } from "@/components/modals/settings-modal";
-import { ImagePreviewModal } from "@/components/modals/image-preview-modal";
-import { IrcErrorModal } from "@/components/modals/irc-error-modal";
-import { EditTopicModal } from "@/components/modals/edit-topic-modal";
-import { JoinChannelPasswordModal } from "@/components/modals/join-channel-password-modal";
-import { ChannelSettingsModal } from "@/components/modals/channel-settings-modal";
-import { ChannelOperatorSettingsModal } from "@/components/modals/channel-operator-settings-modal";
-import { ConnectionDetailsModal } from "@/components/modals/connection-details-modal";
-import { RoleIconsModal } from "@/components/modals/role-icons-modal";
-import { PrivateMessagesModal } from "@/components/modals/private-messages-modal";
-import { UpdateModal } from "@/components/modals/update-modal";
-import { MotdModal } from "@/components/modals/motd-modal";
-import { AlreadyAwayModal } from "@/components/modals/already-away-modal";
-import { ChangelogModal } from "@/components/modals/changelog-modal";
-import { BookmarksModal } from "@/components/modals/bookmarks-modal";
-import { NotesModal } from "@/components/modals/notes-modal";
-import { LinkPreviewModal } from "@/components/modals/link-preview-modal";
-import { ChannelListModal } from "@/components/modals/channel-list-modal";
+/**
+ * A modal's code loads on its first open and stays mounted afterwards, so the closing animation still runs
+ * and the startup bundle does not carry every dialog.
+ */
+const lazyModal = (type: ModalType, load: () => Promise<Record<string, unknown>>, name: string) => {
+  const Modal = lazy(() => load().then((m) => ({ default: m[name] as ComponentType })));
+  return function LazyModal() {
+    const { isOpen, type: openType } = useModal();
+    const [loaded, setLoaded] = useState(false);
+    const active = isOpen && openType === type;
+    useEffect(() => {
+      if (active) setLoaded(true);
+    }, [active]);
+    return loaded || active ? (
+      <Suspense fallback={null}>
+        <Modal />
+      </Suspense>
+    ) : null;
+  };
+};
+
+const CreateServerModal = lazyModal("createServer", () => import("@/components/modals/create-server-modal"), "CreateServerModal");
+const InviteModal = lazyModal("invite", () => import("@/components/modals/invite-modal"), "InviteModal");
+const EditServerModal = lazyModal("editServer", () => import("@/components/modals/edit-server-modal"), "EditServerModal");
+const MembersModal = lazyModal("members", () => import("@/components/modals/members-modal"), "MembersModal");
+const CreateChannelModal = lazyModal("createChannel", () => import("@/components/modals/create-channel-modal"), "CreateChannelModal");
+const LeaveServerModal = lazyModal("leaveServer", () => import("@/components/modals/leave-server-modal"), "LeaveServerModal");
+const DeleteServerModal = lazyModal("deleteServer", () => import("@/components/modals/delete-server-modal"), "DeleteServerModal");
+const DeleteChannelModal = lazyModal("deleteChannel", () => import("@/components/modals/delete-channel-modal"), "DeleteChannelModal");
+const SettingsModal = lazyModal("settings", () => import("@/components/modals/settings-modal"), "SettingsModal");
+const ImagePreviewModal = lazyModal("imagePreview", () => import("@/components/modals/image-preview-modal"), "ImagePreviewModal");
+const IrcErrorModal = lazyModal("ircError", () => import("@/components/modals/irc-error-modal"), "IrcErrorModal");
+const EditTopicModal = lazyModal("editTopic", () => import("@/components/modals/edit-topic-modal"), "EditTopicModal");
+const JoinChannelPasswordModal = lazyModal("joinChannelPassword", () => import("@/components/modals/join-channel-password-modal"), "JoinChannelPasswordModal");
+const ChannelSettingsModal = lazyModal("channelSettings", () => import("@/components/modals/channel-settings-modal"), "ChannelSettingsModal");
+const ChannelOperatorSettingsModal = lazyModal("channelOperatorSettings", () => import("@/components/modals/channel-operator-settings-modal"), "ChannelOperatorSettingsModal");
+const ConnectionDetailsModal = lazyModal("connectionDetails", () => import("@/components/modals/connection-details-modal"), "ConnectionDetailsModal");
+const RoleIconsModal = lazyModal("roleIcons", () => import("@/components/modals/role-icons-modal"), "RoleIconsModal");
+const PrivateMessagesModal = lazyModal("privateMessages", () => import("@/components/modals/private-messages-modal"), "PrivateMessagesModal");
+const UpdateModal = lazyModal("updateAvailable", () => import("@/components/modals/update-modal"), "UpdateModal");
+const MotdModal = lazyModal("motd", () => import("@/components/modals/motd-modal"), "MotdModal");
+const AlreadyAwayModal = lazyModal("alreadyAway", () => import("@/components/modals/already-away-modal"), "AlreadyAwayModal");
+const ChangelogModal = lazyModal("changelog", () => import("@/components/modals/changelog-modal"), "ChangelogModal");
+const BookmarksModal = lazyModal("bookmarks", () => import("@/components/modals/bookmarks-modal"), "BookmarksModal");
+const NotesModal = lazyModal("notes", () => import("@/components/modals/notes-modal"), "NotesModal");
+const LinkPreviewModal = lazyModal("linkPreview", () => import("@/components/modals/link-preview-modal"), "LinkPreviewModal");
+const ChannelListModal = lazyModal("channelList", () => import("@/components/modals/channel-list-modal"), "ChannelListModal");
 
 export const ModalProvider = () => {
   const [isMounted, setIsMounted] = useState(false);

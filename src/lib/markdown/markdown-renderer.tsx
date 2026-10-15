@@ -1,12 +1,12 @@
 import { useTranslation } from "react-i18next";
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { lazy, Suspense, useMemo, useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import rehypeSanitize from "rehype-sanitize";
 import rehypeRaw from "rehype-raw";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+// The highlighter bundles every Prism language, so it loads with the first code block.
+const CodeHighlighter = lazy(() => import("./code-highlighter").then((m) => ({ default: m.CodeHighlighter })));
 import { Copy, Check } from "lucide-react";
 import { markdownSanitizeSchema, htmlSanitizeSchema } from "./markdown-config";
 import { remarkSpoiler, remarkUnderline, remarkMention } from "./remark-plugins";
@@ -80,25 +80,9 @@ const CodeBlock: React.FC<{ language: string; code: string; onContentSizeChange?
         </button>
       </div>
       <div className="overflow-x-auto p-3 text-[13px] font-mono leading-5 w-full min-w-0">
-        <SyntaxHighlighter
-          language={displayLanguage}
-          style={vscDarkPlus}
-          customStyle={{
-            margin: 0,
-            padding: 0,
-            background: "transparent",
-            fontSize: "13px",
-            lineHeight: "1.25rem",
-          }}
-          codeTagProps={{
-            style: {
-              fontFamily: "var(--font-mono, monospace)",
-            },
-          }}
-          PreTag="div"
-        >
-          {code}
-        </SyntaxHighlighter>
+        <Suspense fallback={<pre className="whitespace-pre">{code}</pre>}>
+          <CodeHighlighter language={displayLanguage}>{code}</CodeHighlighter>
+        </Suspense>
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Pencil, Paperclip, Loader2, X, FileIcon, Command, Radio, User, Users, Bold, Italic, Underline, Strikethrough, GripHorizontal, EyeOff, MoreHorizontal, Code, SquareCode, Heading, Quote, List, ListOrdered } from "lucide-react";
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { readImage } from "@tauri-apps/plugin-clipboard-manager";
@@ -20,7 +20,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useModal } from "@/hooks/use-modal-store";
 import { useEditStore } from "@/hooks/use-edit-store";
 import { useMessageCaps } from "@/hooks/use-message-caps";
-import { EmojiPicker } from "@/components/emoji-picker";
 import { Member, Message, DirectMessage } from "@/types";
 import { useMockStore, getServerSelfMember, getServerActiveNick, formatNickCompletion } from "@/lib/mock-store";
 import { UserRoleIcon, getHighestChannelRole, ROLE_CONFIGS, UserRoleKey } from "@/components/user-role-icon";
@@ -76,6 +75,8 @@ const FORMATTING_PREVIEW_HEIGHT_MIN = 56;
 const FORMATTING_PREVIEW_HEIGHT_MAX = 320;
 
 import { getIrcByteCount, getIrcMaxMessageBytes } from "@/lib/system-utils";
+
+const EmojiPicker = lazy(() => import("@/components/emoji-picker").then((m) => ({ default: m.EmojiPicker })));
 export { getIrcByteCount, getIrcMaxMessageBytes };
 
 interface ChatInputProps {
@@ -2116,6 +2117,7 @@ export const ChatInput = ({
                       </button>
                       )}
 
+                      <Suspense fallback={null}>
                       <EmojiPicker
                         disabled={isLoading}
                         onChange={(emoji: string) => {
@@ -2133,6 +2135,7 @@ export const ChatInput = ({
                           }
                         }}
                       />
+                      </Suspense>
                     </div>
                     </div>
                     </div>
