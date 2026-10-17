@@ -149,7 +149,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
   const [customSoundUrlOverride, setCustomSoundUrlOverride] = useState<string | undefined>(undefined);
   const [customDmSoundUrlOverride, setCustomDmSoundUrlOverride] = useState<string | undefined>(undefined);
 
-  const defaultReplyMode = useMockStore((state) => state.defaultReplyMode) || "auto";
+  const defaultReplyMode = useMockStore((state) => state.defaultReplyMode) || "hybrid";
 
   const inheritedChannelNotifStr =
     globalNotif?.channelNotifications === "all"

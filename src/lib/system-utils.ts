@@ -20,11 +20,13 @@ export async function openExternalUrl(url: string): Promise<void> {
 
 /**
  * Opens a link clicked in the chat: in the in-app preview window when that is enabled (desktop),
- * otherwise in the system browser.
+ * otherwise in the system browser. Images that failed to load ("image") have their own toggle.
  */
-export async function openLink(url: string): Promise<void> {
+export async function openLink(url: string, kind: "link" | "image" = "link"): Promise<void> {
   if (!url) return;
-  const previewEnabled = useMockStore.getState().openLinksInPreview ?? true;
+  const { openLinksInPreview, openBlockedImagesInPreview } = useMockStore.getState();
+  const previewEnabled =
+    kind === "image" ? (openBlockedImagesInPreview ?? true) : (openLinksInPreview ?? false);
   const isMobileShell =
     typeof document !== "undefined" && document.documentElement.classList.contains("mobile-shell");
   const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;

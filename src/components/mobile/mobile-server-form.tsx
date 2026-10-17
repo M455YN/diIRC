@@ -122,7 +122,7 @@ const ServerFormBody = ({
   const globalNotif = useMockStore((s) => s.notificationSettings);
   const globalMotdPolicy = useMockStore((s) => s.globalMotdPolicy) || "on_change";
   const autoCollapseImages = useMockStore((s) => s.autoCollapseImages ?? false);
-  const defaultReplyMode = useMockStore((s) => s.defaultReplyMode) || "auto";
+  const defaultReplyMode = useMockStore((s) => s.defaultReplyMode) || "hybrid";
   const setGlobalMotdPolicy = useMockStore((s) => s.setGlobalMotdPolicy);
 
   const setCommand = (i: number, key: "trigger" | "description" | "suggestions", value: string) =>

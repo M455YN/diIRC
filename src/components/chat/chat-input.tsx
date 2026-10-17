@@ -113,7 +113,7 @@ export const ChatInput = ({
   const enableCommandSuggestions = useMockStore((state) => state.enableCommandSuggestions ?? true);
   const enableMarkdown = useMockStore((state) => state.enableMarkdown ?? true);
   const enableFormattingPreview = useMockStore((state) => state.enableFormattingPreview ?? true);
-  const defaultReplyMode = useMockStore((state) => state.defaultReplyMode ?? "auto");
+  const defaultReplyMode = useMockStore((state) => state.defaultReplyMode ?? "hybrid");
   const { onOpen } = useModal();
   const navigate = useNavigate();
 

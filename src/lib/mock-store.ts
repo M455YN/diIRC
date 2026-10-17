@@ -43,6 +43,7 @@ import { DEFAULT_SERVER_IMAGE } from "./server-logo";
 type IncomingMessageMeta = {
   createdAt?: string;
   msgid?: string;
+  logId?: string;
   replyToMsgid?: string;
   replyTo?: import("@/types").MessageReplyTo;
 };
@@ -170,14 +171,25 @@ const isSameLogLine = (a: Message | DirectMessage, b: Message | DirectMessage): 
   && a.member?.profile?.name?.toLowerCase() === b.member?.profile?.name?.toLowerCase()
   && Math.abs(new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) < 30000;
 
-/** Drops offsetless items from `existing` that have a counterpart in the fetched log page. */
+/**
+ * Drops offsetless items from `existing` that the fetched log page already covers.
+ * Items carrying a `logId` were written to the log, so the log is authoritative: they are kept
+ * only when they are newer than the page tail (arrived after it was read). Others fall back to
+ * their own id (optimistic sends use the log id) and then to a content/time heuristic.
+ */
 const dedupOffsetlessAgainstFetched = (
   existing: (Message | DirectMessage)[],
   fetched: (Message | DirectMessage)[],
 ): (Message | DirectMessage)[] => {
   const offsetless = existing.filter((m) => m.offset === undefined);
   if (offsetless.length === 0) return [];
-  return offsetless.filter((ol) => !fetched.some((f) => isSameLogLine(ol, f)));
+  const fetchedLogIds = new Set(fetched.map((f) => f.logId).filter(Boolean));
+  const tailTime = fetched.length ? new Date(fetched[fetched.length - 1].createdAt).getTime() : 0;
+  return offsetless.filter((ol) => {
+    if (fetchedLogIds.has(ol.logId ?? ol.id)) return false;
+    if (ol.logId) return new Date(ol.createdAt).getTime() > tailTime;
+    return !fetched.some((f) => isSameLogLine(ol, f));
+  });
 };
 
 export const formatMessageDate = (
@@ -327,6 +339,7 @@ const mapLogEntries = (
       isSystem,
       createdAt,
       updatedAt: createdAt,
+      logId: entry.id,
       ircMsgid: entry.msgid,
       replyToMsgid: entry.replyToMsgid,
       replyTo,
@@ -476,6 +489,8 @@ interface MockState {
   /** Desktop: open chat links in a preview window instead of the default browser. */
   openLinksInPreview: boolean;
   setOpenLinksInPreview: (enabled: boolean) => void;
+  openBlockedImagesInPreview: boolean;
+  setOpenBlockedImagesInPreview: (enabled: boolean) => void;
   enableCommandSuggestions: boolean;
   interactiveCommands: boolean;
   enableLinkPreviews: boolean;
@@ -719,8 +734,10 @@ export const useMockStore = create<MockState>()(
       enableFormattingPreview: true,
       scrollToUnreadOnFocus: false,
       confirmLeaveChannel: true,
-      openLinksInPreview: true,
+      openLinksInPreview: false,
       setOpenLinksInPreview: (enabled: boolean) => set({ openLinksInPreview: enabled }),
+      openBlockedImagesInPreview: true,
+      setOpenBlockedImagesInPreview: (enabled: boolean) => set({ openBlockedImagesInPreview: enabled }),
       enableCommandSuggestions: true,
       interactiveCommands: true,
       enableLinkPreviews: true,
@@ -746,7 +763,7 @@ export const useMockStore = create<MockState>()(
       setCustomNickCompletionFormat: (format) => set({ customNickCompletionFormat: format }),
       jumbojiSize: 42,
       setJumbojiSize: (size: number) => set({ jumbojiSize: size }),
-      defaultReplyMode: "auto",
+      defaultReplyMode: "hybrid",
       setDefaultReplyMode: (mode) => set({ defaultReplyMode: mode }),
       notificationSettings: {
         soundEnabled: true,
@@ -2646,6 +2663,7 @@ export const useMockStore = create<MockState>()(
           isSystem: effectiveIsSystem,
           createdAt: msgTime,
           updatedAt: msgTime,
+          logId: extras?.logId,
           ircMsgid: extras?.msgid,
           replyToMsgid: extras?.replyToMsgid,
           replyTo: extras?.replyTo,
@@ -3041,6 +3059,7 @@ export const useMockStore = create<MockState>()(
           isSystem: effectiveIsSystem,
           createdAt: msgTime,
           updatedAt: msgTime,
+          logId: extras?.logId,
           ircMsgid: extras?.msgid,
           replyToMsgid: extras?.replyToMsgid,
           replyTo: extras?.replyTo,

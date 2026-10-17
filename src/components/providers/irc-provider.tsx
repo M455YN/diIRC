@@ -34,6 +34,7 @@ interface IrcMessagePayload {
   reply_preview?: string | null;
   replyPreview?: string | null;
   timestamp?: string;
+  log_id?: string | null;
 }
 
 interface IrcUserEventPayload {
@@ -531,7 +532,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
-        addMessage(targetChan.id, dummyMember as any, content, null, true, { createdAt: msgTimestamp, ...ircMeta });
+        addMessage(targetChan.id, dummyMember as any, content, null, true, { createdAt: msgTimestamp, logId: payload.log_id || undefined, ...ircMeta });
       }
       return;
     }
@@ -611,7 +612,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             content,
             null,
             true,
-            { createdAt: msgTimestamp, ...ircMeta }
+            { createdAt: msgTimestamp, logId: payload.log_id || undefined, ...ircMeta }
           );
           applyIncomingIrcMeta(
             created.id,
@@ -647,7 +648,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           content,
           null,
           false,
-          { createdAt: msgTimestamp, ...ircMeta }
+          { createdAt: msgTimestamp, logId: payload.log_id || undefined, ...ircMeta }
         );
         applyIncomingIrcMeta(
           created.id,
@@ -772,7 +773,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
         content,
         null,
         effectiveIsSystem,
-        { createdAt: msgTimestamp, ...ircMeta }
+        { createdAt: msgTimestamp, logId: payload.log_id || undefined, ...ircMeta }
       );
       applyIncomingIrcMeta(
         created.id,
@@ -789,7 +790,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
         content,
         null,
         effectiveIsSystem,
-        { createdAt: msgTimestamp, ...ircMeta }
+        { createdAt: msgTimestamp, logId: payload.log_id || undefined, ...ircMeta }
       );
       applyIncomingIrcMeta(
         created.id,

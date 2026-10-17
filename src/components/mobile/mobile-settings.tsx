@@ -550,7 +550,7 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
               )}
               {select(
                 tr("mobile.search.defaultReplyFormat"),
-                store.defaultReplyMode || "auto",
+                store.defaultReplyMode || "hybrid",
                 [
                   {
                     value: "auto",

@@ -128,6 +128,7 @@ const SETTINGS_SEARCH_INDEX: { key: string; tab: SettingsTab }[] = [
   { key: "settings.items.statusIndicator", tab: "appearance" },
   { key: "settings.items.confirmLeave", tab: "chat" },
   { key: "settings.items.linkPreview", tab: "chat" },
+  { key: "settings.items.blockedImagePreview", tab: "chat" },
   { key: "settings.items.slashAutocomplete", tab: "chat" },
   { key: "settings.items.markdown", tab: "chat" },
   { key: "settings.items.formattingPreview", tab: "chat" },
@@ -175,8 +176,10 @@ export const SettingsModal = () => {
 
   const confirmLeaveChannel = useMockStore((state) => state.confirmLeaveChannel ?? true);
   const setConfirmLeaveChannel = useMockStore((state) => state.setConfirmLeaveChannel);
-  const openLinksInPreview = useMockStore((state) => state.openLinksInPreview ?? true);
+  const openLinksInPreview = useMockStore((state) => state.openLinksInPreview ?? false);
   const setOpenLinksInPreview = useMockStore((state) => state.setOpenLinksInPreview);
+  const openBlockedImagesInPreview = useMockStore((state) => state.openBlockedImagesInPreview ?? true);
+  const setOpenBlockedImagesInPreview = useMockStore((state) => state.setOpenBlockedImagesInPreview);
 
   const enableCommandSuggestions = useMockStore((state) => state.enableCommandSuggestions ?? true);
   const interactiveCommands = useMockStore((state) => state.interactiveCommands ?? true);
@@ -230,7 +233,7 @@ export const SettingsModal = () => {
   const customNickCompletionFormat = useMockStore((state) => state.customNickCompletionFormat) || "{nick}: ";
   const setCustomNickCompletionFormat = useMockStore((state) => state.setCustomNickCompletionFormat);
 
-  const defaultReplyMode = useMockStore((state) => state.defaultReplyMode) || "auto";
+  const defaultReplyMode = useMockStore((state) => state.defaultReplyMode) || "hybrid";
   const setDefaultReplyMode = useMockStore((state) => state.setDefaultReplyMode);
 
   const notificationSettings = useMockStore((state) => state.notificationSettings) || {
@@ -859,6 +862,24 @@ export const SettingsModal = () => {
                 <Switch
                   checked={openLinksInPreview}
                   onCheckedChange={(checked) => setOpenLinksInPreview(checked)}
+                />
+              </div>
+              {/* Open blocked images in a preview window */}
+              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-x-2">
+                    <ExternalLink className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
+                      {t("settings.chat.blockedImagePreview")}
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    {t("settings.chat.blockedImagePreviewDesc")}
+                  </p>
+                </div>
+                <Switch
+                  checked={openBlockedImagesInPreview}
+                  onCheckedChange={(checked) => setOpenBlockedImagesInPreview(checked)}
                 />
               </div>
               {/* Confirm Before Leaving Channel */}

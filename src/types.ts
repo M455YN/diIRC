@@ -101,6 +101,8 @@ export interface Message {
   updatedAt: string;
   /** Byte offset in the native log (windowed pagination). */
   offset?: number;
+  /** Id of this message's line in the native log (set for live messages that were also logged). */
+  logId?: string;
   /** IRCv3 msgid when provided by the server. */
   ircMsgid?: string;
   /** IRCv3 +draft/reply target msgid. */
@@ -124,6 +126,7 @@ export interface DirectMessage {
   updatedAt: string;
   /** Byte offset in the native log (windowed pagination). */
   offset?: number;
+  logId?: string;
   ircMsgid?: string;
   replyToMsgid?: string;
   replyTo?: MessageReplyTo;
@@ -131,6 +134,8 @@ export interface DirectMessage {
 }
 
 export interface LogEntry {
+  /** Unique id of the log line (absent in logs written by older versions). */
+  id?: string;
   timestamp: string;
   sender: string;
   content: string;

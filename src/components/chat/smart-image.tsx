@@ -171,7 +171,7 @@ const SmartImageInner: React.FC<SmartImageProps> = ({
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              void openLink(src);
+              void openLink(src, "image");
             }}
             className="mt-0.5 inline-flex items-center gap-1 rounded-md border border-zinc-300 px-2 py-1 text-[11px] font-medium text-zinc-600 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-indigo-300"
           >

@@ -24,6 +24,8 @@ struct IrcMessage {
     reply_to_msgid: Option<String>,
     reply_nick: Option<String>,
     reply_preview: Option<String>,
+    /// Id of the matching line in the local log, so the frontend can tell it from its logged copy.
+    log_id: Option<String>,
 }
 
 impl IrcMessage {
@@ -39,6 +41,7 @@ impl IrcMessage {
             reply_to_msgid: None,
             reply_nick: None,
             reply_preview: None,
+            log_id: None,
         }
     }
 }
@@ -514,6 +517,13 @@ struct LogLineMeta {
     /// Message was edited after it was first sent.
     #[serde(skip_serializing_if = "Option::is_none")]
     e: Option<bool>,
+    /// Unique local id of this log line; lets live messages and logged copies be matched exactly.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    i: Option<String>,
+    /// Write blank padding after the meta so the server `msgid` can later be patched in place
+    /// without changing the line length (log offsets are byte positions).
+    #[serde(skip)]
+    reserve_msgid: bool,
 }
 
 impl LogLineMeta {
@@ -524,6 +534,8 @@ impl LogLineMeta {
             && self.rn.is_none()
             && self.rp.is_none()
             && self.ro.is_none()
+            && self.i.is_none()
+            && !self.reserve_msgid
     }
 }
 
@@ -541,6 +553,8 @@ fn inbound_log_meta(
         rp: reply_preview.clone(),
         ro: None,
         e: None,
+        i: None,
+        reserve_msgid: false,
     };
     if meta.is_empty() {
         None
@@ -552,6 +566,8 @@ fn inbound_log_meta(
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct LogEntry {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
     timestamp: String,
     sender: String,
     content: String,
@@ -774,6 +790,14 @@ fn extract_message_timestamp(
     None
 }
 
+/// Unique id for a log line: wall-clock nanoseconds plus a process-wide counter.
+fn new_log_line_id() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nanos = chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default();
+    format!("{:x}-{:x}", nanos, COUNTER.fetch_add(1, Ordering::Relaxed))
+}
+
 async fn append_log_line(
     app: &AppHandle,
     state: &LogState,
@@ -782,7 +806,7 @@ async fn append_log_line(
     sender: &str,
     content: &str,
     meta: Option<LogLineMeta>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     append_log_line_at(app, state, server_id, target, sender, content, meta, None).await
 }
 
@@ -803,9 +827,9 @@ async fn append_log_line_at(
     content: &str,
     meta: Option<LogLineMeta>,
     server_time: Option<&str>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     if target == "***" || sender == "***" || target.trim().is_empty() {
-        return Ok(());
+        return Ok(String::new());
     }
     let (key, path) = log_path(app, server_id, target)?;
     let writer = {
@@ -832,10 +856,12 @@ async fn append_log_line_at(
 
     let timestamp = format_log_timestamp(server_time);
     let normalized_content = content.replace(['\r', '\n'], " ");
-    let meta_suffix = meta
-        .filter(|value| !value.is_empty())
-        .and_then(|value| serde_json::to_string(&value).ok())
-        .map(|json| format!("\u{001e}{json}"))
+    let mut meta = meta.unwrap_or_default();
+    let line_id = meta.i.clone().unwrap_or_else(new_log_line_id);
+    meta.i = Some(line_id.clone());
+    let padding = if meta.reserve_msgid { " ".repeat(MSGID_PATCH_RESERVE) } else { String::new() };
+    let meta_suffix = serde_json::to_string(&meta)
+        .map(|json| format!("\u{001e}{json}{padding}"))
         .unwrap_or_default();
     let line = format!("[{timestamp}] <{sender}> {normalized_content}{meta_suffix}\n");
     let mut file = writer.lock().await;
@@ -844,7 +870,82 @@ async fn append_log_line_at(
         .map_err(|error| format!("Failed to append log line: {error}"))?;
     file.flush()
         .await
-        .map_err(|error| format!("Failed to flush log line: {error}"))
+        .map_err(|error| format!("Failed to flush log line: {error}"))?;
+    Ok(line_id)
+}
+
+/// Blank bytes reserved after the meta of our own messages for the server `msgid` (see `reserve_msgid`).
+const MSGID_PATCH_RESERVE: usize = 96;
+
+/// Stores the server `msgid` on our own logged message (found by its local id) without changing
+/// the line length, so byte offsets used as message ids and cursors stay valid. Only the log tail
+/// is searched. shortcut: needs the reserved padding to fit, otherwise the msgid is not persisted.
+async fn patch_log_msgid(
+    app: &AppHandle,
+    state: &LogState,
+    server_id: &str,
+    target: &str,
+    local_id: &str,
+    msgid: &str,
+) -> Result<bool, String> {
+    const TAIL_BYTES: u64 = 256 * 1024;
+    let (key, path) = log_path(app, server_id, target)?;
+    if !path.exists() {
+        return Ok(false);
+    }
+    let needle = format!("\"i\":\"{}\"", local_id.replace('\\', "\\\\").replace('"', "\\\"")).into_bytes();
+    // Hold the append handle so no write interleaves with the in-place patch.
+    let writer = state.writers.lock().await.get(&key).cloned();
+    let _guard = match writer.as_ref() {
+        Some(w) => Some(w.lock().await),
+        None => None,
+    };
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&path)
+        .await
+        .map_err(|e| format!("Failed to open log file: {e}"))?;
+    let len = file.metadata().await.map_err(|e| e.to_string())?.len();
+    let start = len.saturating_sub(TAIL_BYTES);
+    file.seek(SeekFrom::Start(start)).await.map_err(|e| e.to_string())?;
+    let mut buf = Vec::with_capacity((len - start) as usize);
+    file.read_to_end(&mut buf).await.map_err(|e| e.to_string())?;
+
+    let Some(pos) = buf.windows(needle.len()).rposition(|w| w == needle.as_slice()) else {
+        return Ok(false);
+    };
+    let line_start = match buf[..pos].iter().rposition(|b| *b == b'\n') {
+        Some(i) => i + 1,
+        None if start == 0 => 0,
+        None => return Ok(false),
+    };
+    let line_end = buf[pos..].iter().position(|b| *b == b'\n').map_or(buf.len(), |i| pos + i);
+    let line = &buf[line_start..line_end];
+    let Some(rs) = line.iter().position(|b| *b == 0x1e) else {
+        return Ok(false);
+    };
+    let raw_meta = &line[rs + 1..];
+    let Ok(mut meta) = serde_json::from_slice::<LogLineMeta>(raw_meta) else {
+        return Ok(false);
+    };
+    if meta.m.is_some() {
+        return Ok(false);
+    }
+    meta.m = Some(msgid.to_string());
+    let Ok(mut json) = serde_json::to_vec(&meta) else {
+        return Ok(false);
+    };
+    if json.len() > raw_meta.len() {
+        return Ok(false);
+    }
+    json.resize(raw_meta.len(), b' ');
+    file.seek(SeekFrom::Start(start + (line_start + rs + 1) as u64))
+        .await
+        .map_err(|e| e.to_string())?;
+    file.write_all(&json).await.map_err(|e| e.to_string())?;
+    file.flush().await.map_err(|e| e.to_string())?;
+    Ok(true)
 }
 
 async fn emit_and_log_system_message(
@@ -898,6 +999,7 @@ fn parse_log_line(line: &str) -> Option<LogEntry> {
     let mut reply_preview = None;
     let mut reply_parent_offset = None;
     let mut edited = None;
+    let mut id = None;
 
     let content = if let Some((body, meta_json)) = raw_content.split_once('\u{001e}') {
         if let Ok(meta) = serde_json::from_str::<LogLineMeta>(meta_json) {
@@ -907,6 +1009,7 @@ fn parse_log_line(line: &str) -> Option<LogEntry> {
             reply_preview = meta.rp;
             reply_parent_offset = meta.ro;
             edited = meta.e;
+            id = meta.i;
         }
         body.to_string()
     } else {
@@ -914,6 +1017,7 @@ fn parse_log_line(line: &str) -> Option<LogEntry> {
     };
 
     Some(LogEntry {
+        id,
         timestamp,
         sender,
         content,
@@ -2061,6 +2165,18 @@ async fn connect_irc(
                                     }) {
                                         let matched = recent.remove(pos);
                                         if let (Some(msgid_val), Some(lid)) = (msgid.as_ref(), matched.local_id.as_ref()) {
+                                            if let Err(error) = patch_log_msgid(
+                                                &app_clone,
+                                                &log_state_clone,
+                                                &stream_server_id,
+                                                &channel,
+                                                lid,
+                                                msgid_val,
+                                            )
+                                            .await
+                                            {
+                                                log::warn!("Failed to store msgid for own message: {}", error);
+                                            }
                                             let _ = app_clone.emit(
                                                 "irc_self_msgid",
                                                 IrcSelfMsgidEvent {
@@ -2083,6 +2199,7 @@ async fn connect_irc(
                                     || content.contains("Playback Complete.");
                                 let is_system = is_znc_buffer_notice || matches!(message.command, Command::NOTICE(..));
 
+                                let mut log_id: Option<String> = None;
                                 if sender_name != "***" && !sender_name.trim().is_empty() && !channel.trim().is_empty() {
                                     let log_target = if channel.starts_with('#') || channel.starts_with('&') {
                                         channel.clone()
@@ -2091,7 +2208,7 @@ async fn connect_irc(
                                     } else {
                                         sender_name.clone()
                                     };
-                                    if let Err(error) = append_log_line_at(
+                                    match append_log_line_at(
                                         &app_clone,
                                         &log_state_clone,
                                         &stream_server_id,
@@ -2109,7 +2226,9 @@ async fn connect_irc(
                                     )
                                     .await
                                     {
-                                        log::error!("Failed to log IRC message: {}", error);
+                                        Ok(id) if !id.is_empty() => log_id = Some(id),
+                                        Ok(_) => {}
+                                        Err(error) => log::error!("Failed to log IRC message: {}", error),
                                     }
                                 }
 
@@ -2124,6 +2243,7 @@ async fn connect_irc(
                                     reply_to_msgid,
                                     reply_nick: compat_nick,
                                     reply_preview: compat_preview,
+                                    log_id,
                                 };
                                 let _ = app_clone.emit("irc_message", payload);
 
@@ -2158,8 +2278,9 @@ async fn connect_irc(
                                     }
                                     Prefix::ServerName(name) => name,
                                 };
+                                let ev_time = extract_message_timestamp(&message.tags, &mut String::new(), false);
                                 let sys_content = format!("{} has joined", full_source);
-                                let _ = append_log_line(
+                                let log_id = append_log_line_at(
                                     &app_clone,
                                     &log_state_clone,
                                     &stream_server_id,
@@ -2167,19 +2288,23 @@ async fn connect_irc(
                                     "System",
                                     &sys_content,
                                     None,
+                                    ev_time.as_deref(),
                                 )
-                                .await;
+                                .await
+                                .ok()
+                                .filter(|id| !id.is_empty());
                                 let payload = IrcMessage {
                                     server_id: stream_server_id.clone(),
                                     sender: sender_name.clone(),
                                     content: sys_content,
                                     channel: channel.clone(),
                                     is_system: true,
-                                timestamp: None,
+                                timestamp: ev_time,
                                 msgid: None,
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id,
                                 };
                                 let _ = app_clone.emit("irc_message", payload);
 
@@ -2220,13 +2345,14 @@ async fn connect_irc(
                                     }
                                     Prefix::ServerName(name) => name,
                                 };
+                                let ev_time = extract_message_timestamp(&message.tags, &mut String::new(), false);
                                 let sys_content = match comment_opt {
                                     Some(reason) if !reason.trim().is_empty() => {
                                         format!("{} has left ({})", full_source, reason.trim())
                                     }
                                     _ => format!("{} has left", full_source),
                                 };
-                                let _ = append_log_line(
+                                let log_id = append_log_line_at(
                                     &app_clone,
                                     &log_state_clone,
                                     &stream_server_id,
@@ -2234,19 +2360,23 @@ async fn connect_irc(
                                     "System",
                                     &sys_content,
                                     None,
+                                    ev_time.as_deref(),
                                 )
-                                .await;
+                                .await
+                                .ok()
+                                .filter(|id| !id.is_empty());
                                 let payload = IrcMessage {
                                     server_id: stream_server_id.clone(),
                                     sender: sender_name.clone(),
                                     content: sys_content,
                                     channel: channel.clone(),
                                     is_system: true,
-                                timestamp: None,
+                                timestamp: ev_time,
                                 msgid: None,
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id,
                                 };
                                 let _ = app_clone.emit("irc_message", payload);
 
@@ -2570,6 +2700,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -2597,6 +2728,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -2629,6 +2761,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -2661,6 +2794,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -2693,6 +2827,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -2725,6 +2860,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -2748,6 +2884,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -2772,6 +2909,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -2796,6 +2934,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -2823,6 +2962,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
                         }
@@ -2843,6 +2983,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
                         }
@@ -2914,6 +3055,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                                 };
                                 let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -2961,6 +3103,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -3083,6 +3226,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                                 };
                                 let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -3111,6 +3255,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                                 };
                                 let _ = app_clone.emit("irc_message", msg_payload);
                             }
@@ -3130,6 +3275,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                                 };
                                 let _ = app_clone.emit("irc_message", msg_payload);
                             }
@@ -3165,6 +3311,7 @@ async fn connect_irc(
                                 reply_to_msgid: None,
                                 reply_nick: None,
                                 reply_preview: None,
+                                log_id: None,
                             };
                             let _ = app_clone.emit("irc_message", msg_payload);
 
@@ -3853,7 +4000,7 @@ async fn send_message(
             target: channel.clone(),
             content: wire_message,
             timestamp: std::time::Instant::now(),
-            local_id,
+            local_id: local_id.clone(),
         });
         if let Err(error) = append_log_line(
             &app,
@@ -3878,6 +4025,8 @@ async fn send_message(
                     .filter(|value| !value.is_empty()),
                 ro: reply_parent_offset,
                 e: None,
+                i: local_id.filter(|value| !value.trim().is_empty()),
+                reserve_msgid: true,
             }),
         )
         .await
