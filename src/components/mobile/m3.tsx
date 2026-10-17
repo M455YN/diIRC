@@ -627,6 +627,7 @@ export const M3TextField = ({
   autoFocus,
   disabled,
   id,
+  multiline,
 }: {
   label: string;
   value: string;
@@ -645,6 +646,8 @@ export const M3TextField = ({
   autoFocus?: boolean;
   disabled?: boolean;
   id?: string;
+  /** Several lines (a textarea of 4 rows) instead of one */
+  multiline?: boolean;
 }) => {
   const t = useM3();
   const [focused, setFocused] = useState(false);
@@ -658,8 +661,9 @@ export const M3TextField = ({
         sx={{
           position: "relative",
           display: "flex",
-          alignItems: "center",
-          height: 56,
+          alignItems: multiline ? "flex-start" : "center",
+          height: multiline ? undefined : 56,
+          minHeight: 56,
           borderRadius: "4px",
           border: `${focused || error ? 2 : 1}px solid ${color}`,
           boxSizing: "border-box",
@@ -690,10 +694,11 @@ export const M3TextField = ({
           </Box>
         )}
         <Box
-          component="input"
+          component={multiline ? "textarea" : "input"}
           id={id}
-          size={1}
-          type={type}
+          size={multiline ? undefined : 1}
+          rows={multiline ? 4 : undefined}
+          type={multiline ? undefined : type}
           inputMode={inputMode}
           autoFocus={autoFocus}
           disabled={disabled}
@@ -704,11 +709,12 @@ export const M3TextField = ({
           placeholder={placeholder}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value)}
           sx={{
             flex: 1,
             minWidth: 0,
-            height: "100%",
+            height: multiline ? "auto" : "100%",
+            ...(multiline ? { resize: "none", py: 1.75 } : {}),
             border: 0,
             outline: "none",
             bgcolor: "transparent",

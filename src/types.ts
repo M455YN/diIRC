@@ -253,6 +253,8 @@ export interface Server {
   displayNameMode?: ServerUserDisplayNameMode;
   autoCollapseImages?: ServerMediaCollapseMode;
   parseLegacyZncTimestamps?: boolean;
+  /** Lines run right after connecting, before channels are joined (`/msg NickServ IDENTIFY ...`, `/wait 2`, raw IRC). */
+  onConnectCommands?: string[];
   replyMode?: ServerReplyMode;
 }
 

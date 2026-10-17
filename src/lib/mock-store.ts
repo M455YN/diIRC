@@ -394,6 +394,7 @@ export interface AddServerOptions {
   autoConnect?: boolean;
   autoReconnect?: boolean;
   parseLegacyZncTimestamps?: boolean;
+  onConnectCommands?: string[];
   customCommands?: CustomCommand[];
   notificationSettings?: NotificationOverride;
   displayNameMode?: ServerUserDisplayNameMode;
@@ -414,6 +415,7 @@ export interface UpdateServerOptions {
   autoConnect?: boolean;
   autoReconnect?: boolean;
   parseLegacyZncTimestamps?: boolean;
+  onConnectCommands?: string[];
   customCommands?: CustomCommand[];
   notificationSettings?: NotificationOverride;
   motdPolicy?: ServerMotdDisplayPolicy;
@@ -994,6 +996,7 @@ export const useMockStore = create<MockState>()(
                 })),
                 useTls: server.useTls || false,
                 parseLegacyZncTimestamps: server.parseLegacyZncTimestamps || false,
+                onConnectCommands: server.onConnectCommands || [],
               },
             });
           } catch (e) {
@@ -1283,6 +1286,7 @@ export const useMockStore = create<MockState>()(
           autoConnect,
           autoReconnect,
           parseLegacyZncTimestamps: typeof optionsOrName === "object" ? (optionsOrName.parseLegacyZncTimestamps ?? false) : false,
+          onConnectCommands: typeof optionsOrName === "object" ? optionsOrName.onConnectCommands : undefined,
           customCommands,
           imageUrl,
           autoCollapseImages: typeof optionsOrName === "object" ? optionsOrName.autoCollapseImages : undefined,
@@ -1378,6 +1382,7 @@ export const useMockStore = create<MockState>()(
                 autoConnect: optionsOrName.autoConnect ?? s.autoConnect ?? true,
                 autoReconnect: optionsOrName.autoReconnect ?? s.autoReconnect ?? true,
                 parseLegacyZncTimestamps: optionsOrName.parseLegacyZncTimestamps ?? s.parseLegacyZncTimestamps,
+                onConnectCommands: optionsOrName.onConnectCommands ?? s.onConnectCommands,
                 customCommands: optionsOrName.customCommands ?? s.customCommands,
                 imageUrl: optionsOrName.imageUrl || s.imageUrl,
                 channels: s.channels,

@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff, Reply, Server, Zap, MessageSquare, Command } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useModal } from "@/hooks/use-modal-store";
@@ -63,6 +64,7 @@ const buildFormSchema = (t: (key: string) => string) => z.object({
   autoConnect: z.boolean().default(true),
   autoReconnect: z.boolean().default(true),
   parseLegacyZncTimestamps: z.boolean().default(false),
+  onConnectCommands: z.string().default(""),
   replyMode: z.enum(["inherit", "auto", "modern", "legacy", "hybrid"]).default("inherit"),
   customCommands: z.array(
     z.object({
@@ -100,6 +102,7 @@ const FIELD_TAB: Record<string, ServerTab> = {
   name: "connection", host: "connection", port: "connection", password: "connection",
   username: "connection", realname: "connection", nicknames: "connection", useTls: "connection",
   autoConnect: "behavior", autoReconnect: "behavior", parseLegacyZncTimestamps: "behavior",
+  onConnectCommands: "behavior",
   replyMode: "chat",
   customCommands: "commands",
 };
@@ -188,6 +191,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
       autoConnect: true,
       autoReconnect: true,
       parseLegacyZncTimestamps: false,
+      onConnectCommands: "",
       replyMode: "inherit",
       customCommands: [],
     }
@@ -241,6 +245,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
         autoConnect: server?.autoConnect ?? true,
         autoReconnect: server?.autoReconnect ?? true,
         parseLegacyZncTimestamps: server?.parseLegacyZncTimestamps ?? false,
+        onConnectCommands: (server?.onConnectCommands || []).join("\n"),
         replyMode: server?.replyMode ?? "inherit",
         customCommands: (server?.customCommands || []).map((c) => ({
           trigger: c.trigger,
@@ -287,6 +292,10 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
         autoConnect: values.autoConnect,
         autoReconnect: values.autoReconnect,
         parseLegacyZncTimestamps: values.parseLegacyZncTimestamps,
+        onConnectCommands: values.onConnectCommands
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean),
         replyMode: values.replyMode,
         customCommands: normalizeCustomCommandsFromForm(values.customCommands),
         motdPolicy: motdPolicyOverride,
@@ -680,6 +689,29 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="onConnectCommands"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col rounded-xl border border-zinc-300/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-3.5 space-y-2 shadow-sm">
+                    <FormLabel className="text-sm font-semibold text-zinc-900 dark:text-zinc-200">
+                      {t("server.field.onConnectCommands")}
+                    </FormLabel>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      {t("server.field.onConnectCommandsDesc")}
+                    </p>
+                    <FormControl>
+                      <Textarea
+                        rows={4}
+                        className="font-mono text-xs"
+                        placeholder={t("server.field.onConnectCommandsPlaceholder")}
+                        {...field}
                       />
                     </FormControl>
                   </FormItem>

@@ -69,6 +69,7 @@ interface FormState {
   autoConnect: boolean;
   autoReconnect: boolean;
   parseLegacyZncTimestamps: boolean;
+  onConnectCommands: string;
   replyMode: ServerReplyMode;
   customCommands: CommandRow[];
   motdPolicy: ServerMotdDisplayPolicy;
@@ -297,6 +298,15 @@ const ServerFormBody = ({
           supporting={tr("mform.zncTimestampsDesc")}
           checked={form.parseLegacyZncTimestamps}
           onChange={(v) => set("parseLegacyZncTimestamps", v)}
+        />
+        <M3TextField
+          label={tr("mform.onConnectCommands")}
+          value={form.onConnectCommands}
+          onChange={(v) => set("onConnectCommands", v)}
+          placeholder={tr("mform.onConnectCommandsPlaceholder")}
+          supportingText={tr("mform.onConnectCommandsDesc")}
+          monospace
+          multiline
         />
         <M3SelectItem
           title={tr("mform.replyFormat")}
@@ -592,6 +602,7 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
             autoConnect: server.autoConnect ?? true,
             autoReconnect: server.autoReconnect ?? true,
             parseLegacyZncTimestamps: server.parseLegacyZncTimestamps ?? false,
+            onConnectCommands: (server.onConnectCommands || []).join("\n"),
             replyMode: (server.replyMode as ServerReplyMode) ?? "inherit",
             customCommands: (server.customCommands || []).map((c) => ({
               trigger: c.trigger,
@@ -628,6 +639,7 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
             autoConnect: true,
             autoReconnect: true,
             parseLegacyZncTimestamps: false,
+            onConnectCommands: "",
             replyMode: "inherit",
             customCommands: [],
             motdPolicy: "default",
@@ -668,6 +680,10 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
       autoConnect: form.autoConnect,
       autoReconnect: form.autoReconnect,
       parseLegacyZncTimestamps: form.parseLegacyZncTimestamps,
+      onConnectCommands: form.onConnectCommands
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean),
       replyMode: form.replyMode,
       customCommands: normalizeCustomCommandsFromForm(form.customCommands),
     };

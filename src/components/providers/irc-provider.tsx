@@ -189,6 +189,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           })),
           useTls: server.useTls || false,
           parseLegacyZncTimestamps: server.parseLegacyZncTimestamps || false,
+          onConnectCommands: server.onConnectCommands || [],
         }
       });
       console.log(`Initiated IRC connection for server ${server.name} (${server.id}) with nicks:`, nicks);

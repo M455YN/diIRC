@@ -681,6 +681,77 @@ struct IrcConnectParams {
     use_tls: bool,
     #[serde(default)]
     parse_legacy_znc_timestamps: bool,
+    /// Lines run right after registration, before the channels are joined (see `parse_startup_line`).
+    #[serde(default)]
+    on_connect_commands: Vec<String>,
+}
+
+/// One step of the on-connect command list.
+#[derive(Debug, PartialEq)]
+enum StartupStep {
+    Wait(std::time::Duration),
+    /// Command and parameters of a raw IRC line; the last parameter is the trailing one.
+    Send(String, Vec<String>),
+}
+
+const STARTUP_MAX_WAIT_SECS: u64 = 30;
+
+/// Translates one user-written line (`/msg NickServ identify x`, `/wait 2`, `MODE me +x`, ...) into a step.
+/// Blank lines and `;` comments yield `None`.
+fn parse_startup_line(line: &str) -> Option<StartupStep> {
+    let line = line.trim().trim_start_matches('/').trim();
+    if line.is_empty() || line.starts_with(';') {
+        return None;
+    }
+    let (cmd, rest) = match line.split_once(char::is_whitespace) {
+        Some((cmd, rest)) => (cmd, rest.trim()),
+        None => (line, ""),
+    };
+    let lower = cmd.to_ascii_lowercase();
+    let service = |name: &str| {
+        Some(StartupStep::Send(
+            "PRIVMSG".to_string(),
+            vec![name.to_string(), rest.to_string()],
+        ))
+    };
+    match lower.as_str() {
+        "wait" | "sleep" => {
+            let secs: f64 = rest.parse().ok()?;
+            let secs = secs.clamp(0.0, STARTUP_MAX_WAIT_SECS as f64);
+            Some(StartupStep::Wait(std::time::Duration::from_millis((secs * 1000.0) as u64)))
+        }
+        "ns" | "nickserv" => service("NickServ"),
+        "cs" | "chanserv" => service("ChanServ"),
+        "hs" | "hostserv" => service("HostServ"),
+        "bs" | "botserv" => service("BotServ"),
+        "ms" | "memoserv" => service("MemoServ"),
+        "msg" | "privmsg" | "notice" => {
+            let (target, text) = rest.split_once(char::is_whitespace)?;
+            let verb = if lower == "notice" { "NOTICE" } else { "PRIVMSG" };
+            Some(StartupStep::Send(
+                verb.to_string(),
+                vec![target.to_string(), text.trim().to_string()],
+            ))
+        }
+        "raw" | "quote" => parse_raw_irc_line(rest),
+        _ => parse_raw_irc_line(line),
+    }
+}
+
+/// Splits `CMD a b :trailing text` into the command and its parameters.
+fn parse_raw_irc_line(line: &str) -> Option<StartupStep> {
+    let line = line.trim();
+    let (head, trailing) = match line.split_once(" :") {
+        Some((head, trailing)) => (head, Some(trailing)),
+        None => (line, None),
+    };
+    let mut words = head.split_whitespace();
+    let cmd = words.next()?.to_ascii_uppercase();
+    let mut params: Vec<String> = words.map(str::to_string).collect();
+    if let Some(trailing) = trailing {
+        params.push(trailing.to_string());
+    }
+    Some(StartupStep::Send(cmd, params))
 }
 
 struct RecentSentMessage {
@@ -1931,6 +2002,7 @@ async fn connect_irc(
     
     let initial_channels = channels_to_join.clone();
     let parse_legacy_znc_timestamps = params.parse_legacy_znc_timestamps;
+    let on_connect_commands = params.on_connect_commands.clone();
 
     tauri::async_runtime::spawn(async move {
         let mut stream = match client.stream() {
@@ -2601,19 +2673,41 @@ async fn connect_irc(
                                     error: None,
                                 },
                             );
-                            if let Some(s) = senders_clone.lock().await.get(&stream_server_id) {
-                                for chan in &initial_channels {
-                                    let mut formatted = chan.name.clone();
-                                    if !formatted.starts_with('#') {
-                                        formatted = format!("#{}", formatted);
+                            let welcome_sender = senders_clone.lock().await.get(&stream_server_id).cloned();
+                            if let Some(s) = welcome_sender {
+                                // Startup commands run in their own task so `/wait` never stalls the read loop;
+                                // the channels are joined afterwards (e.g. once NickServ has identified us).
+                                let steps: Vec<StartupStep> = on_connect_commands
+                                    .iter()
+                                    .filter_map(|line| parse_startup_line(line))
+                                    .collect();
+                                let channels = initial_channels.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    for step in steps {
+                                        match step {
+                                            StartupStep::Wait(duration) => tokio::time::sleep(duration).await,
+                                            StartupStep::Send(cmd, params) => {
+                                                if let Err(error) = s.send(Command::Raw(cmd, params)) {
+                                                    log::warn!("On-connect command failed: {}", error);
+                                                    return;
+                                                }
+                                                tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+                                            }
+                                        }
                                     }
-                                    let key = chan.password.clone().filter(|p| !p.trim().is_empty());
-                                    if let Some(k) = key {
-                                        let _ = s.send(Command::JOIN(formatted, Some(k), None));
-                                    } else {
-                                        let _ = s.send_join(&formatted);
+                                    for chan in &channels {
+                                        let mut formatted = chan.name.clone();
+                                        if !formatted.starts_with('#') {
+                                            formatted = format!("#{}", formatted);
+                                        }
+                                        let key = chan.password.clone().filter(|p| !p.trim().is_empty());
+                                        if let Some(k) = key {
+                                            let _ = s.send(Command::JOIN(formatted, Some(k), None));
+                                        } else {
+                                            let _ = s.send_join(&formatted);
+                                        }
                                     }
-                                }
+                                });
                             }
                         }
                         Command::ERROR(ref reason) => {
@@ -5309,3 +5403,47 @@ mod reply_compat_tests {
     }
 }
 
+
+#[cfg(test)]
+mod startup_command_tests {
+    use super::*;
+
+    fn send(cmd: &str, params: &[&str]) -> Option<StartupStep> {
+        Some(StartupStep::Send(
+            cmd.to_string(),
+            params.iter().map(|p| p.to_string()).collect(),
+        ))
+    }
+
+    #[test]
+    fn msg_and_service_aliases_become_privmsg() {
+        assert_eq!(
+            parse_startup_line("/msg NickServ IDENTIFY secret pass"),
+            send("PRIVMSG", &["NickServ", "IDENTIFY secret pass"])
+        );
+        assert_eq!(parse_startup_line("/ns identify x"), send("PRIVMSG", &["NickServ", "identify x"]));
+        assert_eq!(parse_startup_line("notice #a hi there"), send("NOTICE", &["#a", "hi there"]));
+    }
+
+    #[test]
+    fn raw_lines_keep_the_trailing_parameter() {
+        assert_eq!(parse_startup_line("/quote mode me +x"), send("MODE", &["me", "+x"]));
+        assert_eq!(parse_startup_line("OPER admin pw"), send("OPER", &["admin", "pw"]));
+        assert_eq!(parse_startup_line("AWAY :gone fishing"), send("AWAY", &["gone fishing"]));
+    }
+
+    #[test]
+    fn wait_is_clamped_and_blank_lines_are_skipped() {
+        assert_eq!(
+            parse_startup_line("/wait 2.5"),
+            Some(StartupStep::Wait(std::time::Duration::from_millis(2500)))
+        );
+        assert_eq!(
+            parse_startup_line("/wait 999"),
+            Some(StartupStep::Wait(std::time::Duration::from_secs(STARTUP_MAX_WAIT_SECS)))
+        );
+        assert_eq!(parse_startup_line("   "), None);
+        assert_eq!(parse_startup_line("; comment"), None);
+        assert_eq!(parse_startup_line("/msg onlytarget"), None);
+    }
+}
