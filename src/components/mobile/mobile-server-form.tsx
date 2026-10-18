@@ -10,14 +10,11 @@ import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOffOutlined";
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
-import {
-  normalizeCustomCommandsFromForm,
-  parseCustomCommandsJson,
-} from "@/components/server/custom-commands-fields";
+import { parseCustomCommandsJson } from "@/components/server/custom-commands-fields";
+import { serverToSharedForm, sharedFormToOptions } from "@/components/server/server-form-mapping";
 import {
   emptyFormCommand,
   emptyFormStep,
-  toFormSteps,
   type FormCommandRow,
   type FormStep,
 } from "@/lib/commands/custom-command-steps";
@@ -594,22 +591,9 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
             name: server.name || "",
             host: server.host || "",
             port: String(server.port || 6667),
-            password: server.password || "",
             useTls: server.useTls ?? false,
             nicknames: server.nicknames?.length ? [...server.nicknames] : [""],
-            username: server.username || "",
-            realname: server.realname || "",
-            autoConnect: server.autoConnect ?? true,
-            autoReconnect: server.autoReconnect ?? true,
-            parseLegacyZncTimestamps: server.parseLegacyZncTimestamps ?? false,
-            onConnectCommands: (server.onConnectCommands || []).join("\n"),
-            replyMode: (server.replyMode as ServerReplyMode) ?? "inherit",
-            customCommands: (server.customCommands || []).map((c) => ({
-              trigger: c.trigger,
-              description: c.description || "",
-              suggestions: (c.suggestions || []).join(", "),
-              steps: toFormSteps(c),
-            })),
+            ...serverToSharedForm(server),
             motdPolicy: serverMotdPolicies[server.id] || server.motdPolicy || "default",
             displayNameMode: server.displayNameMode || "default",
             mediaCollapse: server.autoCollapseImages || "default",
@@ -631,17 +615,9 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
             name: "",
             host: "",
             port: "6697",
-            password: "",
             useTls: true,
             nicknames: [currentProfile.name.replace(/\s+/g, "") || ""],
-            username: "",
-            realname: "",
-            autoConnect: true,
-            autoReconnect: true,
-            parseLegacyZncTimestamps: false,
-            onConnectCommands: "",
-            replyMode: "inherit",
-            customCommands: [],
+            ...serverToSharedForm(),
             motdPolicy: "default",
             displayNameMode: "default",
             mediaCollapse: "default",
@@ -673,19 +649,8 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
       host: form.host.trim(),
       port: Number(form.port),
       nicknames: form.nicknames.map((n) => n.trim()).filter(Boolean),
-      username: form.username,
-      realname: form.realname,
-      password: form.password,
       useTls: form.useTls,
-      autoConnect: form.autoConnect,
-      autoReconnect: form.autoReconnect,
-      parseLegacyZncTimestamps: form.parseLegacyZncTimestamps,
-      onConnectCommands: form.onConnectCommands
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean),
-      replyMode: form.replyMode,
-      customCommands: normalizeCustomCommandsFromForm(form.customCommands),
+      ...sharedFormToOptions(form),
     };
 
     if (isEdit && server?.id) {

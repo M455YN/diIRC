@@ -25,7 +25,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff, Reply, Server, Zap, MessageSquare, Command } from "lucide-react";
+import { AvatarUpload } from "@/components/server/avatar-upload";
+import { announceOwnAvatar } from "@/lib/avatars";
+import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff, Reply, Server, Zap, MessageSquare, Command, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
@@ -41,8 +43,8 @@ import {
   ServerMediaCollapseMode,
 } from "@/types";
 import { NotificationSettingsFields } from "@/components/notifications/notification-settings-fields";
-import { CustomCommandsFields, normalizeCustomCommandsFromForm } from "@/components/server/custom-commands-fields";
-import { toFormSteps } from "@/lib/commands/custom-command-steps";
+import { CustomCommandsFields } from "@/components/server/custom-commands-fields";
+import { serverToSharedForm, sharedFormToOptions } from "@/components/server/server-form-mapping";
 import { ServerLogoField } from "@/components/server/server-logo-field";
 
 const buildFormSchema = (t: (key: string) => string) => z.object({
@@ -65,6 +67,7 @@ const buildFormSchema = (t: (key: string) => string) => z.object({
   autoReconnect: z.boolean().default(true),
   parseLegacyZncTimestamps: z.boolean().default(false),
   onConnectCommands: z.string().default(""),
+  avatarsEnabled: z.boolean().default(false),
   replyMode: z.enum(["inherit", "auto", "modern", "legacy", "hybrid"]).default("inherit"),
   customCommands: z.array(
     z.object({
@@ -87,7 +90,7 @@ const buildFormSchema = (t: (key: string) => string) => z.object({
 
 type ServerFormValues = z.infer<ReturnType<typeof buildFormSchema>>;
 
-type ServerTab = "connection" | "behavior" | "chat" | "notifications" | "commands";
+type ServerTab = "connection" | "behavior" | "chat" | "notifications" | "commands" | "experimental";
 
 const SERVER_TABS: { id: ServerTab; title: string; icon: typeof Bell }[] = [
   { id: "connection", title: "server.tabs.connection", icon: Server },
@@ -95,6 +98,31 @@ const SERVER_TABS: { id: ServerTab; title: string; icon: typeof Bell }[] = [
   { id: "chat", title: "server.tabs.chat", icon: MessageSquare },
   { id: "notifications", title: "server.tabs.notifications", icon: Bell },
   { id: "commands", title: "server.tabs.commands", icon: Command },
+  { id: "experimental", title: "server.tabs.experimental", icon: FlaskConical },
+];
+
+// What the search box finds: a label (i18n key) and the tab that holds it.
+const SERVER_SEARCH_INDEX: { key: string; tab: ServerTab }[] = [
+  { key: "server.field.logo", tab: "connection" },
+  { key: "server.field.name", tab: "connection" },
+  { key: "server.field.host", tab: "connection" },
+  { key: "server.field.port", tab: "connection" },
+  { key: "server.field.password", tab: "connection" },
+  { key: "server.field.username", tab: "connection" },
+  { key: "server.field.realName", tab: "connection" },
+  { key: "server.field.nicknames", tab: "connection" },
+  { key: "server.field.tls", tab: "connection" },
+  { key: "server.field.autoConnect", tab: "behavior" },
+  { key: "server.field.autoReconnect", tab: "behavior" },
+  { key: "server.field.zncTimestamps", tab: "behavior" },
+  { key: "server.field.onConnectCommands", tab: "behavior" },
+  { key: "server.field.motd", tab: "chat" },
+  { key: "server.field.displayName", tab: "chat" },
+  { key: "server.field.imageCollapse", tab: "chat" },
+  { key: "server.field.replyFormat", tab: "chat" },
+  { key: "server.tabs.notifications", tab: "notifications" },
+  { key: "server.tabs.commands", tab: "commands" },
+  { key: "server.field.avatars", tab: "experimental" },
 ];
 
 // Which tab hosts each form field, so a validation error can bring the user to it.
@@ -103,6 +131,7 @@ const FIELD_TAB: Record<string, ServerTab> = {
   username: "connection", realname: "connection", nicknames: "connection", useTls: "connection",
   autoConnect: "behavior", autoReconnect: "behavior", parseLegacyZncTimestamps: "behavior",
   onConnectCommands: "behavior",
+  avatarsEnabled: "experimental",
   replyMode: "chat",
   customCommands: "commands",
 };
@@ -153,6 +182,17 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
   const [customDmSoundUrlOverride, setCustomDmSoundUrlOverride] = useState<string | undefined>(undefined);
 
   const defaultReplyMode = useMockStore((state) => state.defaultReplyMode) || "hybrid";
+  const experimentalAvatars = useMockStore((state) => state.experimentalAvatars);
+  // The experimental tab (and its search hits) only exist once the global switch is on.
+  const visibleTabs = SERVER_TABS.filter((entry) => entry.id !== "experimental" || experimentalAvatars);
+  const [query, setQuery] = useState("");
+  const trimmedQuery = query.trim().toLowerCase();
+  const searching = trimmedQuery.length > 0;
+  const searchResults = searching
+    ? SERVER_SEARCH_INDEX.filter(
+        (item) => (item.tab !== "experimental" || experimentalAvatars) && t(item.key).toLowerCase().includes(trimmedQuery)
+      )
+    : [];
 
   const inheritedChannelNotifStr =
     globalNotif?.channelNotifications === "all"
@@ -185,15 +225,9 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
       host: "127.0.0.1",
       port: 6667,
       nicknames: [{ value: "ReactUser" }],
-      realname: "",
-      password: "",
       useTls: false,
-      autoConnect: true,
-      autoReconnect: true,
-      parseLegacyZncTimestamps: false,
-      onConnectCommands: "",
-      replyMode: "inherit",
-      customCommands: [],
+      avatarsEnabled: false,
+      ...serverToSharedForm(),
     }
   });
 
@@ -238,21 +272,9 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
         host: server?.host || "127.0.0.1",
         port: server?.port || 6667,
         nicknames: defaultNicks,
-        username: server?.username || "",
-        realname: server?.realname || "",
-        password: server?.password || "",
         useTls: server?.useTls ?? false,
-        autoConnect: server?.autoConnect ?? true,
-        autoReconnect: server?.autoReconnect ?? true,
-        parseLegacyZncTimestamps: server?.parseLegacyZncTimestamps ?? false,
-        onConnectCommands: (server?.onConnectCommands || []).join("\n"),
-        replyMode: server?.replyMode ?? "inherit",
-        customCommands: (server?.customCommands || []).map((c) => ({
-          trigger: c.trigger,
-          description: c.description || "",
-          suggestions: (c.suggestions || []).join(", "),
-          steps: toFormSteps(c),
-        })),
+        avatarsEnabled: server?.avatarsEnabled ?? false,
+        ...serverToSharedForm(server),
       });
     }
   }, [server, isCreate, isModalOpen, form, currentProfile]);
@@ -285,19 +307,14 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
         host: values.host,
         port: values.port,
         nicknames: nickArray,
-        username: values.username || "",
-        realname: values.realname || "",
-        password: values.password || "",
         useTls: values.useTls,
-        autoConnect: values.autoConnect,
-        autoReconnect: values.autoReconnect,
-        parseLegacyZncTimestamps: values.parseLegacyZncTimestamps,
-        onConnectCommands: values.onConnectCommands
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean),
-        replyMode: values.replyMode,
-        customCommands: normalizeCustomCommandsFromForm(values.customCommands),
+        avatarsEnabled: values.avatarsEnabled,
+        ...sharedFormToOptions({
+          ...values,
+          username: values.username || "",
+          realname: values.realname || "",
+          password: values.password || "",
+        }),
         motdPolicy: motdPolicyOverride,
         displayNameMode: displayNameModeOverride,
         autoCollapseImages: mediaCollapseOverride,
@@ -314,6 +331,8 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
           customDmSoundUrl: customDmSoundUrlOverride,
         },
       });
+      // Switching the feature on is the moment to tell the channels about an avatar set earlier.
+      if (values.avatarsEnabled && !server?.avatarsEnabled) announceOwnAvatar(serverId);
 
       setServerMotdPolicy(serverId, motdPolicyOverride);
       setServerMediaCollapsePolicy(serverId, mediaCollapseOverride);
@@ -369,6 +388,15 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                 : t("server.header.editDesc")}
             </DialogDescription>
           </DialogHeader>
+          <div className="px-6 pb-3 shrink-0">
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("settings.searchPlaceholder")}
+              aria-label={t("settings.searchPlaceholder")}
+              className="h-9 bg-white text-sm dark:bg-[#1e1f22]"
+            />
+          </div>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onFormSubmit, onFormInvalid)} className="flex flex-col flex-1 min-h-0">
               <div className="flex min-h-0 flex-1 flex-col border-t border-zinc-200 dark:border-zinc-800 sm:flex-row">
@@ -376,7 +404,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                 aria-label={t("server.categoriesAria")}
                 className="flex shrink-0 gap-1 overflow-x-auto border-b border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-[#2b2d31] sm:w-52 sm:flex-col sm:overflow-y-auto sm:overflow-x-visible sm:border-b-0 sm:border-r sm:p-3"
               >
-                {SERVER_TABS.map(({ id, title, icon: TabIcon }) => (
+                {visibleTabs.map(({ id, title, icon: TabIcon }) => (
                   <button
                     key={id}
                     type="button"
@@ -394,7 +422,33 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                   </button>
                 ))}
               </nav>
-              <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-6 py-4">
+              <div className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto px-6 py-4", searching && "[&>[role=tabpanel]]:hidden")}>
+              {searching && (
+                <div className="space-y-2">
+                  {searchResults.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                      {t("settings.searchNoResults", { query: query.trim() })}
+                    </p>
+                  ) : (
+                    searchResults.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => {
+                          setTab(item.tab);
+                          setQuery("");
+                        }}
+                        className="flex w-full items-center justify-between gap-x-3 rounded-md border border-zinc-200 bg-white px-3 py-2.5 text-left text-sm transition hover:border-indigo-400 dark:border-zinc-700 dark:bg-[#2b2d31] dark:hover:border-indigo-500"
+                      >
+                        <span className="font-medium text-zinc-800 dark:text-zinc-100">{t(item.key)}</span>
+                        <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                          {t(SERVER_TABS.find((entry) => entry.id === item.tab)?.title ?? "")}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
               <div role="tabpanel" className={tab === "connection" ? "space-y-4" : "hidden"}>
               <FormField
                 control={form.control}
@@ -717,6 +771,7 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
                   </FormItem>
                 )}
               />
+
               </div>
               <div role="tabpanel" className={tab === "chat" ? "space-y-4" : "hidden"}>
               {/* SECTION: MOTD POLICY */}
@@ -879,6 +934,32 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
               </div>
               <div role="tabpanel" className={tab === "commands" ? "space-y-4" : "hidden"}>
               <CustomCommandsFields control={form.control} disabled={isLoading} />
+              </div>
+              <div role="tabpanel" className={tab === "experimental" ? "space-y-4" : "hidden"}>
+              {experimentalAvatars && (
+                <FormField
+                  control={form.control}
+                  name="avatarsEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col rounded-xl border border-zinc-300/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-3.5 space-y-3 shadow-sm">
+                      <div className="flex flex-row items-center justify-between">
+                        <div className="space-y-0.5 pr-4">
+                          <FormLabel className="text-sm font-semibold text-zinc-900 dark:text-zinc-200 cursor-pointer">
+                            {t("server.field.avatars")}
+                          </FormLabel>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                            {t("server.field.avatarsDesc")}
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </div>
+                      {field.value && !isCreate && server?.id && <AvatarUpload serverId={server.id} />}
+                    </FormItem>
+                  )}
+                />
+              )}
               </div>
               </div>
               </div>

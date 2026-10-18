@@ -12,6 +12,7 @@
       "uploads": "Wysyłanie obrazów",
       "auth": "Autoryzacja",
       "updates": "Aktualizacje",
+      "experimental": "Eksperymentalne",
       "about": "O programie"
     },
     "language": {
@@ -44,6 +45,9 @@
       "confirmLeave": "Potwierdzaj wyjście z kanału",
       "linkPreview": "Otwieraj linki w oknie podglądu",
       "blockedImagePreview": "Otwieraj zablokowane obrazy w oknie podglądu",
+      "experimentalAvatars": "Awatary (eksperymentalne)",
+      "experimentalForward": "Przekaż na kanał (eksperymentalne)",
+      "lunaHandshake": "Ogłaszaj Lunę innym klientom Luna",
       "slashAutocomplete": "Podpowiedzi komend /",
       "markdown": "Renderowanie Markdown",
       "formattingPreview": "Podgląd formatowania wiadomości",
@@ -141,6 +145,8 @@
       "linkPreviewDesc": "Kliknięcie linku otwiera go w osobnym oknie aplikacji zamiast w domyślnej przeglądarce. Tylko desktop.",
       "blockedImagePreview": "Otwieraj zablokowane obrazy w oknie podglądu",
       "blockedImagePreviewDesc": "Gdy obrazu nie da się załadować (np. blokada Cloudflare), „Zobacz w przeglądarce” otwiera go w oknie aplikacji. Tylko desktop.",
+      "lunaHandshake": "Ogłaszaj Lunę innym klientom Luna",
+      "lunaHandshakeDesc": "Po wejściu na kanał wysyła krótką ukrytą wiadomość z wersją Luny i zapamiętuje, kto odpowie, żeby funkcje tylko dla Luny (reakcje, awatary) wysyłać tylko tam, gdzie ktoś może z nich skorzystać. Inne klienty IRC nic nie pokazują w czacie. Na karcie użytkownika pokazuje „Luna <wersja>”. Wyłącz, żeby pozostać niewidocznym.",
       "confirmLeave": "Potwierdzaj wyjście z kanału",
       "confirmLeaveDesc": "Pokazuj okno potwierdzenia przy wyjściu z kanału.",
       "slashAutocomplete": "Podpowiedzi komend /",
@@ -182,6 +188,13 @@
       },
       "interactiveCommands": "Interaktywne panele komend",
       "interactiveCommandsDesc": "Wybranie /mode, /op, /deop, /voice lub /devoice z podpowiedzi otwiera mały panel zamiast wstawiać tekst."
+    },
+    "experimental": {
+      "intro": "Funkcje działające tylko między klientami Luna, które mogą się zmienić lub zniknąć. Wszystko jest wyłączone, dopóki tego nie włączysz, a inne klienty nie są w żaden sposób dotknięte.",
+      "avatars": "Awatary między klientami Luna",
+      "avatarsDesc": "Pokazuje małe awatary użytkowników Luny i udostępnia Twój. Obrazki mają 32x32, jadą jako krótkie wiadomości CTCP w kawałkach i są przechowywane tylko na każdym kliencie, nigdy nie trafiają na serwer. Włącz to jeszcze osobno w ustawieniach serwera (Zachowanie).",
+      "forward": "Przekaż na kanał",
+      "forwardDesc": "Dodaje „Przekaż na kanał” do menu prawego przycisku wiadomości: wybierasz kanał na tym samym serwerze, a wiadomość jest tam wysyłana z autorem i kanałem źródłowym."
     },
     "previews": {
       "linkPreviews": "Podglądy linków (osadzenia)",
@@ -447,9 +460,17 @@
       "edit": "Edytuj",
       "delete": "Usuń",
       "answer": "Odpowiedz",
+      "forward": "Przekaż na kanał",
+      "copyText": "Kopiuj tekst",
       "incompleteCode": "Niepełny blok kodu: transmisja została przerwana lub porzucona przez serwer IRC",
       "deleteConfirm": "Usunąć tę wiadomość dla wszystkich? Tej operacji nie można cofnąć.",
       "deleteTitle": "Usuń wiadomość"
+    },
+    "forward": {
+      "title": "Przekaż wiadomość",
+      "desc": "Wybierz kanał, na który ją wysłać.",
+      "empty": "Ten serwer nie ma kanałów.",
+      "failed": "Nie udało się wysłać wiadomości."
     },
     "bookmarks": {
       "title": "Zakładki",
@@ -539,7 +560,8 @@
       "behavior": "Zachowanie",
       "chat": "Czat i wyświetlanie",
       "notifications": "Powiadomienia",
-      "commands": "Własne komendy"
+      "commands": "Własne komendy",
+      "experimental": "Eksperymentalne"
     },
     "opt": {
       "allMessages": "Wszystkie wiadomości",
@@ -568,6 +590,10 @@
       "editDesc": "Zaktualizuj parametry połączenia i konfigurację serwera IRC."
     },
     "categoriesAria": "Kategorie ustawień serwera",
+    "avatar": {
+      "choose": "Wybierz obrazek",
+      "remove": "Usuń"
+    },
     "field": {
       "logo": "Logo",
       "name": "Nazwa serwera",
@@ -590,6 +616,8 @@
       "autoReconnectDesc": "Automatycznie próbuj ponownie się połączyć, gdy połączenie zostanie zerwane",
       "zncTimestamps": "Odczytuj stare znaczniki czasu ZNC",
       "zncTimestampsDesc": "Wyciągaj znaczniki czasu w formacie [HH:MM:SS] ze starszych bouncerów bez wsparcia IRCv3 server-time",
+      "avatars": "Awatary (eksperymentalne)",
+      "avatarsDesc": "Pokazuj awatary innych użytkowników Luny na tym serwerze i udostępniaj swój. Osoby bez tej opcji to ignorują.",
       "onConnectCommands": "Komendy na start",
       "onConnectCommandsDesc": "Po jednej w linii, wykonywane po połączeniu i przed wejściem na kanały: /msg NickServ IDENTIFY hasło, /mode MójNick +x, /wait 2 (pauza w sekundach). Linie zaczynające się od ; są pomijane. Zapisane jawnym tekstem, tak jak hasło serwera.",
       "onConnectCommandsPlaceholder": "/msg NickServ IDENTIFY hasło",
@@ -728,7 +756,12 @@
     "removeVoice": "Odbierz voice (-v)",
     "giveVoice": "Nadaj voice (+v)"
   },
+  "ircUrl": {
+    "title": "Link IRC",
+    "addServer": "Dodać serwer {{host}} i wejść na: {{channels}}?"
+  },
   "hover": {
+    "client": "Klient",
     "message": "Wiadomość",
     "status": "Status:"
   },
@@ -1181,6 +1214,14 @@
     "away": "Nieobecni"
   },
   "cmd": {
+    "ignore": {
+      "list": "Ignorowani: {{list}}",
+      "empty": "Lista ignorowanych jest pusta.",
+      "added": "Ignorujesz teraz {{mask}}.",
+      "already": "{{mask}} jest już ignorowany.",
+      "removed": "Przestałeś ignorować {{mask}}.",
+      "missing": "{{mask}} nie ma na liście ignorowanych."
+    },
     "sendsMessage": "Wysyła: {{message}}",
     "sendsPresets": "Wysyła: {{message}} · {{presets}}",
     "desc": {
@@ -1197,7 +1238,9 @@
       "motd": "Pokazuje komunikat dnia serwera (MOTD): /motd",
       "away": "Ustawia status nieobecności lub pokazuje błąd, gdy już jesteś nieobecny: /away [powód]",
       "back": "Wraca z nieobecności: /back",
-      "list": "Pokazuje listę kanałów serwera: /list"
+      "list": "Pokazuje listę kanałów serwera: /list",
+      "ignore": "Ukrywa wiadomości użytkownika lub maski (bez argumentu: pokazuje listę): /ignore [nick|nick!user@host]",
+      "unignore": "Przestaje ignorować użytkownika lub maskę: /unignore <nick|nick!user@host>"
     }
   },
   "cp": {

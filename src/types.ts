@@ -255,6 +255,8 @@ export interface Server {
   parseLegacyZncTimestamps?: boolean;
   /** Lines run right after connecting, before channels are joined (`/msg NickServ IDENTIFY ...`, `/wait 2`, raw IRC). */
   onConnectCommands?: string[];
+  /** Experimental Luna-to-Luna avatars on this server (also needs the global experimental switch). */
+  avatarsEnabled?: boolean;
   replyMode?: ServerReplyMode;
 }
 

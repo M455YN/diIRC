@@ -197,7 +197,7 @@ export function parseIrcSpans(rawText: string): IrcFormattedSpan[] {
  * Renders an IRC span with proper styling and clickable URLs.
  */
 export const IrcSpanNode: React.FC<{ span: IrcFormattedSpan }> = ({ span }) => {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const urlRegex = /((?:https?|ircs?):\/\/[^\s]+)/g;
   const parts = span.text.split(urlRegex);
 
   const style: React.CSSProperties = {};

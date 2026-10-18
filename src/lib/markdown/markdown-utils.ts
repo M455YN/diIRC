@@ -68,7 +68,7 @@ export function isSafeHref(href: string): boolean {
   if (!href) return false;
   try {
     const url = new URL(href);
-    return ["http:", "https:", "mailto:"].includes(url.protocol);
+    return ["http:", "https:", "mailto:", "irc:", "ircs:"].includes(url.protocol);
   } catch {
     // Relative URLs not allowed in chat — treat as unsafe
     return false;

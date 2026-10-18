@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useReplyStore } from "@/hooks/use-reply-store";
-import { persist } from "zustand/middleware";
+import { persist, type PersistStorage } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import { format } from "date-fns";
 import {
@@ -37,7 +37,6 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { dateLocale } from "./date-locale";
 import { ImageUploadConfig, UrlAuthRule } from "./upload/types";
-import { MESSAGE_DEDUPLICATION_MODE } from "./config";
 import { DEFAULT_SERVER_IMAGE } from "./server-logo";
 
 type IncomingMessageMeta = {
@@ -59,6 +58,26 @@ export function computeMotdHash(lines: string[]): string {
     hash = ((hash << 5) + hash) ^ joined.charCodeAt(i);
   }
   return (hash >>> 0).toString(16);
+}
+
+/** Parameters of the backend `connect_irc` command for a server. */
+export function buildConnectParams(server: Server, profileName: string) {
+  const nicknames = server.nicknames?.length
+    ? server.nicknames
+    : [profileName.replace(/\s+/g, "") || "ReactUser"];
+  return {
+    serverId: server.id,
+    host: server.host || "127.0.0.1",
+    port: server.port || 6667,
+    nicknames,
+    username: server.username || "",
+    realname: server.realname || "",
+    password: server.password || "",
+    channels: server.channels.map((c) => ({ name: c.name, password: c.key || null })),
+    useTls: server.useTls || false,
+    parseLegacyZncTimestamps: server.parseLegacyZncTimestamps || false,
+    onConnectCommands: server.onConnectCommands || [],
+  };
 }
 
 export function getServerActiveNick(server: Server): string {
@@ -219,6 +238,19 @@ const parseLogTimestamp = (timestamp: string) => {
   return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
 };
 
+/** The pseudo-user that local and server notices ("X has joined", command feedback) are attributed to. */
+export const createSystemMember = (serverId: string): Member => {
+  const now = new Date().toISOString();
+  return {
+    id: "system",
+    profileId: "system",
+    profile: { id: "system", userId: "system", name: "System", imageUrl: "", email: "system@irc.local", createdAt: now, updatedAt: now },
+    serverId,
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+
 const createIrcMember = (serverId: string, name: string, host?: string): Member => ({
   id: `irc-${name}`,
   profileId: `profile-${name}`,
@@ -289,22 +321,7 @@ const mapLogEntries = (
     const isSys = entry.sender.toLowerCase() === "system" || entry.sender === "*system*" || entry.sender === "*";
     const member = server?.members.find(
       (item) => item.profile.name.toLowerCase() === entry.sender.toLowerCase()
-    ) || (isSys ? {
-      id: "system",
-      profileId: "system",
-      profile: {
-        id: "system",
-        userId: "system",
-        name: "System",
-        imageUrl: "",
-        email: "system@irc.local",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      serverId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    } : createIrcMember(serverId, entry.sender));
+    ) || (isSys ? createSystemMember(serverId) : createIrcMember(serverId, entry.sender));
     const createdAt = parseLogTimestamp(entry.timestamp);
     const stableId = entry.offset !== undefined
       ? `log-${serverId}-${chatId}-${entry.offset}`
@@ -381,26 +398,8 @@ const mapLogEntries = (
   return mapped;
 };
 
-export interface AddServerOptions {
-  name: string;
-  host: string;
-  port: number;
-  nicknames: string[];
-  username?: string;
-  realname?: string;
-  password?: string;
-  useTls: boolean;
-  imageUrl?: string;
-  autoConnect?: boolean;
-  autoReconnect?: boolean;
-  parseLegacyZncTimestamps?: boolean;
-  onConnectCommands?: string[];
-  customCommands?: CustomCommand[];
-  notificationSettings?: NotificationOverride;
-  displayNameMode?: ServerUserDisplayNameMode;
-  autoCollapseImages?: ServerMediaCollapseMode;
-  replyMode?: ServerReplyMode;
-}
+/** Same fields as an update, but a new server must start with at least its nicknames. */
+export type AddServerOptions = UpdateServerOptions & { nicknames: string[] };
 
 export interface UpdateServerOptions {
   name: string;
@@ -416,6 +415,7 @@ export interface UpdateServerOptions {
   autoReconnect?: boolean;
   parseLegacyZncTimestamps?: boolean;
   onConnectCommands?: string[];
+  avatarsEnabled?: boolean;
   customCommands?: CustomCommand[];
   notificationSettings?: NotificationOverride;
   motdPolicy?: ServerMotdDisplayPolicy;
@@ -517,6 +517,18 @@ interface MockState {
   setJumbojiSize: (size: number) => void;
   defaultReplyMode: ReplyMode;
   setDefaultReplyMode: (mode: ReplyMode) => void;
+  /** Ignore masks (`nick`, `nick!user@host`, `user@host`, `*` and `?` wildcards); the backend drops their messages. */
+  ignoredUsers: string[];
+  setIgnoredUsers: (masks: string[]) => void;
+  /** Master switch of the experimental features (Luna-to-Luna avatars); off by default. */
+  experimentalAvatars: boolean;
+  setExperimentalAvatars: (enabled: boolean) => void;
+  /** Experimental: "Forward to channel" in the message menu; off by default. */
+  experimentalForward: boolean;
+  setExperimentalForward: (enabled: boolean) => void;
+  /** Announce Luna (`LUNA HELLO`) when joining channels and note who answers; on by default, see `luna-peers.ts`. */
+  lunaHandshake: boolean;
+  setLunaHandshake: (enabled: boolean) => void;
   notificationSettings: GlobalNotificationSettings;
   conversationNotificationSettings: Record<string, NotificationOverride>;
   autoUpdateMode: "auto" | "ask" | "disabled";
@@ -686,6 +698,58 @@ interface MockState {
   deleteDirectMessage: (conversationId: string, messageId: string) => void;
 }
 
+/**
+ * localStorage for the persisted store that serializes lazily and writes at most once a second.
+ * The default storage stringifies the whole state (servers, members, channels) on every `set()`,
+ * i.e. for every incoming message. Pending data is flushed when the window is hidden or closed.
+ * shortcut: a crash within the last second loses that second of changes, which only affects settings.
+ */
+function createDebouncedStorage<S>(delayMs = 1000): PersistStorage<S> {
+  let pending: { name: string; value: unknown } | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const flush = () => {
+    if (timer !== undefined) clearTimeout(timer);
+    timer = undefined;
+    if (!pending) return;
+    const { name, value } = pending;
+    pending = null;
+    try {
+      localStorage.setItem(name, JSON.stringify(value));
+    } catch (error) {
+      console.warn("Failed to persist the store:", error);
+    }
+  };
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("beforeunload", flush);
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") flush();
+    });
+  }
+
+  return {
+    getItem: (name) => {
+      flush();
+      try {
+        const raw = localStorage.getItem(name);
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    },
+    setItem: (name, value) => {
+      pending = { name, value };
+      timer ??= setTimeout(flush, delayMs);
+    },
+    removeItem: (name) => {
+      pending = null;
+      localStorage.removeItem(name);
+    },
+  };
+}
+
 export const useMockStore = create<MockState>()(
   persist<MockState>(
     (set, get) => ({
@@ -767,6 +831,17 @@ export const useMockStore = create<MockState>()(
       setJumbojiSize: (size: number) => set({ jumbojiSize: size }),
       defaultReplyMode: "hybrid",
       setDefaultReplyMode: (mode) => set({ defaultReplyMode: mode }),
+      ignoredUsers: [],
+      experimentalAvatars: false,
+      setExperimentalAvatars: (enabled) => set({ experimentalAvatars: enabled }),
+      experimentalForward: false,
+      setExperimentalForward: (enabled) => set({ experimentalForward: enabled }),
+      lunaHandshake: true,
+      setLunaHandshake: (enabled) => set({ lunaHandshake: enabled }),
+      setIgnoredUsers: (masks) =>
+        set({
+          ignoredUsers: [...new Set(masks.map((mask) => mask.trim()).filter(Boolean))],
+        }),
       notificationSettings: {
         soundEnabled: true,
         soundPreset: "chime",
@@ -976,28 +1051,9 @@ export const useMockStore = create<MockState>()(
         get().setIrcConnectionError(serverId, null);
         const server = get().servers.find((s) => s.id === serverId);
         if (server) {
-          const currentProfile = get().currentProfile;
-          const nicks = server.nicknames && server.nicknames.length > 0
-            ? server.nicknames
-            : [server.nicknames?.[0] || currentProfile.name.replace(/\s+/g, "") || "ReactUser"];
           try {
             await invoke("connect_irc", {
-              params: {
-                serverId: server.id,
-                host: server.host || "127.0.0.1",
-                port: server.port || 6667,
-                nicknames: nicks,
-                username: server.username || "",
-                realname: server.realname || "",
-                password: server.password || "",
-                channels: server.channels.map((c) => ({
-                  name: c.name,
-                  password: c.key || null,
-                })),
-                useTls: server.useTls || false,
-                parseLegacyZncTimestamps: server.parseLegacyZncTimestamps || false,
-                onConnectCommands: server.onConnectCommands || [],
-              },
+              params: buildConnectParams(server, get().currentProfile.name),
             });
           } catch (e) {
             console.error(`Failed to connect IRC server ${server.name}:`, e);
@@ -1383,6 +1439,7 @@ export const useMockStore = create<MockState>()(
                 autoReconnect: optionsOrName.autoReconnect ?? s.autoReconnect ?? true,
                 parseLegacyZncTimestamps: optionsOrName.parseLegacyZncTimestamps ?? s.parseLegacyZncTimestamps,
                 onConnectCommands: optionsOrName.onConnectCommands ?? s.onConnectCommands,
+                avatarsEnabled: optionsOrName.avatarsEnabled ?? s.avatarsEnabled,
                 customCommands: optionsOrName.customCommands ?? s.customCommands,
                 imageUrl: optionsOrName.imageUrl || s.imageUrl,
                 channels: s.channels,
@@ -2644,16 +2701,15 @@ export const useMockStore = create<MockState>()(
         const state = get();
         const activeMsgs = state.activeChatKey === key ? (state.messages[channelId] || []) : [];
         const lastMsg = activeMsgs[activeMsgs.length - 1];
-        if (MESSAGE_DEDUPLICATION_MODE === "A") {
-          if (
-            effectiveIsSystem &&
-            lastMsg &&
-            lastMsg.isSystem &&
-            lastMsg.content === content &&
-            new Date().getTime() - new Date(lastMsg.createdAt).getTime() < 3000
-          ) {
-            return lastMsg;
-          }
+        // Identical system lines within 3 s (e.g. the same notice from two paths) collapse into one.
+        if (
+          effectiveIsSystem &&
+          lastMsg &&
+          lastMsg.isSystem &&
+          lastMsg.content === content &&
+          new Date().getTime() - new Date(lastMsg.createdAt).getTime() < 3000
+        ) {
+          return lastMsg;
         }
 
         const msgTime = extras?.createdAt || new Date().toISOString();
@@ -3241,6 +3297,7 @@ export const useMockStore = create<MockState>()(
     }),
     {
       name: "diirc-store",
+      storage: createDebouncedStorage(),
       version: 6,
       partialize: (state) => ({
         ...state,

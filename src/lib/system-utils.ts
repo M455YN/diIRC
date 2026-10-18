@@ -24,6 +24,11 @@ export async function openExternalUrl(url: string): Promise<void> {
  */
 export async function openLink(url: string, kind: "link" | "image" = "link"): Promise<void> {
   if (!url) return;
+  if (/^ircs?:\/\//i.test(url)) {
+    const { openIrcUrl } = await import("@/lib/irc-url");
+    await openIrcUrl(url);
+    return;
+  }
   const { openLinksInPreview, openBlockedImagesInPreview } = useMockStore.getState();
   const previewEnabled =
     kind === "image" ? (openBlockedImagesInPreview ?? true) : (openLinksInPreview ?? false);

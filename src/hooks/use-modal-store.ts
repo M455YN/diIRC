@@ -28,6 +28,7 @@ export type ModalType =
   | "bookmarks"
   | "notes"
   | "channelList"
+  | "forwardMessage"
   | "linkPreview";
 
 interface ModalData {
@@ -36,6 +37,8 @@ interface ModalData {
   serverId?: string;
   channelName?: string;
   conversationId?: string;
+  /** Text of the message being forwarded (forwardMessage modal). */
+  forward?: string;
   key?: string;
   channelType?: ChannelType;
   apiUrl?: string;

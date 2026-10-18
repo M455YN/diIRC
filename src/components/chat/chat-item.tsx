@@ -1,7 +1,13 @@
-import { useState, useEffect, useMemo, memo } from "react";
+import { useState, useEffect, useMemo, useRef, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { Member, Profile } from "@/types";
-import { Reply, AlertTriangle, Pencil, Trash2, Bookmark } from "lucide-react";
+import { Reply, AlertTriangle, Pencil, Trash2, Bookmark, Copy, Forward } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -10,8 +16,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { UserHoverCard, getMemberDisplayName } from "@/components/user-hover-card";
 import { ActionTooltip } from "@/components/action-tooltip";
 import { cn } from "@/lib/utils";
-import { useMockStore } from "@/lib/mock-store";
-import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { useMockStore, getServerActiveNick } from "@/lib/mock-store";
 import { focusChatMessage, useReplyStore } from "@/hooks/use-reply-store";
 import { useEditStore } from "@/hooks/use-edit-store";
 import { useBookmarkStore } from "@/hooks/use-bookmark-store";
@@ -23,7 +28,11 @@ import { ChatItemAttachment } from "./chat-item-attachment";
 import { LinkPreview } from "./link-preview";
 
 import { isMediaUrl, subscribeImageCache } from "@/lib/image-utils";
-import { openLink } from "@/lib/system-utils";
+import { openLink, copyToClipboard } from "@/lib/system-utils";
+import { useReactionStore } from "@/hooks/use-reaction-store";
+import { useModal } from "@/hooks/use-modal-store";
+import { QUICK_REACTIONS, reactionChatKey, reactionMessageKey, sendReaction } from "@/lib/reactions";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 import { MarkdownRenderer } from "@/lib/markdown/markdown-renderer";
 import { extractUrlsFromMarkdownText, stripTrailingPunct, hasMarkdownSyntax } from "@/lib/markdown/markdown-utils";
 import { isBrokenHeader, stripSteganography } from "@/lib/markdown/multiline-steganography";
@@ -166,6 +175,8 @@ const ChatItemInner = ({
   const location = useLocation();
   const isBookmarked = useBookmarkStore((state) => state.bookmarks.some((b) => b.messageId === id));
   const toggleBookmark = useBookmarkStore((state) => state.toggle);
+  // Right-click can drop the selection by the time a menu item runs, so remember it when the menu opens.
+  const selectedTextRef = useRef("");
   const handleBookmark = () => {
     const channel = channelId ? activeServer?.channels.find((c) => c.id === channelId) : undefined;
     toggleBookmark({
@@ -179,6 +190,8 @@ const ChatItemInner = ({
       createdAt: Date.now(),
     });
   };
+  const openModal = useModal((state) => state.onOpen);
+  const experimentalForward = useMockStore((state) => state.experimentalForward);
 
   const myNicks = useMemo(() => {
     return Array.from(
@@ -230,6 +243,25 @@ const ChatItemInner = ({
     return null;
   }, [activeServer, channelId, conversationId]);
 
+  // Reactions are keyed by chat and by author + text, so every Luna client resolves the same message.
+  const reactionTarget = channelId && messageTarget && !messageTarget.startsWith("#") ? `#${messageTarget}` : messageTarget;
+  const reactionChat = activeServer && reactionTarget ? reactionChatKey(activeServer.id, reactionTarget) : "";
+  const reactionKey = reactionMessageKey(member.profile.name, content);
+  const reactions = useReactionStore((state) => state.byChat[reactionChat]?.[reactionKey]);
+  const ownNick = activeServer ? getServerActiveNick(activeServer) : "";
+  const toggleReaction = (emoji: string) => {
+    if (!activeServer || !reactionTarget || !ownNick) return;
+    void sendReaction({
+      serverId: activeServer.id,
+      target: reactionTarget,
+      ownNick,
+      author: member.profile.name,
+      content,
+      emoji,
+      add: !reactions?.[emoji]?.includes(ownNick),
+    });
+  };
+
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -265,7 +297,7 @@ const ChatItemInner = ({
   const hasBrokenHeader = isBrokenHeader(content);
   const cleanContent = stripSteganography(content).replace(/\u0085/g, "\n");
 
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const urlRegex = /((?:https?|ircs?):\/\/[^\s]+)/g;
 
   const isAction = typeof cleanContent === "string" && /^\x01ACTION ([\s\S]*)\x01?$/i.test(cleanContent.trim());
   const actionText = isAction
@@ -574,6 +606,15 @@ const ChatItemInner = ({
   }
 
   return (
+    // Non-modal: a modal menu locks the page and leaves it unclickable when an item opens a dialog.
+    <ContextMenu modal={false}>
+    <ContextMenuTrigger
+      asChild
+      disabled={isMobile} // long-press would fight text selection on touch
+      onContextMenu={() => {
+        selectedTextRef.current = window.getSelection()?.toString() ?? "";
+      }}
+    >
     <div className={cn(
       "relative group flex items-center px-4 transition w-full border-l-[3px]",
       ircLayout ? "py-[1px] px-3" : compact ? "py-[2px]" : "pt-2.5 pb-[2px]",
@@ -604,7 +645,7 @@ const ChatItemInner = ({
         ) : !compact ? (
           <UserHoverCard member={member} server={activeServer} side="right">
             <div onClick={onMemberClick} className="cursor-pointer hover:drop-shadow-md transition shrink-0">
-              <UserAvatar src={member.profile.imageUrl} name={displayName} className="h-10 w-10 md:h-10 md:w-10" />
+              <UserAvatar src={member.profile.imageUrl} name={displayName} serverId={activeServer?.id} nick={member.profile.name} className="h-10 w-10 md:h-10 md:w-10" />
             </div>
           </UserHoverCard>
         ) : compact ? (
@@ -723,6 +764,27 @@ const ChatItemInner = ({
               ))}
             </div>
           )}
+          {reactions && Object.keys(reactions).length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {Object.entries(reactions).map(([emoji, nicks]) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  title={nicks.join(", ")}
+                  onClick={() => toggleReaction(emoji)}
+                  className={cn(
+                    "inline-flex items-center gap-x-1 rounded-full border px-2 py-0.5 text-xs transition",
+                    nicks.includes(ownNick)
+                      ? "border-indigo-500 bg-indigo-500/15 text-indigo-600 dark:text-indigo-300"
+                      : "border-zinc-300 dark:border-zinc-600 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:border-zinc-400"
+                  )}
+                >
+                  <span>{emoji}</span>
+                  <span>{nicks.length}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       {!deleted && !isSystem && (
@@ -779,6 +841,58 @@ const ChatItemInner = ({
         </div>
       )}
     </div>
+    </ContextMenuTrigger>
+    {!deleted && (
+      <ContextMenuContent className="w-56 select-none">
+        {!isSystem && (
+          <div className="flex justify-between px-1 pb-1">
+            {QUICK_REACTIONS.map((emoji) => (
+              <ContextMenuItem
+                key={emoji}
+                onSelect={() => toggleReaction(emoji)}
+                className={cn("justify-center px-1.5 text-base", reactions?.[emoji]?.includes(ownNick) && "bg-indigo-500/20")}
+              >
+                {emoji}
+              </ContextMenuItem>
+            ))}
+          </div>
+        )}
+        {!isSystem && (
+          <ContextMenuItem onClick={handleReply} className="gap-x-2">
+            <Reply className="w-4 h-4 text-zinc-400" />
+            <span>{t("chat.item.answer")}</span>
+          </ContextMenuItem>
+        )}
+        {!isSystem && (
+          <ContextMenuItem onClick={handleBookmark} className="gap-x-2">
+            <Bookmark className={cn("w-4 h-4", isBookmarked ? "fill-amber-500 text-amber-500" : "text-zinc-400")} />
+            <span>{isBookmarked ? t("chat.item.removeBookmark") : t("chat.item.bookmark")}</span>
+          </ContextMenuItem>
+        )}
+        {experimentalForward && !isSystem && channelId && activeServer && (
+          <ContextMenuItem
+            onSelect={() =>
+              openModal("forwardMessage", {
+                serverId: activeServer.id,
+                forward: `↪ ${displayName}${messageTarget ? ` (${messageTarget.startsWith("#") ? messageTarget : `#${messageTarget}`})` : ""}: ${selectedTextRef.current || cleanContent}`,
+              })
+            }
+            className="gap-x-2"
+          >
+            <Forward className="w-4 h-4 text-zinc-400" />
+            <span>{t("chat.item.forward")}</span>
+          </ContextMenuItem>
+        )}
+        <ContextMenuItem
+          onClick={() => void copyToClipboard(selectedTextRef.current || cleanContent)}
+          className="gap-x-2"
+        >
+          <Copy className="w-4 h-4 text-zinc-400" />
+          <span>{t("chat.item.copyText")}</span>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    )}
+    </ContextMenu>
   );
 };
 

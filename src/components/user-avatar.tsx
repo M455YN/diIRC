@@ -1,10 +1,14 @@
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { User } from "lucide-react";
+import { useAvatarSrc } from "@/lib/avatars";
 
 interface UserAvatarProps {
   src?: string;
   name?: string;
+  /** With `nick`, shows the experimental Luna avatar of that user when one is known. */
+  serverId?: string;
+  nick?: string;
   className?: string;
 }
 
@@ -21,8 +25,11 @@ export const getAvatarBgStyle = (seed: string = "") => {
 export const UserAvatar = ({
   src,
   name,
+  serverId,
+  nick,
   className
 }: UserAvatarProps) => {
+  const lunaAvatar = useAvatarSrc(serverId, nick);
   const style = getAvatarBgStyle(name || "");
 
   return (
@@ -33,7 +40,7 @@ export const UserAvatar = ({
       )}
       style={style}
     >
-      {src && <AvatarImage src={src} className="object-cover" />}
+      {(lunaAvatar || src) && <AvatarImage src={lunaAvatar || src} className="object-cover" />}
       <User className="h-1/2 w-1/2 text-white stroke-[2.5]" />
     </Avatar>
   );

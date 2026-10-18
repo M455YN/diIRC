@@ -617,6 +617,62 @@ commandRegistry.register({
   },
 });
 
+/** Local-only feedback line (never sent to the server) shown in the chat where the command ran. */
+async function showCommandNotice(ctx: CommandContext, text: string): Promise<void> {
+  const { useMockStore, createSystemMember } = await import("@/lib/mock-store");
+  const store = useMockStore.getState();
+  const systemMember = createSystemMember(ctx.serverId);
+  if (ctx.type === "channel" && ctx.channelId) {
+    store.addMessage(ctx.channelId, systemMember, text, null, true);
+  } else if (ctx.conversationId) {
+    store.addDirectMessage(ctx.conversationId, systemMember, text, null, true);
+  }
+}
+
+commandRegistry.register({
+  name: "ignore",
+  description: "cmd.desc.ignore",
+  execute: async (args: string, ctx: CommandContext) => {
+    const { useMockStore } = await import("@/lib/mock-store");
+    const store = useMockStore.getState();
+    const mask = args.trim().split(/\s+/)[0] || "";
+    if (!mask) {
+      const list = store.ignoredUsers;
+      await showCommandNotice(
+        ctx,
+        list.length ? i18n.t("cmd.ignore.list", { list: list.join(", ") }) : i18n.t("cmd.ignore.empty")
+      );
+      return true;
+    }
+    if (store.ignoredUsers.some((item) => item.toLowerCase() === mask.toLowerCase())) {
+      await showCommandNotice(ctx, i18n.t("cmd.ignore.already", { mask }));
+      return true;
+    }
+    store.setIgnoredUsers([...store.ignoredUsers, mask]);
+    await showCommandNotice(ctx, i18n.t("cmd.ignore.added", { mask }));
+    return true;
+  },
+});
+
+commandRegistry.register({
+  name: "unignore",
+  description: "cmd.desc.unignore",
+  execute: async (args: string, ctx: CommandContext) => {
+    const { useMockStore } = await import("@/lib/mock-store");
+    const store = useMockStore.getState();
+    const mask = args.trim().split(/\s+/)[0] || "";
+    if (!mask) return true;
+    const next = store.ignoredUsers.filter((item) => item.toLowerCase() !== mask.toLowerCase());
+    if (next.length === store.ignoredUsers.length) {
+      await showCommandNotice(ctx, i18n.t("cmd.ignore.missing", { mask }));
+      return true;
+    }
+    store.setIgnoredUsers(next);
+    await showCommandNotice(ctx, i18n.t("cmd.ignore.removed", { mask }));
+    return true;
+  },
+});
+
 commandRegistry.register({
   name: "away",
   description: "cmd.desc.away",

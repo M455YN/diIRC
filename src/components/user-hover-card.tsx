@@ -9,6 +9,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useMockStore, getServerActiveNick } from "@/lib/mock-store";
 import { UserRoleIcon, getHighestChannelRole } from "@/components/user-role-icon";
 import { UserContextMenu } from "@/components/user-context-menu";
+import { useLunaPeerStore } from "@/hooks/use-luna-peer-store";
+import { avatarKey } from "@/lib/avatars";
 
 interface UserHoverCardProps {
   member: Member & { profile: Profile };
@@ -51,6 +53,7 @@ export const UserHoverCard = ({
 
   const activeChannel = customChannel || activeServer?.channels.find((c) => c.id === params?.channelId);
   const nickname = freshMember.profile.name;
+  const lunaPeer = useLunaPeerStore((state) => (activeServer ? state.peers[avatarKey(activeServer.id, nickname)] : undefined));
 
   const ourNickLower = activeServer ? getServerActiveNick(activeServer).toLowerCase() : "";
   const isOurNick = !!ourNickLower && nickname.toLowerCase() === ourNickLower;
@@ -116,6 +119,8 @@ export const UserHoverCard = ({
             <UserAvatar
               src={freshMember.profile.imageUrl}
               name={displayName}
+              serverId={activeServer?.id}
+              nick={nickname}
               className="h-14 w-14 md:h-14 md:w-14 shadow-sm"
             />
             {activeServer && (
@@ -161,6 +166,12 @@ export const UserHoverCard = ({
               <div className="flex justify-between">
                 <span className="font-medium">RealName:</span>
                 <span className="font-sans text-zinc-700 dark:text-zinc-300">{displayName}</span>
+              </div>
+            )}
+            {lunaPeer && (
+              <div className="flex justify-between">
+                <span className="font-medium">{t("hover.client")}</span>
+                <span className="text-zinc-700 dark:text-zinc-300">Luna {lunaPeer.version}</span>
               </div>
             )}
             {freshMember.profile.host && (

@@ -47,6 +47,7 @@ const ChangelogModal = lazyModal("changelog", () => import("@/components/modals/
 const BookmarksModal = lazyModal("bookmarks", () => import("@/components/modals/bookmarks-modal"), "BookmarksModal");
 const NotesModal = lazyModal("notes", () => import("@/components/modals/notes-modal"), "NotesModal");
 const LinkPreviewModal = lazyModal("linkPreview", () => import("@/components/modals/link-preview-modal"), "LinkPreviewModal");
+const ForwardMessageModal = lazyModal("forwardMessage", () => import("@/components/modals/forward-message-modal"), "ForwardMessageModal");
 const ChannelListModal = lazyModal("channelList", () => import("@/components/modals/channel-list-modal"), "ChannelListModal");
 
 export const ModalProvider = () => {
@@ -88,6 +89,7 @@ export const ModalProvider = () => {
       <NotesModal />
       <LinkPreviewModal />
       <ChannelListModal />
+      <ForwardMessageModal />
     </>
   );
 };

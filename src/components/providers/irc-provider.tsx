@@ -3,10 +3,15 @@ import { useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useMockStore, getServerSelfMember, getServerActiveNick, isSystemMessage } from "@/lib/mock-store";
+import { useMockStore, getServerSelfMember, getServerActiveNick, isSystemMessage, buildConnectParams, createSystemMember } from "@/lib/mock-store";
 import { useModalStore } from "@/hooks/use-modal-store";
 import { useDraftStore } from "@/hooks/use-draft-store";
 import { stripCompatReply, useReplyStore } from "@/hooks/use-reply-store";
+import { useReactionStore } from "@/hooks/use-reaction-store";
+import { reactionChatKey } from "@/lib/reactions";
+import { handleAvatarEvent, noteSpeaker } from "@/lib/avatars";
+import { announceHello, handleHelloEvent } from "@/lib/luna-peers";
+import { openIrcUrl } from "@/lib/irc-url";
 import { useMessageCapsStore } from "@/hooks/use-message-caps";
 import { Server, ChannelType } from "@/types";
 import { extractFlag } from "@/lib/flag-tips";
@@ -168,31 +173,11 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
     connectingRef.current.add(server.id);
     setIrcConnecting(server.id, true);
 
-    const nicks = server.nicknames && server.nicknames.length > 0 
-      ? server.nicknames 
-      : [server.nicknames?.[0] || currentProfile.name.replace(/\s+/g, "") || "ReactUser"];
-    const channels = server.channels.map((c) => c.key ? `${c.name} ${c.key}` : c.name);
+    const params = buildConnectParams(server, currentProfile.name);
 
     try {
-      await invoke("connect_irc", {
-        params: {
-          serverId: server.id,
-          host: server.host || "127.0.0.1",
-          port: server.port || 6667,
-          nicknames: nicks,
-          username: server.username || "",
-          realname: server.realname || "",
-          password: server.password || "",
-          channels: server.channels.map(c => ({
-            name: c.name,
-            password: c.key || null
-          })),
-          useTls: server.useTls || false,
-          parseLegacyZncTimestamps: server.parseLegacyZncTimestamps || false,
-          onConnectCommands: server.onConnectCommands || [],
-        }
-      });
-      console.log(`Initiated IRC connection for server ${server.name} (${server.id}) with nicks:`, nicks);
+      await invoke("connect_irc", { params });
+      console.log(`Initiated IRC connection for server ${server.name} (${server.id}) with nicks:`, params.nicknames);
     } catch (error) {
       console.error(`Failed to connect IRC for server ${server.name}:`, error);
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -337,6 +322,45 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
       invoke("plugin:keep-alive|set_keep_alive", { payload: { enabled: anyConnected } }).catch((e) =>
         console.error("Failed to toggle keep-alive service:", e)
       );
+    });
+  }, []);
+
+  // irc:// and ircs:// links opened from outside the app (browser, another program), also the one that launched it.
+  useEffect(() => {
+    if (document.documentElement.classList.contains("mobile-shell")) return; // the plugin is desktop-only
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    (async () => {
+      try {
+        const { getCurrent, onOpenUrl } = await import("@tauri-apps/plugin-deep-link");
+        const open = (urls: string[] | null) => urls?.forEach((url) => void openIrcUrl(url, navigate));
+        open(await getCurrent());
+        const stop = await onOpenUrl(open);
+        if (cancelled) stop();
+        else unlisten = stop;
+      } catch (error) {
+        console.warn("Deep links are not available:", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [navigate]);
+
+  // The backend drops messages from ignored users, so it needs the list at start and on every change.
+  useEffect(() => {
+    const sync = (masks: string[]) =>
+      invoke("set_ignore_list", { patterns: masks }).catch((e) =>
+        console.error("Failed to sync the ignore list:", e)
+      );
+    let current = useMockStore.getState().ignoredUsers ?? [];
+    sync(current);
+    return useMockStore.subscribe((state) => {
+      const next = state.ignoredUsers ?? [];
+      if (next === current) return;
+      current = next;
+      sync(next);
     });
   }, []);
 
@@ -548,22 +572,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (targetMember && currentMember) {
           const conversationId = [currentMember.id, targetMember.id].sort().join("-");
-          const systemMember = {
-            id: "system",
-            profileId: "system",
-            profile: {
-              id: "system",
-              userId: "system",
-              name: "System",
-              imageUrl: "",
-              email: "system@irc.local",
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            },
-            serverId: targetServer.id,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
+          const systemMember = createSystemMember(targetServer.id);
 
           const lowerContent = content.toLowerCase();
           const isSendError =
@@ -815,6 +824,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
       );
 
     if (!isSystem && sender !== "System" && !isSelf) {
+      noteSpeaker(targetServer.id, sender);
       const activeKey = store.activeChatKey;
       const isCurrentChat = targetChannel && activeKey === `channel:${targetChannel.id}`;
       let isWindowFocused = typeof document !== "undefined" && document.hasFocus();
@@ -898,30 +908,42 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
   // Listen for incoming messages across all connected IRC servers
   useEffect(() => {
     let isCancelled = false;
-    let unlistenFn: (() => void) | null = null;
-
-    const setupListener = async () => {
+    const unlisteners: (() => void)[] = [];
+    // Registers a backend event handler; unregisters it on cleanup (or at once if cleanup already ran).
+    const listenSafe = async <T,>(name: string, handler: (event: { payload: T }) => void) => {
       try {
-        const unlisten = await listen<IrcMessagePayload>("irc_message", async (event) => {
-          processIncomingPayload(event.payload);
-        });
-
-        if (isCancelled) {
-          unlisten();
-        } else {
-          unlistenFn = unlisten;
-        }
+        const unlisten = await listen<T>(name, handler);
+        if (isCancelled) unlisten();
+        else unlisteners.push(unlisten);
       } catch (error) {
-        console.error("Failed to setup IRC listener:", error);
+        console.error(`Failed to listen to ${name}:`, error);
       }
     };
+    listenSafe<IrcMessagePayload>("irc_message", (event) => {
+      processIncomingPayload(event.payload);
+    });
 
-    setupListener();
+    listenSafe<{ serverId: string; sender: string; target: string; notice: boolean; body: string }>(
+      "irc_avatar",
+      (event) => handleAvatarEvent(event.payload)
+    );
 
-    let unlistenUsersFn: (() => void) | null = null;
-    const setupUsersListener = async () => {
-      try {
-        const unlistenUsers = await listen<IrcUserEventPayload>("irc_user_event", (event) => {
+    listenSafe<{ serverId: string; sender: string; target: string; notice: boolean; body: string }>(
+      "irc_luna_hello",
+      (event) => handleHelloEvent(event.payload)
+    );
+
+    listenSafe<{ serverId: string; target: string; sender: string; author: string; hash: string; emoji: string; add: boolean }>(
+      "irc_reaction",
+      (event) => {
+        const { serverId, target, sender, author, hash, emoji, add } = event.payload;
+        useReactionStore
+          .getState()
+          .apply(reactionChatKey(serverId, target), `${author.toLowerCase()}|${hash}`, emoji, sender, add);
+      }
+    );
+
+    listenSafe<IrcUserEventPayload>("irc_user_event", (event) => {
           const { server_id, channel, users, event_type } = event.payload;
           setTimeout(() => {
             updateChannelMembers(server_id, channel, users, event_type as any);
@@ -934,6 +956,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             setTimeout(() => {
               invoke("refresh_channel_names", { serverId: server_id, channel }).catch(() => {});
             }, 500);
+            announceHello(server_id, channel);
           }
 
           if (event_type === "JOIN" || event_type === "NAMES") {
@@ -988,44 +1011,14 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         });
 
-        if (isCancelled) {
-          unlistenUsers();
-        } else {
-          unlistenUsersFn = unlistenUsers;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC users listener:", error);
-      }
-    };
-
-    setupUsersListener();
-
-    let unlistenHostFn: (() => void) | null = null;
-    const setupHostListener = async () => {
-      try {
-        const unlistenHost = await listen<IrcUserHostEventPayload>("irc_user_host_event", (event) => {
+    listenSafe<IrcUserHostEventPayload>("irc_user_host_event", (event) => {
           const { server_id, nick, host, realname } = event.payload;
           if (server_id && nick && host) {
             useMockStore.getState().addServerMember(server_id, nick, realname, host);
           }
         });
 
-        if (isCancelled) {
-          unlistenHost();
-        } else {
-          unlistenHostFn = unlistenHost;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC host listener:", error);
-      }
-    };
-
-    setupHostListener();
-
-    let unlistenStatusFn: (() => void) | null = null;
-    const setupStatusListener = async () => {
-      try {
-        const unlistenStatus = await listen<{ server_id: string; connected: boolean; error?: string }>(
+    listenSafe<{ server_id: string; connected: boolean; error?: string }>(
           "irc_status",
           (event) => {
             const { server_id, connected, error } = event.payload;
@@ -1039,22 +1032,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenStatus();
-        } else {
-          unlistenStatusFn = unlistenStatus;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC status listener:", error);
-      }
-    };
-
-    setupStatusListener();
-
-    let unlistenWelcomeNickFn: (() => void) | null = null;
-    const setupWelcomeNickListener = async () => {
-      try {
-        const unlistenWelcomeNick = await listen<{ server_id: string; welcome_nick: string }>(
+    listenSafe<{ server_id: string; welcome_nick: string }>(
           "irc_welcome_nick",
           (event) => {
             const { server_id, welcome_nick } = event.payload;
@@ -1064,22 +1042,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenWelcomeNick();
-        } else {
-          unlistenWelcomeNickFn = unlistenWelcomeNick;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC welcome nick listener:", error);
-      }
-    };
-
-    setupWelcomeNickListener();
-
-    let unlistenNickChangeFn: (() => void) | null = null;
-    const setupNickChangeListener = async () => {
-      try {
-        const unlistenNickChange = await listen<{ server_id: string; old_nick: string; new_nick: string }>(
+    listenSafe<{ server_id: string; old_nick: string; new_nick: string }>(
           "irc_nick_change",
           (event) => {
             const { server_id, old_nick, new_nick } = event.payload;
@@ -1089,22 +1052,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenNickChange();
-        } else {
-          unlistenNickChangeFn = unlistenNickChange;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC nick change listener:", error);
-      }
-    };
-
-    setupNickChangeListener();
-
-    let unlistenTopicFn: (() => void) | null = null;
-    const setupTopicListener = async () => {
-      try {
-        const unlistenTopic = await listen<{ server_id: string; channel: string; topic: string }>(
+    listenSafe<{ server_id: string; channel: string; topic: string }>(
           "irc_topic_event",
           (event) => {
             const { server_id, channel, topic } = event.payload;
@@ -1112,22 +1060,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenTopic();
-        } else {
-          unlistenTopicFn = unlistenTopic;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC topic listener:", error);
-      }
-    };
-
-    setupTopicListener();
-
-    let unlistenOpsFn: (() => void) | null = null;
-    const setupOpsListener = async () => {
-      try {
-        const unlistenOps = await listen<{ server_id: string; channel: string; ops: string[] }>(
+    listenSafe<{ server_id: string; channel: string; ops: string[] }>(
           "irc_ops_event",
           (event) => {
             const { server_id, channel, ops } = event.payload;
@@ -1135,22 +1068,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenOps();
-        } else {
-          unlistenOpsFn = unlistenOps;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC ops listener:", error);
-      }
-    };
-
-    setupOpsListener();
-
-    let unlistenTopicErrorFn: (() => void) | null = null;
-    const setupTopicErrorListener = async () => {
-      try {
-        const unlistenTopicError = await listen<{ server_id: string; channel: string; error: string }>(
+    listenSafe<{ server_id: string; channel: string; error: string }>(
           "irc_topic_error",
           (event) => {
             const { server_id, channel, error } = event.payload;
@@ -1167,22 +1085,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenTopicError();
-        } else {
-          unlistenTopicErrorFn = unlistenTopicError;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC topic error listener:", error);
-      }
-    };
-
-    setupTopicErrorListener();
-
-    let unlistenBadKeyFn: (() => void) | null = null;
-    const setupBadKeyListener = async () => {
-      try {
-        const unlistenBadKey = await listen<{ server_id: string; channel: string; error: string }>(
+    listenSafe<{ server_id: string; channel: string; error: string }>(
           "irc_bad_channel_key",
           (event) => {
             const { server_id, channel, error } = event.payload;
@@ -1207,22 +1110,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenBadKey();
-        } else {
-          unlistenBadKeyFn = unlistenBadKey;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC bad channel key listener:", error);
-      }
-    };
-
-    setupBadKeyListener();
-
-    let unlistenInviteOnlyFn: (() => void) | null = null;
-    const setupInviteOnlyListener = async () => {
-      try {
-        const unlistenInviteOnly = await listen<{ server_id: string; channel: string; error: string }>(
+    listenSafe<{ server_id: string; channel: string; error: string }>(
           "irc_invite_only",
           (event) => {
             const { server_id, channel, error } = event.payload;
@@ -1248,20 +1136,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenInviteOnly();
-        } else {
-          unlistenInviteOnlyFn = unlistenInviteOnly;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC invite-only listener:", error);
-      }
-    };
-
-    let unlistenInvitedFn: (() => void) | null = null;
-    const setupInvitedListener = async () => {
-      try {
-        const unlistenInvited = await listen<{ server_id: string; channel: string; inviter: string }>(
+    listenSafe<{ server_id: string; channel: string; inviter: string }>(
           "irc_invited",
           (event) => {
             const { server_id, channel, inviter } = event.payload;
@@ -1269,22 +1144,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenInvited();
-        } else {
-          unlistenInvitedFn = unlistenInvited;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC invited listener:", error);
-      }
-    };
-
-    setupInvitedListener();
-
-    let unlistenModeFn: (() => void) | null = null;
-    const setupModeListener = async () => {
-      try {
-        const unlistenMode = await listen<{ server_id: string; channel: string; modes: string; set_by?: string; is_full_listing?: boolean }>(
+    listenSafe<{ server_id: string; channel: string; modes: string; set_by?: string; is_full_listing?: boolean }>(
           "irc_mode_event",
           (event) => {
             const { server_id, channel, modes, is_full_listing } = event.payload;
@@ -1292,22 +1152,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenMode();
-        } else {
-          unlistenModeFn = unlistenMode;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC mode listener:", error);
-      }
-    };
-
-    setupModeListener();
-
-    let unlistenModeErrorFn: (() => void) | null = null;
-    const setupModeErrorListener = async () => {
-      try {
-        const unlistenModeError = await listen<{ server_id: string; channel: string; error: string }>(
+    listenSafe<{ server_id: string; channel: string; error: string }>(
           "irc_mode_error",
           (event) => {
             const { server_id, channel, error } = event.payload;
@@ -1332,22 +1177,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenModeError();
-        } else {
-          unlistenModeErrorFn = unlistenModeError;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC mode error listener:", error);
-      }
-    };
-
-    setupModeErrorListener();
-
-    let unlistenMotdFn: (() => void) | null = null;
-    const setupMotdListener = async () => {
-      try {
-        const unlistenMotd = await listen<{ server_id: string; motd: string[] }>(
+    listenSafe<{ server_id: string; motd: string[] }>(
           "irc_motd_event",
           (event) => {
             const { server_id, motd } = event.payload;
@@ -1356,22 +1186,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           }
         );
 
-        if (isCancelled) {
-          unlistenMotd();
-        } else {
-          unlistenMotdFn = unlistenMotd;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC MOTD listener:", error);
-      }
-    };
-
-    setupMotdListener();
-
-    let unlistenAwayFn: (() => void) | null = null;
-    const setupAwayListener = async () => {
-      try {
-        const unlistenAway = await listen<{ server_id: string; nick: string; away: boolean; reason?: string }>(
+    listenSafe<{ server_id: string; nick: string; away: boolean; reason?: string }>(
           "irc_away_event",
           (event) => {
             const { server_id, nick, away, reason } = event.payload;
@@ -1385,18 +1200,6 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             }
           }
         );
-
-        if (isCancelled) {
-          unlistenAway();
-        } else {
-          unlistenAwayFn = unlistenAway;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC away listener:", error);
-      }
-    };
-
-    setupAwayListener();
 
     const messageEventUnlisteners: Array<() => void> = [];
     const setupMessageModificationListeners = async () => {
@@ -1436,10 +1239,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
 
     setupMessageModificationListeners();
 
-    let unlistenSelfMsgidFn: (() => void) | null = null;
-    const setupSelfMsgidListener = async () => {
-      try {
-        const unlistenSelfMsgid = await listen<{
+    listenSafe<{
           serverId: string;
           channel: string;
           localId: string;
@@ -1477,37 +1277,10 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           });
         });
 
-        if (isCancelled) {
-          unlistenSelfMsgid();
-        } else {
-          unlistenSelfMsgidFn = unlistenSelfMsgid;
-        }
-      } catch (error) {
-        console.error("Failed to setup IRC self msgid listener:", error);
-      }
-    };
-
-    setupSelfMsgidListener();
-
     return () => {
       isCancelled = true;
       messageEventUnlisteners.forEach((fn) => fn());
-      if (unlistenFn) unlistenFn();
-      if (unlistenUsersFn) unlistenUsersFn();
-      if (unlistenHostFn) unlistenHostFn();
-      if (unlistenStatusFn) unlistenStatusFn();
-      if (unlistenWelcomeNickFn) unlistenWelcomeNickFn();
-      if (unlistenNickChangeFn) unlistenNickChangeFn();      if (unlistenTopicFn) unlistenTopicFn();
-      if (unlistenOpsFn) unlistenOpsFn();
-      if (unlistenTopicErrorFn) unlistenTopicErrorFn();
-      if (unlistenBadKeyFn) unlistenBadKeyFn();
-      if (unlistenInviteOnlyFn) unlistenInviteOnlyFn();
-      if (unlistenInvitedFn) unlistenInvitedFn();
-      if (unlistenModeFn) unlistenModeFn();
-      if (unlistenModeErrorFn) unlistenModeErrorFn();
-      if (unlistenMotdFn) unlistenMotdFn();
-      if (unlistenAwayFn) unlistenAwayFn();
-      if (unlistenSelfMsgidFn) unlistenSelfMsgidFn();
+      unlisteners.forEach((fn) => fn());
     };
   }, [addMessage, addServerMember, removeServerMember, setIrcConnected]);
 

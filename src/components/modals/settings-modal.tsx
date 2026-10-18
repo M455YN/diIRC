@@ -55,6 +55,8 @@ import {
   Reply,
   Users,
   Palette,
+  FlaskConical,
+  Forward,
 } from "lucide-react";
 import { StatusDisplayMode, formatMessageDate, NickCompletionFormat, formatNickCompletion } from "@/lib/mock-store";
 import { MotdDisplayPolicy, UserDisplayNameMode, ReplyMode } from "@/types";
@@ -85,7 +87,7 @@ const APPEARANCE_STYLES: { id: AppearanceStyle; title: string; description: stri
   { id: "fluent", title: "settings.appearance.style.fluent", description: "settings.appearance.style.fluentDesc" },
 ];
 
-type SettingsTab = "notifications" | "appearance" | "chat" | "previews" | "uploads" | "auth" | "updates" | "about";
+type SettingsTab = "notifications" | "appearance" | "chat" | "previews" | "uploads" | "auth" | "updates" | "experimental" | "about";
 
 // Same categories as the mobile settings screen, plus desktop-only "Updates".
 const ABOUT_AUTHORS = [
@@ -103,6 +105,7 @@ const SETTINGS_TABS: { id: SettingsTab; title: string; icon: typeof Bell }[] = [
   { id: "uploads", title: "settings.tabs.uploads", icon: UploadCloud },
   { id: "auth", title: "settings.tabs.auth", icon: Key },
   { id: "updates", title: "settings.tabs.updates", icon: DownloadCloud },
+  { id: "experimental", title: "settings.tabs.experimental", icon: FlaskConical },
   { id: "about", title: "settings.tabs.about", icon: Info },
 ];
 
@@ -129,6 +132,9 @@ const SETTINGS_SEARCH_INDEX: { key: string; tab: SettingsTab }[] = [
   { key: "settings.items.confirmLeave", tab: "chat" },
   { key: "settings.items.linkPreview", tab: "chat" },
   { key: "settings.items.blockedImagePreview", tab: "chat" },
+  { key: "settings.items.lunaHandshake", tab: "chat" },
+  { key: "settings.items.experimentalAvatars", tab: "experimental" },
+  { key: "settings.items.experimentalForward", tab: "experimental" },
   { key: "settings.items.slashAutocomplete", tab: "chat" },
   { key: "settings.items.markdown", tab: "chat" },
   { key: "settings.items.formattingPreview", tab: "chat" },
@@ -149,6 +155,32 @@ const SETTINGS_SEARCH_INDEX: { key: string; tab: SettingsTab }[] = [
   { key: "settings.items.updateChannel", tab: "updates" },
   { key: "settings.items.checkUpdates", tab: "updates" },
 ];
+
+/** A settings card: icon, title and description on the left, an on/off switch on the right. */
+const SettingSwitch = ({
+  icon,
+  title,
+  description,
+  checked,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) => (
+  <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
+    <div className="space-y-0.5 pr-4">
+      <div className="flex items-center gap-x-2">
+        {icon}
+        <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">{title}</label>
+      </div>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{description}</p>
+    </div>
+    <Switch checked={checked} onCheckedChange={onChange} />
+  </div>
+);
 
 export const SettingsModal = () => {
   const { isOpen, onClose, type, onOpen } = useModal();
@@ -180,6 +212,12 @@ export const SettingsModal = () => {
   const setOpenLinksInPreview = useMockStore((state) => state.setOpenLinksInPreview);
   const openBlockedImagesInPreview = useMockStore((state) => state.openBlockedImagesInPreview ?? true);
   const setOpenBlockedImagesInPreview = useMockStore((state) => state.setOpenBlockedImagesInPreview);
+  const experimentalAvatars = useMockStore((state) => state.experimentalAvatars);
+  const setExperimentalAvatars = useMockStore((state) => state.setExperimentalAvatars);
+  const experimentalForward = useMockStore((state) => state.experimentalForward);
+  const setExperimentalForward = useMockStore((state) => state.setExperimentalForward);
+  const lunaHandshake = useMockStore((state) => state.lunaHandshake);
+  const setLunaHandshake = useMockStore((state) => state.setLunaHandshake);
 
   const enableCommandSuggestions = useMockStore((state) => state.enableCommandSuggestions ?? true);
   const interactiveCommands = useMockStore((state) => state.interactiveCommands ?? true);
@@ -609,23 +647,13 @@ export const SettingsModal = () => {
                 </select>
               </div>
               {/* Group users by role */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <Users className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.appearance.groupByRole")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.appearance.groupByRoleDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={groupMembersByRole}
-                  onCheckedChange={(checked) => setGroupMembersByRole(checked)}
-                />
-              </div>
+              <SettingSwitch
+                icon={<Users className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />}
+                title={t("settings.appearance.groupByRole")}
+                description={t("settings.appearance.groupByRoleDesc")}
+                checked={groupMembersByRole}
+                onChange={setGroupMembersByRole}
+              />
               {/* Date Display Format */}
               <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
                 <div className="flex items-center gap-x-2">
@@ -675,41 +703,21 @@ export const SettingsModal = () => {
                 </div>
               </div>
               {/* Newest Private Messages First */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.appearance.sortDmRecent")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.appearance.sortDmRecentDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={sortDmByRecent}
-                  onCheckedChange={(checked) => setSortDmByRecent(checked)}
-                />
-              </div>
+              <SettingSwitch
+                icon={<MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.appearance.sortDmRecent")}
+                description={t("settings.appearance.sortDmRecentDesc")}
+                checked={sortDmByRecent}
+                onChange={setSortDmByRecent}
+              />
               {/* Sort Private Messages by Unread */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.appearance.sortDmUnread")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.appearance.sortDmUnreadDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={sortDmByUnread}
-                  onCheckedChange={(checked) => setSortDmByUnread(checked)}
-                />
-              </div>
+              <SettingSwitch
+                icon={<MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.appearance.sortDmUnread")}
+                description={t("settings.appearance.sortDmUnreadDesc")}
+                checked={sortDmByUnread}
+                onChange={setSortDmByUnread}
+              />
               {/* Base Private Message Sorting */}
               <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm transition">
                 <div className="flex items-center gap-x-2">
@@ -847,95 +855,52 @@ export const SettingsModal = () => {
                 </div>
               </div>
               {/* Open links in a preview window */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <ExternalLink className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.chat.linkPreview")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.chat.linkPreviewDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={openLinksInPreview}
-                  onCheckedChange={(checked) => setOpenLinksInPreview(checked)}
-                />
-              </div>
+              <SettingSwitch
+                icon={<ExternalLink className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.chat.linkPreview")}
+                description={t("settings.chat.linkPreviewDesc")}
+                checked={openLinksInPreview}
+                onChange={setOpenLinksInPreview}
+              />
               {/* Open blocked images in a preview window */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <ExternalLink className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.chat.blockedImagePreview")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.chat.blockedImagePreviewDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={openBlockedImagesInPreview}
-                  onCheckedChange={(checked) => setOpenBlockedImagesInPreview(checked)}
-                />
-              </div>
+              <SettingSwitch
+                icon={<ExternalLink className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.chat.blockedImagePreview")}
+                description={t("settings.chat.blockedImagePreviewDesc")}
+                checked={openBlockedImagesInPreview}
+                onChange={setOpenBlockedImagesInPreview}
+              />
+              <SettingSwitch
+                icon={<Users className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.chat.lunaHandshake")}
+                description={t("settings.chat.lunaHandshakeDesc")}
+                checked={lunaHandshake}
+                onChange={setLunaHandshake}
+              />
               {/* Confirm Before Leaving Channel */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <LogOut className="w-4 h-4 text-rose-500 dark:text-rose-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.chat.confirmLeave")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.chat.confirmLeaveDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={confirmLeaveChannel}
-                  onCheckedChange={(checked) => setConfirmLeaveChannel(checked)}
-                />
-              </div>
+              <SettingSwitch
+                icon={<LogOut className="w-4 h-4 text-rose-500 dark:text-rose-400" />}
+                title={t("settings.chat.confirmLeave")}
+                description={t("settings.chat.confirmLeaveDesc")}
+                checked={confirmLeaveChannel}
+                onChange={setConfirmLeaveChannel}
+              />
               {/* Slash Command Autocomplete */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <Command className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.chat.slashAutocomplete")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.chat.slashAutocompleteDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={enableCommandSuggestions}
-                  onCheckedChange={(checked) => setEnableCommandSuggestions(checked)}
-                />
-              </div>
+              <SettingSwitch
+                icon={<Command className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.chat.slashAutocomplete")}
+                description={t("settings.chat.slashAutocompleteDesc")}
+                checked={enableCommandSuggestions}
+                onChange={setEnableCommandSuggestions}
+              />
               {/* Interactive command panels (/mode, /op, /deop, /voice, /devoice) */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <Command className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.chat.interactiveCommands")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.chat.interactiveCommandsDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={interactiveCommands}
-                  onCheckedChange={(checked) => setInteractiveCommands(checked)}
-                />
-              </div>
+              <SettingSwitch
+                icon={<Command className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.chat.interactiveCommands")}
+                description={t("settings.chat.interactiveCommandsDesc")}
+                checked={interactiveCommands}
+                onChange={setInteractiveCommands}
+              />
               {/* Default Reply Format */}
               <div className="flex flex-col gap-y-2 rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
                 <div className="flex items-center gap-x-2">
@@ -1046,97 +1011,47 @@ export const SettingsModal = () => {
           {!searching && tab === "previews" && (
             <div className="space-y-5">
               {/* Switch 1: Enable Link Previews (All embeds) */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <Link2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.previews.linkPreviews")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.previews.linkPreviewsDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={enableLinkPreviews}
-                  onCheckedChange={(checked) => setEnableLinkPreviews(checked)}
-                />
-              </div>
+              <SettingSwitch
+                icon={<Link2 className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.previews.linkPreviews")}
+                description={t("settings.previews.linkPreviewsDesc")}
+                checked={enableLinkPreviews}
+                onChange={setEnableLinkPreviews}
+              />
               {/* Switch 1b: Collapse Images by Default */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <EyeOff className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.previews.collapseImages")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.previews.collapseImagesDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={autoCollapseImages}
-                  onCheckedChange={(checked) => setAutoCollapseImages(checked)}
-                />
-              </div>
+              <SettingSwitch
+                icon={<EyeOff className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.previews.collapseImages")}
+                description={t("settings.previews.collapseImagesDesc")}
+                checked={autoCollapseImages}
+                onChange={setAutoCollapseImages}
+              />
               {/* Switch 1c: Render media embeds in MOTD */}
-              <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                <div className="space-y-0.5 pr-4">
-                  <div className="flex items-center gap-x-2">
-                    <ScrollText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                    <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                      {t("settings.previews.motdMedia")}
-                    </label>
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {t("settings.previews.motdMediaDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={enableMotdMediaPreviews}
-                  onCheckedChange={(checked) => setEnableMotdMediaPreviews(checked)}
-                />
-              </div>
+              <SettingSwitch
+                icon={<ScrollText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.previews.motdMedia")}
+                description={t("settings.previews.motdMediaDesc")}
+                checked={enableMotdMediaPreviews}
+                onChange={setEnableMotdMediaPreviews}
+              />
               {/* Switch 2: Web Page Metadata API Previews */}
               {enableLinkPreviews && (
-                <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                  <div className="space-y-0.5 pr-4">
-                    <div className="flex items-center gap-x-2">
-                      <Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                      <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                        {t("settings.previews.webMetadata")}
-                      </label>
-                    </div>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                      {t("settings.previews.webMetadataDesc")}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={enableWebPagePreviews}
-                    onCheckedChange={(checked) => setEnableWebPagePreviews(checked)}
-                  />
-                </div>
+                <SettingSwitch
+                  icon={<Globe className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                  title={t("settings.previews.webMetadata")}
+                  description={t("settings.previews.webMetadataDesc")}
+                  checked={enableWebPagePreviews}
+                  onChange={setEnableWebPagePreviews}
+                />
               )}
               {enableLinkPreviews && (
-                <div className="flex flex-row items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 shadow-sm transition">
-                  <div className="space-y-0.5 pr-4">
-                    <div className="flex items-center gap-x-2">
-                      <ShieldCheck className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                      <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 cursor-pointer">
-                        {t("settings.previews.blockAds")}
-                      </label>
-                    </div>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                      {t("settings.previews.blockAdsDesc")}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={blockLinkPreviewAds}
-                    onCheckedChange={(checked) => setBlockLinkPreviewAds(checked)}
-                  />
-                </div>
+                <SettingSwitch
+                  icon={<ShieldCheck className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                  title={t("settings.previews.blockAds")}
+                  description={t("settings.previews.blockAdsDesc")}
+                  checked={blockLinkPreviewAds}
+                  onChange={setBlockLinkPreviewAds}
+                />
               )}
               {/* Custom Link Preview API Endpoint Input */}
               {enableLinkPreviews && enableWebPagePreviews && (
@@ -1335,6 +1250,28 @@ export const SettingsModal = () => {
                   </Button>
                 </form>
               </div>
+            </div>
+          )}
+
+          {!searching && tab === "experimental" && (
+            <div className="space-y-5">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                {t("settings.experimental.intro")}
+              </p>
+              <SettingSwitch
+                icon={<Users className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.experimental.avatars")}
+                description={t("settings.experimental.avatarsDesc")}
+                checked={experimentalAvatars}
+                onChange={setExperimentalAvatars}
+              />
+              <SettingSwitch
+                icon={<Forward className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.experimental.forward")}
+                description={t("settings.experimental.forwardDesc")}
+                checked={experimentalForward}
+                onChange={setExperimentalForward}
+              />
             </div>
           )}
 

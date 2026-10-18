@@ -12,6 +12,7 @@
       "uploads": "Image uploads",
       "auth": "Authorization",
       "updates": "Updates",
+      "experimental": "Experimental",
       "about": "About"
     },
     "language": {
@@ -44,6 +45,9 @@
       "confirmLeave": "Confirm before leaving channel",
       "linkPreview": "Open links in a preview window",
       "blockedImagePreview": "Open blocked images in a preview window",
+      "experimentalAvatars": "Avatars (experimental)",
+      "experimentalForward": "Forward to channel (experimental)",
+      "lunaHandshake": "Announce Luna to other Luna clients",
       "slashAutocomplete": "Slash command autocomplete",
       "markdown": "Markdown rendering",
       "formattingPreview": "Message formatting preview",
@@ -141,6 +145,8 @@
       "linkPreviewDesc": "Clicking a link opens it in a separate in-app window instead of the default browser. Desktop only.",
       "blockedImagePreview": "Open blocked images in a preview window",
       "blockedImagePreviewDesc": "When an image can't be loaded (e.g. blocked by a Cloudflare check), \"View in browser\" opens it in the in-app window. Desktop only.",
+      "lunaHandshake": "Announce Luna to other Luna clients",
+      "lunaHandshakeDesc": "Sends a short hidden message with your Luna version when you join a channel and notes who answers, so Luna-only features (reactions, avatars) are only sent where someone can use them. Other IRC clients show nothing in chat. Shows \"Luna <version>\" on a user profile card. Turn off to stay invisible.",
       "confirmLeave": "Confirm before leaving channel",
       "confirmLeaveDesc": "Show a confirmation dialog when leaving a channel.",
       "slashAutocomplete": "Slash command autocomplete",
@@ -182,6 +188,13 @@
       },
       "interactiveCommands": "Interactive command panels",
       "interactiveCommandsDesc": "Choosing /mode, /op, /deop, /voice or /devoice from the suggestions opens a small panel instead of inserting text."
+    },
+    "experimental": {
+      "intro": "Features that only work between Luna clients and may change or be removed. Everything stays off unless you turn it on; other clients are unaffected.",
+      "avatars": "Avatars between Luna clients",
+      "avatarsDesc": "Shows small avatars of Luna users and shares yours. Images are 32x32, travel as short CTCP messages in chunks and are stored only on each client, never uploaded to a server. Also enable it per server in the server settings (Behavior).",
+      "forward": "Forward to channel",
+      "forwardDesc": "Adds \"Forward to channel\" to the right-click menu of a message: pick a channel on the same server and the message is sent there with its author and source channel."
     },
     "previews": {
       "linkPreviews": "Link previews (embeds)",
@@ -447,9 +460,17 @@
       "edit": "Edit",
       "delete": "Delete",
       "answer": "Answer",
+      "forward": "Forward to channel",
+      "copyText": "Copy text",
       "incompleteCode": "Incomplete code block: transmission was interrupted or dropped by IRC server",
       "deleteConfirm": "Delete this message for everyone? This cannot be undone.",
       "deleteTitle": "Delete message"
+    },
+    "forward": {
+      "title": "Forward message",
+      "desc": "Choose the channel to send it to.",
+      "empty": "This server has no channels.",
+      "failed": "Could not send the message."
     },
     "bookmarks": {
       "title": "Bookmarks",
@@ -539,7 +560,8 @@
       "behavior": "Behavior",
       "chat": "Chat and display",
       "notifications": "Notifications",
-      "commands": "Custom commands"
+      "commands": "Custom commands",
+      "experimental": "Experimental"
     },
     "opt": {
       "allMessages": "All messages",
@@ -568,6 +590,10 @@
       "editDesc": "Update connection parameters and configuration for your IRC server."
     },
     "categoriesAria": "Server settings categories",
+    "avatar": {
+      "choose": "Choose image",
+      "remove": "Remove"
+    },
     "field": {
       "logo": "Logo",
       "name": "Server name",
@@ -590,6 +616,8 @@
       "autoReconnectDesc": "Automatically attempt to reconnect if connection drops",
       "zncTimestamps": "Parse legacy ZNC timestamps",
       "zncTimestampsDesc": "Extract timestamps formatted as [HH:MM:SS] from older bouncers without IRCv3 server-time support",
+      "avatars": "Avatars (experimental)",
+      "avatarsDesc": "Show avatars of other Luna users on this server and share yours. People without this option ignore it.",
       "onConnectCommands": "Commands on connect",
       "onConnectCommandsDesc": "One per line, run after connecting and before the channels are joined: /msg NickServ IDENTIFY password, /mode MyNick +x, /wait 2 (pause in seconds). Lines starting with ; are ignored. Saved in plain text, like the server password.",
       "onConnectCommandsPlaceholder": "/msg NickServ IDENTIFY password",
@@ -728,7 +756,12 @@
     "removeVoice": "Remove voice (-v)",
     "giveVoice": "Give voice (+v)"
   },
+  "ircUrl": {
+    "title": "IRC link",
+    "addServer": "Add the server {{host}} and join: {{channels}}?"
+  },
   "hover": {
+    "client": "Client",
     "message": "Message",
     "status": "Status:"
   },
@@ -1175,6 +1208,14 @@
     "away": "Away"
   },
   "cmd": {
+    "ignore": {
+      "list": "Ignored: {{list}}",
+      "empty": "The ignore list is empty.",
+      "added": "Now ignoring {{mask}}.",
+      "already": "{{mask}} is already ignored.",
+      "removed": "No longer ignoring {{mask}}.",
+      "missing": "{{mask}} is not on the ignore list."
+    },
     "sendsMessage": "Sends: {{message}}",
     "sendsPresets": "Sends: {{message}} · {{presets}}",
     "desc": {
@@ -1191,7 +1232,9 @@
       "motd": "Displays the server's Message of the Day (MOTD): /motd",
       "away": "Sets away status or displays error if already away: /away [reason]",
       "back": "Returns from away status: /back",
-      "list": "Shows the server's channel list: /list"
+      "list": "Shows the server's channel list: /list",
+      "ignore": "Hides messages from a user or mask (without an argument: shows the list): /ignore [nick|nick!user@host]",
+      "unignore": "Stops ignoring a user or mask: /unignore <nick|nick!user@host>"
     }
   },
   "cp": {

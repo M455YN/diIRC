@@ -222,6 +222,21 @@ export const ChatMessages = ({
     element.scrollTop = element.scrollHeight;
   }, [markProgrammaticScroll]);
 
+  // Puts a row at the top of the viewport. Row heights are estimated until measured, so the jump
+  // is repeated on the next frame; `onSettled` runs after that second pass.
+  const scrollRowToTop = useCallback((virtualIndex: number, durationMs: number, onSettled?: () => void) => {
+    const jump = () => {
+      markProgrammaticScroll(durationMs);
+      virtualizer.scrollToIndex(virtualIndex, { align: "start" });
+    };
+    jump();
+    return requestAnimationFrame(() => {
+      jump();
+      if (chatRef.current) chatRef.current.scrollTop = Math.max(0, chatRef.current.scrollTop - 48);
+      onSettled?.();
+    });
+  }, [markProgrammaticScroll, virtualizer]);
+
   const registerRowElement = useCallback((element: HTMLDivElement | null, id: string) => {
     if (element) {
       rowElementsRef.current.set(id, element);
@@ -561,9 +576,10 @@ export const ChatMessages = ({
     if (totalCount === 0 || !windowReady || historyWindowKey !== currentChatKey) return;
 
     if (!hasInitializedRef.current) {
-      const unreadId =
-        firstUnreadMessageId ||
-        useMockStore.getState().historyWindow.firstUnreadMessageId;
+      // Opening a chat lands on its newest message; jumping to the first unread one is opt-in.
+      const unreadId = useMockStore.getState().scrollToUnreadOnFocus
+        ? firstUnreadMessageId || useMockStore.getState().historyWindow.firstUnreadMessageId
+        : null;
 
       if (unreadId) {
         const currentItems = (
@@ -578,15 +594,7 @@ export const ChatMessages = ({
           shouldStickToBottomRef.current = false;
           setTailPinned(false);
           setAtBottom(false);
-          markProgrammaticScroll(600);
-          virtualizer.scrollToIndex(virtualIndex, { align: "start" });
-
-          const raf = requestAnimationFrame(() => {
-            markProgrammaticScroll(600);
-            virtualizer.scrollToIndex(virtualIndex, { align: "start" });
-            if (chatRef.current) {
-              chatRef.current.scrollTop = Math.max(0, chatRef.current.scrollTop - 40);
-            }
+          const raf = scrollRowToTop(virtualIndex, 600, () => {
             hasInitializedRef.current = true;
           });
           return () => cancelAnimationFrame(raf);
@@ -597,7 +605,7 @@ export const ChatMessages = ({
       pinToBottom("auto", "initialMount");
       hasInitializedRef.current = true;
     }
-  }, [totalCount, windowReady, historyWindowKey, currentChatKey, pinToBottom, firstUnreadMessageId, chatId, hasWelcome, virtualizer, markProgrammaticScroll]);
+  }, [totalCount, windowReady, historyWindowKey, currentChatKey, pinToBottom, firstUnreadMessageId, chatId, hasWelcome, scrollRowToTop, setTailPinned]);
 
   useEffect(() => {
     if (totalCount === 0) return;
@@ -692,15 +700,7 @@ export const ChatMessages = ({
         setTailPinned(false);
         setAtBottom(false);
         anchorRef.current = null;
-        markProgrammaticScroll(400);
-        virtualizer.scrollToIndex(virtualIndex, { align: "start" });
-        requestAnimationFrame(() => {
-          markProgrammaticScroll(400);
-          virtualizer.scrollToIndex(virtualIndex, { align: "start" });
-          if (chatRef.current) {
-            chatRef.current.scrollTop = Math.max(0, chatRef.current.scrollTop - 48);
-          }
-        });
+        scrollRowToTop(virtualIndex, 400);
 
         setHighlightedMessageId(targetId);
         if (highlightTimeoutRef.current !== null) {
@@ -723,13 +723,14 @@ export const ChatMessages = ({
         }, 50);
       });
     }
-  }, [firstUnreadMessageId, items, hasWelcome, virtualizer, markProgrammaticScroll, setTailPinned, type, chatId, serverId, historyTarget, jumpToLatest, handleJumpToLatest]);
+  }, [firstUnreadMessageId, items, hasWelcome, scrollRowToTop, setTailPinned, type, chatId, serverId, historyTarget, jumpToLatest, handleJumpToLatest]);
 
   // Optional: when returning to the window, jump to the first unread message of the open chat.
   useEffect(() => {
     if (!scrollToUnreadOnFocus) return;
     const handleReturn = () => {
-      if (document.visibilityState === "hidden") return;
+      // Already reading the newest messages: nothing to jump back to.
+      if (document.visibilityState === "hidden" || shouldStickToBottomRef.current) return;
       const { unreadCount: unread, firstUnreadMessageId: firstUnread } =
         useMockStore.getState().historyWindow;
       if (unread > 0 && firstUnread) handleJumpToUnread();
