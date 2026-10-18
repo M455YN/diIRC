@@ -53,6 +53,8 @@ export function extractUrlsFromMarkdownText(text: string): string[] {
   let stripped = text.replace(/```[\s\S]*?```/g, " ");
   // Remove `inline code`
   stripped = stripped.replace(/`[^`]*`/g, " ");
+  // Markdown images are drawn by the renderer itself; a preview card for the same URL would show it twice.
+  stripped = stripped.replace(/!\[[^\]]*\]\([^)]*\)/g, " ");
   // Also remove spoiler ||...|| content? Keep URL inside spoiler? For now extract but preview hidden until revealed.
   // We will still extract but LinkPreview will handle spoiler separately (not shown).
   const matches = stripped.match(urlRegexRaw) || [];
