@@ -4689,9 +4689,13 @@ unsafe fn install_ad_blocker(
         })),
         &mut token,
     )
+    // `Webview::close` exists on desktop only; elsewhere it would resolve to futures' `SinkExt::close`.
+    #[cfg(desktop)]
 }
 
 /// Filter rules shared by every preview; the first use downloads or reads the cached lists.
+    #[cfg(not(desktop))]
+    let _ = app;
 #[cfg(desktop)]
 static AD_RULES: tokio::sync::OnceCell<std::sync::Arc<ad_filter::FilterRules>> = tokio::sync::OnceCell::const_new();
 
@@ -4765,7 +4769,7 @@ async fn link_preview_open(
     }
     #[cfg(not(desktop))]
     {
-        let _ = (app, url, x, y, width, height);
+        let _ = (app, url, x, y, width, height, block_ads);
         Err("Link preview is only available on desktop".to_string())
     }
 }
