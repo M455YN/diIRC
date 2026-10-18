@@ -26,7 +26,7 @@ const server = http.createServer((req, res) => {
   let file = path.join(ROOT, path.normalize(decodeURIComponent(url.pathname)));
   if (!file.startsWith(ROOT)) { res.writeHead(403).end(); return; }
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(ROOT, "index.html");
-  res.writeHead(200, { "content-type": MIME[path.extname(file)] ?? "application/octet-stream", "cache-control": file.endsWith("sw.js") ? "no-cache" : "public, max-age=300" });
+  res.writeHead(200, { "content-type": MIME[path.extname(file)] ?? "application/octet-stream", "cache-control": /\.(js|css|png|woff2)$/.test(file) && file.includes("assets") ? "public, max-age=31536000, immutable" : "no-cache" });
   fs.createReadStream(file).pipe(res);
 });
 
