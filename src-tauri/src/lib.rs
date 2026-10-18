@@ -5117,6 +5117,13 @@ fn copy_dir_all(
     Ok(())
 }
 
+            // Windows and macOS register the schemes at install time from tauri.conf.json; Linux AppImages need it at run time.
+            #[cfg(target_os = "linux")]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register_all();
+            }
+
 #[tauri::command]
 async fn create_app_backup(app: tauri::AppHandle) -> Result<String, String> {
     let app_dir = app
@@ -5150,7 +5157,19 @@ pub fn run() {
     // Err only means a provider was already installed.
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // The single-instance plugin must come first; it forwards irc:// links of a second launch to the deep-link plugin.
+    #[cfg(desktop)]
+    let builder = builder
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_deep_link::init());
+    builder
         .manage(IrcState {
             senders: Arc::new(Mutex::new(HashMap::new())),
             nicknames: Arc::new(Mutex::new(HashMap::new())),

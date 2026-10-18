@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-capability",
+  "description": "Permissions for desktop-only plugins",
+  "windows": [
+    "main"
+  ],
+  "platforms": [
+    "windows",
+    "linux",
+    "macOS"
+  ],
+  "permissions": [
+    "deep-link:default"
+  ]
+}
