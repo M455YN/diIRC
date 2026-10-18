@@ -548,6 +548,12 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
                 store.enableCommandSuggestions ?? true,
                 store.setEnableCommandSuggestions
               )}
+              {toggle(
+                tr("settings.experimental.avatars"),
+                store.experimentalAvatars ?? false,
+                store.setExperimentalAvatars,
+                tr("settings.experimental.avatarsDesc")
+              )}
               {select(
                 tr("mobile.search.defaultReplyFormat"),
                 store.defaultReplyMode || "hybrid",

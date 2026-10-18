@@ -10,6 +10,8 @@ import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOffOutlined";
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
+import { AvatarUpload } from "@/components/server/avatar-upload";
+import { announceOwnAvatar } from "@/lib/avatars";
 import { parseCustomCommandsJson } from "@/components/server/custom-commands-fields";
 import { serverToSharedForm, sharedFormToOptions } from "@/components/server/server-form-mapping";
 import {
@@ -67,6 +69,7 @@ interface FormState {
   autoReconnect: boolean;
   parseLegacyZncTimestamps: boolean;
   onConnectCommands: string;
+  avatarsEnabled: boolean;
   replyMode: ServerReplyMode;
   customCommands: CommandRow[];
   motdPolicy: ServerMotdDisplayPolicy;
@@ -102,12 +105,14 @@ const ServerFormBody = ({
   set,
   errors,
   isEdit,
+  serverId,
   openPicker,
 }: {
   form: FormState;
   set: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
   errors: Errors;
   isEdit: boolean;
+  serverId?: string;
   openPicker: ReturnType<typeof useM3Picker>["open"];
 }) => {
   const { t: tr } = useTranslation();
@@ -118,6 +123,7 @@ const ServerFormBody = ({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const globalNotif = useMockStore((s) => s.notificationSettings);
+  const experimentalAvatars = useMockStore((s) => s.experimentalAvatars);
   const globalMotdPolicy = useMockStore((s) => s.globalMotdPolicy) || "on_change";
   const autoCollapseImages = useMockStore((s) => s.autoCollapseImages ?? false);
   const defaultReplyMode = useMockStore((s) => s.defaultReplyMode) || "hybrid";
@@ -296,6 +302,21 @@ const ServerFormBody = ({
           checked={form.parseLegacyZncTimestamps}
           onChange={(v) => set("parseLegacyZncTimestamps", v)}
         />
+        {experimentalAvatars && isEdit && serverId && (
+          <>
+            <M3SwitchItem
+              title={tr("server.field.avatars")}
+              supporting={tr("server.field.avatarsDesc")}
+              checked={form.avatarsEnabled}
+              onChange={(v) => set("avatarsEnabled", v)}
+            />
+            {form.avatarsEnabled && (
+              <div className="px-4 pb-3">
+                <AvatarUpload serverId={serverId} />
+              </div>
+            )}
+          </>
+        )}
         <M3TextField
           label={tr("mform.onConnectCommands")}
           value={form.onConnectCommands}
@@ -594,6 +615,7 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
             useTls: server.useTls ?? false,
             nicknames: server.nicknames?.length ? [...server.nicknames] : [""],
             ...serverToSharedForm(server),
+            avatarsEnabled: server.avatarsEnabled ?? false,
             motdPolicy: serverMotdPolicies[server.id] || server.motdPolicy || "default",
             displayNameMode: server.displayNameMode || "default",
             mediaCollapse: server.autoCollapseImages || "default",
@@ -618,6 +640,7 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
             useTls: true,
             nicknames: [currentProfile.name.replace(/\s+/g, "") || ""],
             ...serverToSharedForm(),
+            avatarsEnabled: false,
             motdPolicy: "default",
             displayNameMode: "default",
             mediaCollapse: "default",
@@ -659,8 +682,11 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
         motdPolicy: form.motdPolicy,
         displayNameMode: form.displayNameMode,
         autoCollapseImages: form.mediaCollapse,
+        avatarsEnabled: form.avatarsEnabled,
         notificationSettings: form.notifications as any,
       });
+      // Switching the feature on is the moment to tell the channels about an avatar set earlier.
+      if (form.avatarsEnabled && !server.avatarsEnabled) announceOwnAvatar(server.id);
       setServerMotdPolicy(server.id, form.motdPolicy);
       setServerMediaCollapsePolicy(server.id, form.mediaCollapse);
       onClose();
@@ -691,6 +717,7 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
           set={set}
           errors={submitted ? errors : {}}
           isEdit={isEdit}
+          serverId={server?.id}
           openPicker={picker.open}
         />
       )}
