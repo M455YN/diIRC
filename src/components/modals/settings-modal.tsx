@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore, type AppLanguage } from "@/hooks/use-language-store";
 import { getCurrentAppVersion } from "@/lib/changelog-service";
@@ -133,6 +134,13 @@ const SETTINGS_SEARCH_INDEX: { key: string; tab: SettingsTab }[] = [
   { key: "settings.items.linkPreview", tab: "chat" },
   { key: "settings.items.blockedImagePreview", tab: "chat" },
   { key: "settings.items.lunaHandshake", tab: "chat" },
+  { key: "settings.items.showEvents", tab: "chat" },
+  { key: "settings.items.groupEvents", tab: "chat" },
+  { key: "settings.items.highlightWords", tab: "chat" },
+  { key: "settings.items.identity", tab: "chat" },
+  { key: "settings.items.warnExternalLinks", tab: "chat" },
+  { key: "settings.items.ignoreList", tab: "chat" },
+  { key: "settings.items.sendTyping", tab: "chat" },
   { key: "settings.items.experimentalAvatars", tab: "experimental" },
   { key: "settings.items.experimentalForward", tab: "experimental" },
   { key: "settings.items.slashAutocomplete", tab: "chat" },
@@ -216,6 +224,30 @@ export const SettingsModal = () => {
   const setExperimentalAvatars = useMockStore((state) => state.setExperimentalAvatars);
   const experimentalForward = useMockStore((state) => state.experimentalForward);
   const setExperimentalForward = useMockStore((state) => state.setExperimentalForward);
+  const sendTypingNotifications = useMockStore((state) => state.sendTypingNotifications);
+  const setSendTypingNotifications = useMockStore((state) => state.setSendTypingNotifications);
+  const showEvents = useMockStore((state) => state.showEvents);
+  const setShowEvent = useMockStore((state) => state.setShowEvent);
+  const groupEvents = useMockStore((state) => state.groupEvents);
+  const highlightWords = useMockStore((state) => state.highlightWords);
+  const setHighlightWords = useMockStore((state) => state.setHighlightWords);
+  const enableHighlights = useMockStore((state) => state.enableHighlights);
+  const setEnableHighlights = useMockStore((state) => state.setEnableHighlights);
+  const [highlightDraft, setHighlightDraft] = useState<string | null>(null);
+  const profileName = useMockStore((state) => state.currentProfile.name);
+  const setProfileName = useMockStore((state) => state.setProfileName);
+  const warnExternalLinks = useMockStore((state) => state.warnExternalLinks);
+  const setWarnExternalLinks = useMockStore((state) => state.setWarnExternalLinks);
+  const trustedLinkHosts = useMockStore((state) => state.trustedLinkHosts);
+  const clearTrustedLinkHosts = useMockStore((state) => state.clearTrustedLinkHosts);
+  const quitMessage = useMockStore((state) => state.quitMessage);
+  const setQuitMessage = useMockStore((state) => state.setQuitMessage);
+  const defaultAwayReason = useMockStore((state) => state.defaultAwayReason);
+  const setDefaultAwayReason = useMockStore((state) => state.setDefaultAwayReason);
+  const ignoredUsers = useMockStore((state) => state.ignoredUsers);
+  const setIgnoredUsers = useMockStore((state) => state.setIgnoredUsers);
+  const [ignoreDraft, setIgnoreDraft] = useState<string | null>(null);
+  const setGroupEvents = useMockStore((state) => state.setGroupEvents);
   const lunaHandshake = useMockStore((state) => state.lunaHandshake);
   const setLunaHandshake = useMockStore((state) => state.setLunaHandshake);
 
@@ -877,6 +909,125 @@ export const SettingsModal = () => {
                 checked={lunaHandshake}
                 onChange={setLunaHandshake}
               />
+              <SettingSwitch
+                icon={<MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.chat.sendTyping")}
+                description={t("settings.chat.sendTypingDesc")}
+                checked={sendTypingNotifications}
+                onChange={setSendTypingNotifications}
+              />
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm">
+                <div className="flex items-center gap-x-2">
+                  <Users className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {t("settings.chat.eventsTitle")}
+                  </label>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  {t("settings.chat.showEventDesc")}
+                </p>
+                <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+                  {(["join", "part", "quit", "nick", "kick"] as const).map((kind) => (
+                    <div key={kind} className="flex items-center justify-between gap-x-3 text-sm text-zinc-800 dark:text-zinc-200">
+                      <span>{t(`settings.chat.showEvent.${kind}`)}</span>
+                      <Switch checked={showEvents[kind]} onCheckedChange={(show) => setShowEvent(kind, show)} />
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-1 border-t border-zinc-200 pt-3 dark:border-zinc-700/60">
+                  <div className="flex items-center justify-between gap-x-3 text-sm text-zinc-800 dark:text-zinc-200">
+                    <span>{t("settings.chat.groupEvents")}</span>
+                    <Switch checked={groupEvents} onCheckedChange={setGroupEvents} />
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    {t("settings.chat.groupEventsDesc")}
+                  </p>
+                </div>
+              </div>
+              <SettingSwitch
+                icon={<AtSign className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.chat.enableHighlights")}
+                description={t("settings.chat.enableHighlightsDesc")}
+                checked={enableHighlights}
+                onChange={setEnableHighlights}
+              />
+              {enableHighlights && (
+                <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm">
+                  <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {t("settings.chat.highlightWords")}
+                  </label>
+                  <Textarea
+                    rows={3}
+                    className="font-mono text-xs"
+                    placeholder={t("settings.chat.highlightWordsPlaceholder")}
+                    value={highlightDraft ?? highlightWords.join("\n")}
+                    onChange={(e) => setHighlightDraft(e.target.value)}
+                    onBlur={() => {
+                      if (highlightDraft !== null) setHighlightWords(highlightDraft.split(/\r?\n/));
+                      setHighlightDraft(null);
+                    }}
+                  />
+                </div>
+              )}
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm">
+                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  {t("settings.chat.identity")}
+                </label>
+                <label className="text-xs text-zinc-500 dark:text-zinc-400">{t("settings.chat.defaultNick")}</label>
+                <Input
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value.replace(/\s+/g, ""))}
+                  className="h-9 bg-white text-sm dark:bg-[#1e1f22]"
+                />
+                <label className="text-xs text-zinc-500 dark:text-zinc-400">{t("settings.chat.quitMessage")}</label>
+                <Input
+                  value={quitMessage}
+                  onChange={(e) => setQuitMessage(e.target.value)}
+                  placeholder="Client disconnected"
+                  className="h-9 bg-white text-sm dark:bg-[#1e1f22]"
+                />
+                <label className="text-xs text-zinc-500 dark:text-zinc-400">{t("settings.chat.awayReason")}</label>
+                <Input
+                  value={defaultAwayReason}
+                  onChange={(e) => setDefaultAwayReason(e.target.value)}
+                  placeholder="Away"
+                  className="h-9 bg-white text-sm dark:bg-[#1e1f22]"
+                />
+              </div>
+              <div className="flex flex-col rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 space-y-3 shadow-sm">
+                <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  {t("settings.chat.ignoreList")}
+                </label>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  {t("settings.chat.ignoreListDesc")}
+                </p>
+                <Textarea
+                  rows={4}
+                  className="font-mono text-xs"
+                  placeholder={t("settings.chat.ignoreListPlaceholder")}
+                  value={ignoreDraft ?? ignoredUsers.join("\n")}
+                  onChange={(e) => setIgnoreDraft(e.target.value)}
+                  onBlur={() => {
+                    if (ignoreDraft !== null) setIgnoredUsers(ignoreDraft.split(/\r?\n/));
+                    setIgnoreDraft(null);
+                  }}
+                />
+              </div>
+              <SettingSwitch
+                icon={<ExternalLink className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                title={t("settings.chat.warnExternalLinks")}
+                description={t("settings.chat.warnExternalLinksDesc")}
+                checked={warnExternalLinks}
+                onChange={setWarnExternalLinks}
+              />
+              {trustedLinkHosts.length > 0 && (
+                <div className="flex items-center justify-between rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-4 text-xs text-zinc-600 dark:text-zinc-300">
+                  <span className="truncate pr-3">{t("settings.chat.trustedSites", { sites: trustedLinkHosts.join(", ") })}</span>
+                  <button type="button" onClick={clearTrustedLinkHosts} className="shrink-0 text-indigo-500 hover:underline">
+                    {t("settings.chat.clearTrustedSites")}
+                  </button>
+                </div>
+              )}
               {/* Confirm Before Leaving Channel */}
               <SettingSwitch
                 icon={<LogOut className="w-4 h-4 text-rose-500 dark:text-rose-400" />}

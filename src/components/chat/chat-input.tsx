@@ -24,6 +24,9 @@ import { Member, Message, DirectMessage } from "@/types";
 import { useMockStore, getServerSelfMember, getServerActiveNick, formatNickCompletion } from "@/lib/mock-store";
 import { UserRoleIcon, getHighestChannelRole, ROLE_CONFIGS, UserRoleKey } from "@/components/user-role-icon";
 import { UserAvatar } from "@/components/user-avatar";
+import { TypingIndicator } from "@/components/chat/typing-indicator";
+import { notifyTyping, stopTyping } from "@/lib/typing";
+import { searchEmoji, type EmojiMatch } from "@/lib/emoji-search";
 import { uploadImage } from "@/lib/upload/services";
 import { ImageContextMenu } from "@/components/image-context-menu";
 import { isMediaUrl } from "@/lib/image-utils";
@@ -297,6 +300,48 @@ export const ChatInput = ({
   }, []);
 
   const targetName = type === "channel" ? (name.startsWith("#") ? name : `#${name}`) : name;
+
+  // Typing notifications: `active` while there is text, `done` when it is cleared, sent or the chat changes.
+  const activeServerId = activeServer?.id;
+  useEffect(() => {
+    if (activeServerId) notifyTyping(activeServerId, targetName, content);
+  }, [content, activeServerId, targetName]);
+  useEffect(() => stopTyping, []);
+
+  // `:smi` before the caret offers matching emoji; Tab or Enter inserts the highlighted one.
+  const [emojiMatches, setEmojiMatches] = useState<EmojiMatch[]>([]);
+  const [emojiIndex, setEmojiIndex] = useState(0);
+  const emojiQuery = (() => {
+    const caret = textareaRef.current?.selectionStart ?? content.length;
+    return /(?:^|\s):([a-z0-9_+-]{2,})$/i.exec(content.slice(0, caret))?.[1] ?? "";
+  })();
+  useEffect(() => {
+    let cancelled = false;
+    if (!emojiQuery) {
+      setEmojiMatches([]);
+      return;
+    }
+    void searchEmoji(emojiQuery).then((matches) => {
+      if (cancelled) return;
+      setEmojiMatches(matches);
+      setEmojiIndex(0);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [emojiQuery]);
+  const insertEmoji = (match: EmojiMatch) => {
+    const textarea = textareaRef.current;
+    const caret = textarea?.selectionStart ?? content.length;
+    const before = content.slice(0, caret).replace(/:[a-z0-9_+-]{2,}$/i, match.native);
+    const next = before + content.slice(caret);
+    form.setValue("content", next, { shouldDirty: true });
+    setEmojiMatches([]);
+    setTimeout(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(before.length, before.length);
+    }, 0);
+  };
   const currentNick = primaryNick || currentMember?.profile?.name || tr("chat.input.you");
   const serverHost = activeServer?.host || "localhost";
   const serverUser = activeServer?.realname || currentNick;
@@ -1115,6 +1160,25 @@ export const ChatInput = ({
   }, [form, autoResize]);
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (emojiMatches.length > 0) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const step = e.key === "ArrowDown" ? 1 : -1;
+        setEmojiIndex((index) => (index + step + emojiMatches.length) % emojiMatches.length);
+        return;
+      }
+      if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault();
+        insertEmoji(emojiMatches[emojiIndex] ?? emojiMatches[0]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setEmojiMatches([]);
+        return;
+      }
+    }
+
     if (showCommands && filteredCommands.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -1652,6 +1716,8 @@ export const ChatInput = ({
           onChange={handleFileChange}
         />
 
+        {activeServer && <TypingIndicator serverId={activeServer.id} target={targetName} />}
+
         <FormField
           control={form.control}
           name="content"
@@ -1767,6 +1833,26 @@ export const ChatInput = ({
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {emojiMatches.length > 0 && (
+                    <div className="popover-surface absolute bottom-full left-4 mb-2 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-[#2b2d31]">
+                      {emojiMatches.map((match, index) => (
+                        <div
+                          key={match.id}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            insertEmoji(match);
+                          }}
+                          className={`flex cursor-pointer items-center gap-x-3 px-3 py-1.5 text-sm ${
+                            index === emojiIndex ? "bg-zinc-100 dark:bg-zinc-700/50" : ""
+                          }`}
+                        >
+                          <span className="text-lg leading-none">{match.native}</span>
+                          <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">:{match.id}:</span>
+                        </div>
+                      ))}
                     </div>
                   )}
 

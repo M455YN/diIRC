@@ -12,6 +12,7 @@ import { reactionChatKey } from "@/lib/reactions";
 import { handleAvatarEvent, noteSpeaker } from "@/lib/avatars";
 import { announceHello, handleHelloEvent } from "@/lib/luna-peers";
 import { openIrcUrl } from "@/lib/irc-url";
+import { typingChatKey, useTypingStore } from "@/hooks/use-typing-store";
 import { useMessageCapsStore } from "@/hooks/use-message-caps";
 import { Server, ChannelType } from "@/types";
 import { extractFlag } from "@/lib/flag-tips";
@@ -348,6 +349,19 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [navigate]);
 
+  // The backend needs the QUIT message at disconnect time.
+  useEffect(() => {
+    const sync = (message: string) => invoke("set_quit_message", { message }).catch(() => undefined);
+    let current = useMockStore.getState().quitMessage ?? "";
+    sync(current);
+    return useMockStore.subscribe((state) => {
+      const next = state.quitMessage ?? "";
+      if (next === current) return;
+      current = next;
+      sync(next);
+    });
+  }, []);
+
   // The backend drops messages from ignored users, so it needs the list at start and on every change.
   useEffect(() => {
     const sync = (masks: string[]) =>
@@ -536,6 +550,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
     const msgTimestamp = payload.timestamp;
     const isDummySender = sender === "***" || !sender || !sender.trim();
     const effectiveIsSystem = isSystemMessage(sender, content, isSystem || isDummySender);
+    if (!effectiveIsSystem) useTypingStore.getState().set(typingChatKey(serverId, isChannelMsg ? channel : sender), sender, false);
 
     if (effectiveIsSystem && !isChannelMsg && (!channel || !channel.trim() || channel === "*" || channel === "$server")) {
       const store = useMockStore.getState();
@@ -847,7 +862,8 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           ].filter(Boolean) as string[]
         )
       );
-      const hasMention = checkIsMention(content, myNicks);
+      const { highlightWords, enableHighlights } = useMockStore.getState();
+      const hasMention = checkIsMention(content, enableHighlights ? [...myNicks, ...highlightWords] : myNicks);
 
       if (!isCurrentChat || !isWindowFocused) {
         if (targetChannel?.id) {
@@ -928,6 +944,11 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
       (event) => handleAvatarEvent(event.payload)
     );
 
+    listenSafe<{ serverId: string; target: string; sender: string; state: string }>("irc_typing", (event) => {
+      const { serverId, target, sender, state } = event.payload;
+      useTypingStore.getState().set(typingChatKey(serverId, target), sender, state === "active");
+    });
+
     listenSafe<{ serverId: string; sender: string; target: string; notice: boolean; body: string }>(
       "irc_luna_hello",
       (event) => handleHelloEvent(event.payload)
@@ -945,6 +966,9 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
 
     listenSafe<IrcUserEventPayload>("irc_user_event", (event) => {
           const { server_id, channel, users, event_type } = event.payload;
+          if (event_type === "PART" || event_type === "QUIT" || event_type === "KICK") {
+            for (const user of users) useTypingStore.getState().set(typingChatKey(server_id, channel), user, false);
+          }
           setTimeout(() => {
             updateChannelMembers(server_id, channel, users, event_type as any);
           }, 100);
@@ -1048,6 +1072,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             const { server_id, old_nick, new_nick } = event.payload;
             if (server_id && old_nick && new_nick) {
               useMockStore.getState().handleNickChange(server_id, old_nick, new_nick);
+              useTypingStore.getState().clearNick(server_id, old_nick);
             }
           }
         );

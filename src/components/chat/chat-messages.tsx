@@ -8,6 +8,7 @@ import { Member, Message, DirectMessage } from "@/types";
 import { useChatQuery } from "@/hooks/use-chat-query";
 import { useChatSocket } from "@/hooks/use-chat-socket";
 import { useMockStore, formatMessageDate } from "@/lib/mock-store";
+import { applyEventView } from "@/lib/event-view";
 import { useSearchStore } from "@/hooks/use-search-store";
 import { cn } from "@/lib/utils";
 
@@ -124,7 +125,17 @@ export const ChatMessages = ({
   });
   useChatSocket({ queryKey, addKey, updateKey });
 
-  const items = useMemo(() => data?.pages.flatMap((page) => page.items as Message[]) || [], [data?.pages]);
+  const showEvents = useMockStore((state) => state.showEvents);
+  const groupEvents = useMockStore((state) => state.groupEvents);
+  const items = useMemo(
+    () =>
+      applyEventView(
+        data?.pages.flatMap((page) => page.items as Message[]) || [],
+        { show: showEvents, group: groupEvents },
+        firstUnreadMessageId
+      ),
+    [data?.pages, showEvents, groupEvents, firstUnreadMessageId]
+  );
   const historyTarget = type === "channel" && !name.startsWith("#") ? `#${name}` : name;
   const hasWelcome = windowReady && !hasOlder && olderCursor === null;
   const totalCount = items.length + (hasWelcome ? 1 : 0);

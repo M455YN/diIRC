@@ -22,8 +22,33 @@ export async function openExternalUrl(url: string): Promise<void> {
  * Opens a link clicked in the chat: in the in-app preview window when that is enabled (desktop),
  * otherwise in the system browser. Images that failed to load ("image") have their own toggle.
  */
-export async function openLink(url: string, kind: "link" | "image" = "link"): Promise<void> {
+/** Lowercase host of an http(s) URL, or null. */
+export function linkHost(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return /^https?:$/.test(parsed.protocol) ? parsed.hostname.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Raw IP addresses and punycode (look-alike) hosts deserve a second look. */
+export function linkLooksSuspicious(url: string): boolean {
+  const host = linkHost(url);
+  return !!host && (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes("xn--") || /^\[.*\]$/.test(host));
+}
+
+export async function openLink(url: string, kind: "link" | "image" = "link", skipWarning = false): Promise<void> {
   if (!url) return;
+  if (!skipWarning && kind === "link") {
+    const { warnExternalLinks, trustedLinkHosts } = useMockStore.getState();
+    const host = linkHost(url);
+    if (warnExternalLinks && host && !trustedLinkHosts.includes(host)) {
+      const { useModalStore } = await import("@/hooks/use-modal-store");
+      useModalStore.getState().onOpen("externalLink", { url });
+      return;
+    }
+  }
   if (/^ircs?:\/\//i.test(url)) {
     const { openIrcUrl } = await import("@/lib/irc-url");
     await openIrcUrl(url);

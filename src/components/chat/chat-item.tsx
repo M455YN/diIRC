@@ -225,10 +225,12 @@ const ChatItemInner = ({
     return myNicks.some((n) => n.toLowerCase() === senderName);
   }, [member, currentMember, myNicks]);
 
+  const highlightWords = useMockStore((state) => state.highlightWords);
+  const enableHighlights = useMockStore((state) => state.enableHighlights);
   const isMention = useMemo(() => {
     if (isSystem || deleted || isSelf || !content) return false;
-    return checkIsMention(content, myNicks);
-  }, [content, isSystem, deleted, isSelf, myNicks]);
+    return checkIsMention(content, enableHighlights ? [...myNicks, ...highlightWords] : myNicks);
+  }, [content, isSystem, deleted, isSelf, myNicks, highlightWords, enableHighlights]);
 
   const messageCaps = useMessageCaps(activeServer?.id);
   const canEdit = isSelf && !deleted && !isSystem && !!ircMsgid && messageCaps.edit && !fileUrl;

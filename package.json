@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "vitest run src",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "tauri": "tauri",
@@ -15,7 +16,9 @@
     "release": "bumpp package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml",
     "devtools:bots": "node devtools/bot-joiner/index.js",
     "build:e2e": "cargo build --manifest-path src-tauri/Cargo.toml",
-    "test:e2e": "npm run build:e2e && wdio run test/wdio.conf.js"
+    "test:e2e": "npm run build:e2e && wdio run test/wdio.conf.js",
+    "dev:web": "vite -c vite.config.web.ts",
+    "build:web": "vite build -c vite.config.web.ts"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.1.2",
@@ -97,6 +100,7 @@
     "tailwindcss": "^3.3.3",
     "typescript": "^5.1.6",
     "vite": "^5.1.0",
+    "vitest": "^2.1.9",
     "webdriverio": "^9.31.3"
   },
   "allowScripts": {

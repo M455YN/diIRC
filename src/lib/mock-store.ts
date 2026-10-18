@@ -38,6 +38,7 @@ import { v4 as uuidv4 } from "uuid";
 import { dateLocale } from "./date-locale";
 import { ImageUploadConfig, UrlAuthRule } from "./upload/types";
 import { DEFAULT_SERVER_IMAGE } from "./server-logo";
+import type { EventKind } from "./event-view";
 
 type IncomingMessageMeta = {
   createdAt?: string;
@@ -529,6 +530,33 @@ interface MockState {
   /** Announce Luna (`LUNA HELLO`) when joining channels and note who answers; on by default, see `luna-peers.ts`. */
   lunaHandshake: boolean;
   setLunaHandshake: (enabled: boolean) => void;
+  /** Which join / part / quit / nick / kick lines the chat shows, and whether runs of them are folded into one line. */
+  showEvents: Record<EventKind, boolean>;
+  setShowEvent: (kind: EventKind, show: boolean) => void;
+  groupEvents: boolean;
+  setGroupEvents: (group: boolean) => void;
+  /** Extra words (besides our nicks) that count as a mention; only used while `enableHighlights` is on. */
+  highlightWords: string[];
+  setHighlightWords: (words: string[]) => void;
+  enableHighlights: boolean;
+  setEnableHighlights: (enabled: boolean) => void;
+  /** Sent as the QUIT message when disconnecting; empty uses the default. */
+  quitMessage: string;
+  setQuitMessage: (message: string) => void;
+  /** Ask before opening a link from the chat; sites in `trustedLinkHosts` are not asked about. */
+  warnExternalLinks: boolean;
+  setWarnExternalLinks: (warn: boolean) => void;
+  trustedLinkHosts: string[];
+  trustLinkHost: (host: string) => void;
+  clearTrustedLinkHosts: () => void;
+  /** Reason used by `/away` without an argument; empty uses "Away". */
+  defaultAwayReason: string;
+  setDefaultAwayReason: (reason: string) => void;
+  /** The nickname new servers start with. */
+  setProfileName: (name: string) => void;
+  /** Tell others when we type (IRCv3 `+typing`); servers without client tags simply do not relay it. */
+  sendTypingNotifications: boolean;
+  setSendTypingNotifications: (enabled: boolean) => void;
   notificationSettings: GlobalNotificationSettings;
   conversationNotificationSettings: Record<string, NotificationOverride>;
   autoUpdateMode: "auto" | "ask" | "disabled";
@@ -838,6 +866,27 @@ export const useMockStore = create<MockState>()(
       setExperimentalForward: (enabled) => set({ experimentalForward: enabled }),
       lunaHandshake: true,
       setLunaHandshake: (enabled) => set({ lunaHandshake: enabled }),
+      showEvents: { join: true, part: true, quit: true, nick: true, kick: true },
+      setShowEvent: (kind, show) => set((state) => ({ showEvents: { ...state.showEvents, [kind]: show } })),
+      groupEvents: true,
+      setGroupEvents: (group) => set({ groupEvents: group }),
+      highlightWords: [],
+      setHighlightWords: (words) =>
+        set({ highlightWords: [...new Set(words.map((word) => word.trim()).filter(Boolean))] }),
+      enableHighlights: true,
+      setEnableHighlights: (enabled) => set({ enableHighlights: enabled }),
+      quitMessage: "",
+      setQuitMessage: (message) => set({ quitMessage: message }),
+      warnExternalLinks: true,
+      setWarnExternalLinks: (warn) => set({ warnExternalLinks: warn }),
+      trustedLinkHosts: [],
+      trustLinkHost: (host) => set((state) => ({ trustedLinkHosts: [...new Set([...state.trustedLinkHosts, host])] })),
+      clearTrustedLinkHosts: () => set({ trustedLinkHosts: [] }),
+      defaultAwayReason: "",
+      setDefaultAwayReason: (reason) => set({ defaultAwayReason: reason }),
+      setProfileName: (name) => set((state) => ({ currentProfile: { ...state.currentProfile, name } })),
+      sendTypingNotifications: true,
+      setSendTypingNotifications: (enabled) => set({ sendTypingNotifications: enabled }),
       setIgnoredUsers: (masks) =>
         set({
           ignoredUsers: [...new Set(masks.map((mask) => mask.trim()).filter(Boolean))],

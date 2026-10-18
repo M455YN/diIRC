@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMockStore } from "@/lib/mock-store";
+import { useModal } from "@/hooks/use-modal-store";
 
 import { 
   CommandDialog, 
@@ -36,6 +37,8 @@ export const ServerSearch = ({
   // The shortcut is Cmd+K on macOS and Ctrl+K elsewhere; show the one that applies here.
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
   const params = useParams();
+  const servers = useMockStore((state) => state.servers);
+  const onOpenModal = useModal((state) => state.onOpen);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -64,6 +67,26 @@ export const ServerSearch = ({
       return navigate(`/servers/${targetServerId}/channels/${id}`);
     }
   };
+
+  // Beyond the current server's chats: other servers and the actions people look for most.
+  const currentServer = servers.find((server) => server.id === (serverId || params?.serverId));
+  const run = (action: () => void) => {
+    setOpen(false);
+    // The dialog is still closing; opening another one in the same tick leaves the page locked.
+    setTimeout(action, 0);
+  };
+  const actions = [
+    { key: "settings", label: t("settings.title"), run: () => onOpenModal("settings") },
+    { key: "bookmarks", label: t("chat.header.bookmarks"), run: () => onOpenModal("bookmarks") },
+    ...(currentServer
+      ? [
+          { key: "serverSettings", label: t("srv.serverSettings"), run: () => onOpenModal("editServer", { server: currentServer }) },
+          { key: "joinChannel", label: t("srv.joinChannel"), run: () => onOpenModal("createChannel", { server: currentServer }) },
+          { key: "channelList", label: t("cl.title"), run: () => onOpenModal("channelList", { server: currentServer }) },
+          { key: "rawLog", label: t("rawLog.menu"), run: () => onOpenModal("rawLog", { serverId: currentServer.id }) },
+        ]
+      : []),
+  ];
 
   return (
     <>
@@ -111,6 +134,29 @@ export const ServerSearch = ({
               </CommandGroup>
             );
           })}
+          {servers.length > 1 && (
+            <CommandGroup heading={t("srv.quick.servers")}>
+              {servers.map((server) => (
+                <CommandItem
+                  key={server.id}
+                  value={`server ${server.name}`}
+                  onSelect={() => {
+                    setOpen(false);
+                    navigate(`/servers/${server.id}`);
+                  }}
+                >
+                  <span>{server.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+          <CommandGroup heading={t("srv.quick.actions")}>
+            {actions.map((action) => (
+              <CommandItem key={action.key} value={`action ${action.label}`} onSelect={() => run(action.run)}>
+                <span>{action.label}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
         </CommandList>
       </CommandDialog>
     </>

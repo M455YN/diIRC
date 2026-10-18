@@ -29,6 +29,8 @@ export type ModalType =
   | "notes"
   | "channelList"
   | "forwardMessage"
+  | "rawLog"
+  | "externalLink"
   | "linkPreview";
 
 interface ModalData {

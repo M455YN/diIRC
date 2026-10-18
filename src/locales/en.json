@@ -48,6 +48,13 @@
       "experimentalAvatars": "Avatars (experimental)",
       "experimentalForward": "Forward to channel (experimental)",
       "lunaHandshake": "Announce Luna to other Luna clients",
+      "showEvents": "Show join, part, quit, nick and kick lines",
+      "groupEvents": "Fold series of events into one line",
+      "highlightWords": "Highlight words",
+      "identity": "Nickname, quit and away messages",
+      "warnExternalLinks": "Ask before opening links",
+      "ignoreList": "Ignored users",
+      "sendTyping": "Send typing notifications",
       "slashAutocomplete": "Slash command autocomplete",
       "markdown": "Markdown rendering",
       "formattingPreview": "Message formatting preview",
@@ -147,6 +154,34 @@
       "blockedImagePreviewDesc": "When an image can't be loaded (e.g. blocked by a Cloudflare check), \"View in browser\" opens it in the in-app window. Desktop only.",
       "lunaHandshake": "Announce Luna to other Luna clients",
       "lunaHandshakeDesc": "Sends a short hidden message with your Luna version when you join a channel and notes who answers, so Luna-only features (reactions, avatars) are only sent where someone can use them. Other IRC clients show nothing in chat. Shows \"Luna <version>\" on a user profile card. Turn off to stay invisible.",
+      "showEvent": {
+        "join": "Show joins",
+        "part": "Show parts",
+        "quit": "Show quits",
+        "nick": "Show nick changes",
+        "kick": "Show kicks"
+      },
+      "showEventDesc": "Hidden lines stay in the log; this only changes what the chat shows.",
+      "eventsTitle": "Join, part, quit, nick and kick lines",
+      "groupEventsDesc": "Three or more events in a row become a single line such as \"alice, bob joined · carol left\".",
+      "enableHighlights": "Highlight custom words",
+      "enableHighlightsDesc": "Messages that contain your own words (below), besides your nick, are highlighted and notify you like a mention.",
+      "highlightWords": "Words to highlight",
+      "highlightWordsPlaceholder": "deploy\nbuild failed",
+      "identity": "Nickname, quit and away messages",
+      "defaultNick": "Default nickname for new servers",
+      "quitMessage": "Quit message (when you disconnect)",
+      "awayReason": "Default away reason (/away without text)",
+      "ignoreList": "Ignored users",
+      "ignoreListDesc": "One per line. Messages from these users are dropped before they are shown, logged or counted as unread. Use a nick, nick!user@host, user@host or @host; * and ? work as wildcards. Also: /ignore <mask> and /unignore <mask>.",
+      "ignoreListPlaceholder": "spammer\n*!*@bad.example.net",
+      "warnExternalLinks": "Ask before opening links",
+      "warnExternalLinksDesc": "Shows the address and lets you copy it or cancel before a link from the chat opens. You can trust a site there to skip the question for it.",
+      "trustedSites": "Trusted sites: {{sites}}",
+      "clearTrustedSites": "Forget",
+      "groupEvents": "Fold series of events into one line",
+      "sendTyping": "Send typing notifications",
+      "sendTypingDesc": "Lets others in the chat see \"is typing...\" while you write. Needs a server with IRCv3 client tags (message-tags); on other servers nothing is sent. You always see when others are typing.",
       "confirmLeave": "Confirm before leaving channel",
       "confirmLeaveDesc": "Show a confirmation dialog when leaving a channel.",
       "slashAutocomplete": "Slash command autocomplete",
@@ -466,6 +501,19 @@
       "deleteConfirm": "Delete this message for everyone? This cannot be undone.",
       "deleteTitle": "Delete message"
     },
+    "events": {
+      "join": "{{names}} joined",
+      "part": "{{names}} left",
+      "quit": "{{names}} quit",
+      "nick": "{{names}} changed nick",
+      "kick": "{{names}} kicked"
+    },
+    "typing": {
+      "one": "{{a}} is typing...",
+      "two": "{{a}} and {{b}} are typing...",
+      "three": "{{a}}, {{b}} and {{c}} are typing...",
+      "many": "{{a}}, {{b}} and {{count}} others are typing..."
+    },
     "forward": {
       "title": "Forward message",
       "desc": "Choose the channel to send it to.",
@@ -756,6 +804,24 @@
     "removeVoice": "Remove voice (-v)",
     "giveVoice": "Give voice (+v)"
   },
+  "rawLog": {
+    "menu": "Raw IRC traffic",
+    "title": "Raw IRC traffic",
+    "desc": "The last lines sent (>>) and received (<<) on this server. Passwords are hidden.",
+    "empty": "Nothing yet. Lines appear here as the server talks.",
+    "note": "Sent lines: messages, CTCPs, typing and JOINs only.",
+    "copy": "Copy",
+    "clear": "Clear"
+  },
+  "externalLink": {
+    "title": "Open this link?",
+    "desc": "The link opens outside Luna. Check the address before you continue.",
+    "suspicious": "This address uses a raw IP or look-alike (punycode) characters, which scams often rely on.",
+    "trust": "Do not ask again for {{host}}",
+    "cancel": "Cancel",
+    "copy": "Copy link",
+    "open": "Open"
+  },
   "ircUrl": {
     "title": "IRC link",
     "addServer": "Add the server {{host}} and join: {{channels}}?"
@@ -789,6 +855,10 @@
     "away": "Away",
     "pmSettings": "PM Settings",
     "closePm": "Close PM",
+    "quick": {
+      "servers": "Servers",
+      "actions": "Actions"
+    },
     "serverSettings": "Server settings",
     "disconnect": "Disconnect from server",
     "connect": "Connect to server",
@@ -1233,6 +1303,7 @@
       "away": "Sets away status or displays error if already away: /away [reason]",
       "back": "Returns from away status: /back",
       "list": "Shows the server's channel list: /list",
+      "rawlog": "Shows the raw IRC traffic of this server: /rawlog",
       "ignore": "Hides messages from a user or mask (without an argument: shows the list): /ignore [nick|nick!user@host]",
       "unignore": "Stops ignoring a user or mask: /unignore <nick|nick!user@host>"
     }

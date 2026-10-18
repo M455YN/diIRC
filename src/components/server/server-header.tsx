@@ -8,6 +8,7 @@ import {
   Unplug,
   Radio,
   List as ListIcon,
+  Terminal,
 } from "lucide-react";
 
 import { 
@@ -68,6 +69,13 @@ export const ServerHeader = ({
         >
           {t("cl.title")}
           <ListIcon className="h-4 w-4 ml-auto" />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => setTimeout(() => onOpen("rawLog", { serverId: server.id }), 0)}
+          className="px-3 py-2 text-sm cursor-pointer"
+        >
+          {t("rawLog.menu")}
+          <Terminal className="h-4 w-4 ml-auto" />
         </DropdownMenuItem>
         {isIrcConnected ? (
           <DropdownMenuItem

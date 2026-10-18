@@ -630,6 +630,16 @@ async function showCommandNotice(ctx: CommandContext, text: string): Promise<voi
 }
 
 commandRegistry.register({
+  name: "rawlog",
+  description: "cmd.desc.rawlog",
+  execute: async (_args: string, ctx: CommandContext) => {
+    const { useModal } = await import("@/hooks/use-modal-store");
+    useModal.getState().onOpen("rawLog", { serverId: ctx.serverId });
+    return true;
+  },
+});
+
+commandRegistry.register({
   name: "ignore",
   description: "cmd.desc.ignore",
   execute: async (args: string, ctx: CommandContext) => {
@@ -687,7 +697,7 @@ commandRegistry.register({
       return true;
     }
 
-    const reason = args.trim();
+    const reason = args.trim() || store.defaultAwayReason.trim();
     try {
       await invoke("send_away", {
         serverId: ctx.serverId,
