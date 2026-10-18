@@ -23,7 +23,8 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https:; img-src * data: blob:; media-src * data: blob:; connect-src * ipc: http://ipc.localhost; frame-src https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'",
+      "devCsp": "default-src * 'unsafe-inline' 'unsafe-eval' data: blob: ipc: http://ipc.localhost ws: wss:"
     }
   },
   "bundle": {

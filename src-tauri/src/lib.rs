@@ -12,6 +12,12 @@ use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, SeekFrom};
 use tokio::sync::Mutex;
 
+mod ad_filter;
+mod ignore;
+mod raw_log;
+use ignore::ignore_matches;
+use raw_log::{push_raw, RawLine};
+
 #[derive(Serialize, Clone)]
 struct IrcMessage {
     server_id: String,
@@ -410,6 +416,8 @@ struct IrcCapsEvent {
 
 /// Synthetic entry in `server_caps`: ISUPPORT `CLIENTTAGDENY` forbids relaying `+draft/edit`.
 const EDIT_TAG_DENIED: &str = "x-isupport/clienttagdeny=draft/edit";
+/// Same for `+typing`, which the server then would not relay.
+const TYPING_TAG_DENIED: &str = "x-isupport/clienttagdeny=typing";
 
 /// Whether `CLIENTTAGDENY` (comma list, `*` = all, `-tag` = exempt) blocks the given client tag.
 fn client_tag_denied(clienttagdeny: &str, tag: &str) -> bool {
@@ -772,31 +780,28 @@ struct IrcState {
     server_caps: Arc<Mutex<HashMap<String, HashSet<String>>>>,
     /// Ignore masks (`nick`, `nick!user@host`, `user@host`; `*` and `?` wildcards), set by the frontend.
     ignore_list: Arc<Mutex<Vec<String>>>,
+    /// QUIT message sent when we disconnect; empty means the default.
+    quit_message: Arc<Mutex<String>>,
+    /// Last lines of IRC traffic per server, for the raw log viewer.
+    raw_log: Arc<Mutex<HashMap<String, std::collections::VecDeque<RawLine>>>>,
 }
 
-/// Case-insensitive wildcard match (`*` = any run, `?` = any single character).
-/// shortcut: compiles the regex per call, fine for a short ignore list; cache it if lists grow.
-fn wildcard_match(pattern: &str, text: &str) -> bool {
-    let body = regex::escape(pattern).replace(r"\*", ".*").replace(r"\?", ".");
-    regex::Regex::new(&format!("(?is)^{body}$")).is_ok_and(|re| re.is_match(text))
+/// The raw IRC lines kept for a server (newest last).
+#[tauri::command]
+async fn get_raw_log(state: State<'_, IrcState>, server_id: String) -> Result<Vec<RawLine>, String> {
+    Ok(state
+        .raw_log
+        .lock()
+        .await
+        .get(&server_id)
+        .map(|queue| queue.iter().cloned().collect())
+        .unwrap_or_default())
 }
 
-/// Whether `nick!user@host` is covered by an ignore mask. A bare word is a nick; `user@host` and
-/// `@host` match any nick.
-fn ignore_matches(mask: &str, nick: &str, user: &str, host: &str) -> bool {
-    let mask = mask.trim();
-    if mask.is_empty() {
-        return false;
-    }
-    let full = if mask.contains('!') {
-        mask.to_string()
-    } else if mask.contains('@') {
-        // `@host` leaves the user part empty, which should mean "any user".
-        format!("*!{}", if mask.starts_with('@') { format!("*{mask}") } else { mask.to_string() })
-    } else {
-        format!("{mask}!*@*")
-    };
-    wildcard_match(&full, &format!("{nick}!{user}@{host}"))
+#[tauri::command]
+async fn clear_raw_log(state: State<'_, IrcState>, server_id: String) -> Result<(), String> {
+    state.raw_log.lock().await.remove(&server_id);
+    Ok(())
 }
 
 /// Luna-to-Luna emoji reaction carried in a CTCP: `\x01LUNAREACT <+|-><emoji> <author> <hash>\x01`.
@@ -826,6 +831,54 @@ struct IrcLunaCtcpEvent {
     /// True for a NOTICE (reply), false for a PRIVMSG (announcement or request).
     notice: bool,
     body: String,
+}
+
+/// Someone started or stopped typing (IRCv3 `+typing` client tag on a TAGMSG).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct IrcTypingEvent {
+    server_id: String,
+    /// Channel, or the peer's nick for private messages.
+    target: String,
+    sender: String,
+    /// `active`, `paused` or `done`.
+    state: String,
+}
+
+/// Tells a channel or user that we are typing (`@+typing=<state> TAGMSG <target>`). A server that does
+/// not relay client tags is skipped silently: there is nobody to show it to.
+#[tauri::command]
+async fn send_typing(
+    state: State<'_, IrcState>,
+    server_id: String,
+    target: String,
+    typing_state: String,
+) -> Result<(), String> {
+    if !matches!(typing_state.as_str(), "active" | "paused" | "done") || target.contains(char::is_whitespace) {
+        return Err("Invalid typing notification".to_string());
+    }
+    let supported = state.server_caps.lock().await.get(&server_id).is_some_and(|caps| {
+        caps.contains("message-tags") && !caps.contains(TYPING_TAG_DENIED)
+    });
+    if !supported {
+        return Ok(());
+    }
+    let senders = state.senders.lock().await;
+    let sender = senders
+        .get(&server_id)
+        .ok_or_else(|| format!("Not connected to server {server_id}"))?;
+    let typing_state_for_log = typing_state.clone();
+    let tagged = Message::with_tags(
+        Some(vec![Tag("+typing".to_string(), Some(typing_state))]),
+        None,
+        "TAGMSG",
+        vec![&target],
+    )
+    .map_err(|e| format!("Failed to build typing notification: {e}"))?;
+    let result = sender.send(tagged).map_err(|e| e.to_string());
+    drop(senders);
+    push_raw(&state.raw_log, &server_id, "tx", &format!("@+typing={} TAGMSG {}", typing_state_for_log, target)).await;
+    result
 }
 
 /// Parses the part after `LUNAREACT ` into (add, emoji, author, hash).
@@ -862,12 +915,23 @@ async fn send_ctcp(
         .get(&server_id)
         .ok_or_else(|| format!("Not connected to server {server_id}"))?;
     let text = format!("\u{1}{body}\u{1}");
+    let target_for_log = target.clone();
     let command = if notice.unwrap_or(false) {
         Command::NOTICE(target, text)
     } else {
         Command::PRIVMSG(target, text)
     };
-    sender.send(command).map_err(|e| e.to_string())
+    let result = sender.send(command).map_err(|e| e.to_string());
+    drop(senders);
+    push_raw(&state.raw_log, &server_id, "tx", &format!("CTCP {} {}", target_for_log, body)).await;
+    result
+}
+
+/// Sets the QUIT message used when disconnecting (kept short: IRC servers truncate long ones).
+#[tauri::command]
+async fn set_quit_message(state: State<'_, IrcState>, message: String) -> Result<(), String> {
+    *state.quit_message.lock().await = message.replace(['\r', '\n'], " ").chars().take(160).collect();
+    Ok(())
 }
 
 /// Replaces the list of ignored users; their messages are dropped before they are logged or shown.
@@ -914,7 +978,12 @@ fn log_path(app: &AppHandle, server_id: &str, target: &str) -> Result<(String, P
         .join("logs");
     let safe_server = safe_log_component(server_id);
     let safe_target = safe_log_component(target);
-    let key = format!("{server_id}\0{target}");
+    // Windows and macOS file systems ignore case, so `#Foo` and `#foo` must share one writer.
+    let key = if cfg!(any(windows, target_os = "macos")) {
+        format!("{server_id}\0{target}").to_lowercase()
+    } else {
+        format!("{server_id}\0{target}")
+    };
     Ok((
         key,
         root.join(safe_server).join(format!("{safe_target}.log")),
@@ -1207,6 +1276,31 @@ fn parse_log_line(line: &str) -> Option<LogEntry> {
     })
 }
 
+/// Stops appends to a log and waits for one in flight; the returned guard keeps new appends out
+/// until the caller has rewritten the file.
+async fn lock_log_for_rewrite<'a>(
+    state: &'a LogState,
+    key: &str,
+) -> tokio::sync::MutexGuard<'a, HashMap<String, Arc<Mutex<File>>>> {
+    let mut writers = state.writers.lock().await;
+    if let Some(writer) = writers.remove(key) {
+        // shortcut: an append that already cloned the handle may still land in the old file; rare, upgrade by moving to a single writer task.
+        drop(writer.lock().await);
+    }
+    writers
+}
+
+/// Replaces a log through a temporary file, so a crash or a full disk cannot leave it half written.
+async fn write_log_atomic(path: &std::path::Path, content: &str) -> Result<(), String> {
+    let tmp = path.with_extension("log.tmp");
+    fs::write(&tmp, content).await.map_err(|e| format!("Failed to write updated log file: {e}"))?;
+    if let Err(e) = fs::rename(&tmp, path).await {
+        let _ = fs::remove_file(&tmp).await;
+        return Err(format!("Failed to replace log file: {e}"));
+    }
+    Ok(())
+}
+
 async fn remove_last_log_line_internal(
     app: &AppHandle,
     state: &LogState,
@@ -1215,11 +1309,7 @@ async fn remove_last_log_line_internal(
     sender: &str,
 ) -> Result<bool, String> {
     let (key, path) = log_path(app, server_id, target)?;
-
-    {
-        let mut writers = state.writers.lock().await;
-        writers.remove(&key);
-    }
+    let _writers = lock_log_for_rewrite(state, &key).await;
 
     if !path.exists() {
         return Ok(false);
@@ -1253,10 +1343,7 @@ async fn remove_last_log_line_internal(
                 log::error!("Failed to remove empty log file {:?}: {}", path, e);
             }
         } else {
-            let new_content = lines.join("\n") + "\n";
-            if let Err(e) = fs::write(&path, new_content).await {
-                return Err(format!("Failed to write updated log file: {e}"));
-            }
+            write_log_atomic(&path, &(lines.join("\n") + "\n")).await?;
         }
         Ok(true)
     } else {
@@ -1293,16 +1380,11 @@ async fn rewrite_log_message(
     new_content: Option<&str>,
 ) -> Result<bool, String> {
     let (key, path) = log_path(app, server_id, target)?;
+    let _writers = lock_log_for_rewrite(state, &key).await;
     if !path.exists() {
         return Ok(false);
     }
     let needle = format!("\"m\":\"{}\"", msgid.replace('\\', "\\\\").replace('"', "\\\""));
-
-    // Drop the cached append handle so the next append reopens the rewritten file.
-    {
-        let mut writers = state.writers.lock().await;
-        writers.remove(&key);
-    }
 
     let content = fs::read_to_string(&path)
         .await
@@ -1333,9 +1415,7 @@ async fn rewrite_log_message(
     if lines.is_empty() {
         let _ = fs::remove_file(&path).await;
     } else {
-        fs::write(&path, lines.join("\n") + "\n")
-            .await
-            .map_err(|e| format!("Failed to write updated log file: {e}"))?;
+        write_log_atomic(&path, &(lines.join("\n") + "\n")).await?;
     }
     Ok(true)
 }
@@ -1371,6 +1451,11 @@ async fn apply_isupport(
         entry.insert(EDIT_TAG_DENIED.to_string());
     } else {
         entry.remove(EDIT_TAG_DENIED);
+    }
+    if client_tag_denied(&deny, "typing") {
+        entry.insert(TYPING_TAG_DENIED.to_string());
+    } else {
+        entry.remove(TYPING_TAG_DENIED);
     }
     let (edit, redact) = message_caps_for(Some(&*entry));
     drop(map);
@@ -2099,6 +2184,7 @@ async fn connect_irc(
     let nicknames_clone = state.nicknames.clone();
     let channel_members_clone = state.channel_members.clone();
     let recent_sent_clone = state.recent_sent_messages.clone();
+    let raw_log_clone = state.raw_log.clone();
     let ignore_list_clone = state.ignore_list.clone();
     let server_caps_clone = state.server_caps.clone();
     let app_clone = app.clone();
@@ -2147,6 +2233,7 @@ async fn connect_irc(
             match message_res {
                 Ok(message) => {
                     log::info!("IRC [{}] Received: {:?}", stream_server_id, message.command);
+                    push_raw(&raw_log_clone, &stream_server_id, "rx", &message.to_string()).await;
                     match message.command {
                         Command::CAP(_, ref subcmd, ref cap_name, ref extra) => {
                             let sub_str = format!("{:?}", subcmd);
@@ -2938,6 +3025,32 @@ async fn connect_irc(
                                 error: err_msg,
                             };
                             let _ = app_clone.emit("irc_mode_error", err_payload);
+                        }
+                        Command::Raw(ref cmd, ref args) if cmd == "TAGMSG" => {
+                            if let (Some(Prefix::Nickname(nick, user, host)), Some(target)) =
+                                (message.prefix.as_ref(), args.first())
+                            {
+                                let own = nicknames_clone.lock().await.get(&stream_server_id).cloned();
+                                let is_self = own.as_deref().is_some_and(|n| n.eq_ignore_ascii_case(nick));
+                                let ignored = ignore_list_clone
+                                    .lock()
+                                    .await
+                                    .iter()
+                                    .any(|mask| ignore_matches(mask, nick, user, host));
+                                if let (false, false, Some(typing)) =
+                                    (is_self, ignored, irc_tag_value(&message.tags, &["typing", "draft/typing"]))
+                                {
+                                    let _ = app_clone.emit(
+                                        "irc_typing",
+                                        IrcTypingEvent {
+                                            server_id: stream_server_id.clone(),
+                                            target: log_target_for(target, nick, false),
+                                            sender: nick.clone(),
+                                            state: typing,
+                                        },
+                                    );
+                                }
+                            }
                         }
                         Command::Raw(ref cmd, ref args) if cmd == "472" => {
                             let mode_flag = args.get(1).cloned().unwrap_or_default();
@@ -3977,6 +4090,7 @@ async fn send_message(
             );
             return Err(e.to_string());
         }
+        push_raw(&state.raw_log, &server_id, "tx", &format!("PRIVMSG {} :{}", channel, wire_message)).await;
         state.recent_sent_messages.lock().await.push(RecentSentMessage {
             server_id: server_id.clone(),
             target: channel.clone(),
@@ -4375,7 +4489,8 @@ async fn disconnect_irc(
 ) -> Result<(), String> {
     let mut senders = state.senders.lock().await;
     if let Some(sender) = senders.remove(&server_id) {
-        let _ = sender.send_quit("Client disconnected");
+        let message = state.quit_message.lock().await.clone();
+        let _ = sender.send_quit(if message.trim().is_empty() { "Client disconnected" } else { message.trim() });
     }
     state.nicknames.lock().await.remove(&server_id);
     state.server_caps.lock().await.remove(&server_id);
@@ -4412,34 +4527,84 @@ async fn refresh_channel_names(
     }
 }
 
+/// Largest image the proxy will download.
+const MAX_PROXY_IMAGE_BYTES: usize = 10 * 1024 * 1024;
+
+/// Loopback, private, link-local and unspecified addresses: chat links must not reach into the local network.
+fn is_local_ip(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(v4) => v4.is_loopback() || v4.is_private() || v4.is_link_local() || v4.is_unspecified(),
+        std::net::IpAddr::V6(v6) => {
+            v6.is_loopback()
+                || v6.is_unspecified()
+                || (v6.segments()[0] & 0xfe00) == 0xfc00
+                || (v6.segments()[0] & 0xffc0) == 0xfe80
+                || v6.to_ipv4_mapped().is_some_and(|v4| is_local_ip(std::net::IpAddr::V4(v4)))
+        }
+    }
+}
+
+/// Only public http(s) hosts: rejects other schemes, `localhost` and addresses that resolve to the local network.
+async fn check_public_http_url(url: &str) -> Result<reqwest::Url, String> {
+    let parsed = reqwest::Url::parse(url.trim()).map_err(|e| e.to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err("Only http and https images can be loaded".to_string());
+    }
+    let host = parsed.host_str().ok_or("Missing host")?.trim_matches(['[', ']']).to_string();
+    let port = parsed.port_or_known_default().unwrap_or(80);
+    let local_name = host.eq_ignore_ascii_case("localhost") || host.to_ascii_lowercase().ends_with(".localhost");
+    let addresses: Vec<std::net::SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
+        .await
+        .map_err(|e| e.to_string())?
+        .collect();
+    if local_name || addresses.is_empty() || addresses.iter().any(|addr| is_local_ip(addr.ip())) {
+        return Err("Refusing to load an image from a local address".to_string());
+    }
+    Ok(parsed)
+}
+
 /// Fetches a remote image URL via the Rust backend and returns it as a base64 data URL.
 /// This bypasses Cross-Origin-Resource-Policy (CORP) and Referer-based hotlink restrictions
-/// that block image loading in the Tauri WebView.
+/// that block image loading in the Tauri WebView. Only public hosts, at most 10 MB, 15 seconds.
+/// shortcut: the address is checked before the request, so a DNS answer that changes in between
+/// (rebinding) is not caught; redirects are re-checked, which covers the common case.
 #[tauri::command]
 async fn fetch_image_proxy(url: String) -> Result<String, String> {
     log::info!("fetch_image_proxy fetching: {}", url);
+    check_public_http_url(&url).await?;
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .timeout(std::time::Duration::from_secs(15))
+        .redirect(reqwest::redirect::Policy::none())
         .build()
-        .map_err(|e| {
-            log::error!("Proxy build error: {}", e);
-            e.to_string()
-        })?;
+        .map_err(|e| e.to_string())?;
 
-    let response = client
-        .get(&url)
-        .header("Referer", "https://boards.4chan.org/")
-        .send()
-        .await
-        .map_err(|e| {
-            log::error!("Proxy fetch error: {}", e);
-            e.to_string()
-        })?;
+    let mut target = url.trim().to_string();
+    let mut response = None;
+    for _ in 0..5 {
+        check_public_http_url(&target).await?;
+        let reply = client
+            .get(&target)
+            .header("Referer", "https://boards.4chan.org/")
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if reply.status().is_redirection() {
+            let next = reply
+                .headers()
+                .get(reqwest::header::LOCATION)
+                .and_then(|v| v.to_str().ok())
+                .ok_or("Redirect without a location")?;
+            target = reqwest::Url::parse(&target).and_then(|base| base.join(next)).map_err(|e| e.to_string())?.to_string();
+            continue;
+        }
+        response = Some(reply);
+        break;
+    }
+    let mut response = response.ok_or("Too many redirects")?;
 
     if !response.status().is_success() {
-        let status = response.status();
-        log::error!("Proxy bad status: {}", status);
-        return Err(format!("Bad HTTP status: {}", status));
+        return Err(format!("Bad HTTP status: {}", response.status()));
     }
 
     let content_type = response
@@ -4448,17 +4613,21 @@ async fn fetch_image_proxy(url: String) -> Result<String, String> {
         .and_then(|v| v.to_str().ok())
         .unwrap_or("image/jpeg")
         .to_string();
-
     if !content_type.starts_with("image/") {
-        log::error!("Proxy not an image, got: {}", content_type);
         return Err(format!("Not an image: {}", content_type));
     }
+    if response.content_length().is_some_and(|len| len > MAX_PROXY_IMAGE_BYTES as u64) {
+        return Err("Image is too large".to_string());
+    }
 
-    let bytes = response.bytes().await.map_err(|e| {
-        log::error!("Proxy bytes error: {}", e);
-        e.to_string()
-    })?;
-    
+    let mut bytes: Vec<u8> = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+        if bytes.len() + chunk.len() > MAX_PROXY_IMAGE_BYTES {
+            return Err("Image is too large".to_string());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+
     let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
     Ok(format!("data:{};base64,{}", content_type, encoded))
 }
@@ -4538,8 +4707,6 @@ async fn send_away(
 }
 
 /// Label of the native webview that shows a link inside the preview modal.
-mod ad_filter;
-
 const LINK_PREVIEW_LABEL: &str = "link-preview";
 
 /// Shows a chat link in a native child webview placed over the preview modal's content area.
@@ -5058,6 +5225,8 @@ pub fn run() {
             recent_sent_messages: Arc::new(Mutex::new(Vec::new())),
             server_caps: Arc::new(Mutex::new(HashMap::new())),
             ignore_list: Arc::new(Mutex::new(Vec::new())),
+            quit_message: Arc::new(Mutex::new(String::new())),
+            raw_log: Arc::new(Mutex::new(HashMap::new())),
         })
         .manage(LogState {
             writers: Arc::new(Mutex::new(HashMap::new())),
@@ -5073,7 +5242,11 @@ pub fn run() {
         .plugin(tauri_plugin_keep_alive::init())
         .invoke_handler(tauri::generate_handler![
             set_ignore_list,
+            set_quit_message,
+            get_raw_log,
+            clear_raw_log,
             send_ctcp,
+            send_typing,
             link_preview_open,
             link_preview_bounds,
             link_preview_close,
@@ -5363,27 +5536,6 @@ mod startup_command_tests {
 }
 
 #[cfg(test)]
-mod ignore_tests {
-    use super::*;
-
-    #[test]
-    fn bare_word_is_a_nick_mask() {
-        assert!(ignore_matches("Spammer", "spammer", "u", "h.example"));
-        assert!(!ignore_matches("Spammer", "spammer2", "u", "h.example"));
-        assert!(ignore_matches("spam*", "spammer2", "u", "h.example"));
-    }
-
-    #[test]
-    fn host_and_full_masks() {
-        assert!(ignore_matches("*@*.evil.net", "anyone", "me", "box.evil.net"));
-        assert!(ignore_matches("@box.evil.net", "anyone", "me", "box.evil.net"));
-        assert!(ignore_matches("bob!*@10.0.?.*", "Bob", "x", "10.0.3.7"));
-        assert!(!ignore_matches("bob!*@10.0.?.*", "Bob", "x", "10.1.3.7"));
-        assert!(!ignore_matches("", "bob", "x", "y"));
-    }
-}
-
-#[cfg(test)]
 mod reaction_tests {
     use super::*;
 
@@ -5405,5 +5557,29 @@ mod reaction_tests {
         assert_eq!(parse_reaction("+ Bob 1"), None);
         assert_eq!(parse_reaction("+👍 Bob"), None);
         assert_eq!(parse_reaction("+👍 Bob 1 extra"), None);
+    }
+}
+
+#[cfg(test)]
+mod image_proxy_tests {
+    use super::*;
+
+    #[test]
+    fn local_addresses_are_refused() {
+        for ip in ["127.0.0.1", "10.1.2.3", "192.168.0.5", "172.16.0.1", "169.254.1.1", "0.0.0.0", "::1", "fe80::1", "fd00::1", "::ffff:127.0.0.1"] {
+            assert!(is_local_ip(ip.parse().unwrap()), "{ip}");
+        }
+        for ip in ["8.8.8.8", "1.1.1.1", "2606:4700::1111"] {
+            assert!(!is_local_ip(ip.parse().unwrap()), "{ip}");
+        }
+    }
+
+    #[test]
+    fn rejects_other_schemes_and_localhost() {
+        tauri::async_runtime::block_on(async {
+            assert!(check_public_http_url("file:///etc/passwd").await.is_err());
+            assert!(check_public_http_url("http://localhost:8080/a.png").await.is_err());
+            assert!(check_public_http_url("http://127.0.0.1/a.png").await.is_err());
+        });
     }
 }
