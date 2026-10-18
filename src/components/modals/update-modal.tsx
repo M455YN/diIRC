@@ -111,8 +111,8 @@ export const UpdateModal = () => {
               <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
                 {t("update.whatsNew")}
               </label>
-              <div className="max-h-36 overflow-y-auto p-3 rounded-lg bg-zinc-50 dark:bg-[#1e1f22] border border-zinc-200 dark:border-zinc-800 text-xs font-mono text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">
-                {updateInfo.body}
+              <div className="max-h-36 overflow-y-auto p-3 rounded-lg bg-zinc-50 dark:bg-[#1e1f22] border border-zinc-200 dark:border-zinc-800 text-xs font-mono text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed">
+                {updateInfo.body.replace(/^\s*!\[[^\]]*\]\([^)]*\)\s*$/gm, "")}
               </div>
             </div>
           )}
