@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore, type AppLanguage } from "@/hooks/use-language-store";
+import { IosGlassSlider } from "@/components/mobile/ios-glass-slider";
+import { isIosLook } from "@/components/mobile/m3";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -404,6 +406,9 @@ const SettingsBody = ({ onClose }: { onClose: () => void }) => {
                 setPureBlack,
                 tr("mobile.pureBlackDesc"),
                 false
+              )}
+              {isIosLook() && (
+                <IosGlassSlider label={tr("mobile.glassTransparency")} clear={tr("mobile.glassClear")} tinted={tr("mobile.glassTinted")} />
               )}
             </Card>
 

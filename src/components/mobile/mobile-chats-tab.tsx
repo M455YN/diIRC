@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Hash, MoreHorizontal, Plus, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { UserAvatar } from "@/components/user-avatar";
@@ -46,6 +46,11 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
   const navigate = useNavigate();
   const { onOpen } = useModal();
   const [query, setQuery] = useState("");
+  useEffect(() => {
+    const on = (e: Event) => setQuery((e as CustomEvent<string>).detail);
+    window.addEventListener("ios-search", on);
+    return () => window.removeEventListener("ios-search", on);
+  }, []);
   const [filter, setFilter] = useState<FilterId>("all");
 
   const servers = useMockStore((s) => s.servers);
@@ -160,7 +165,7 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
           <button
             type="button"
             onClick={() => onOpen("settings")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-secondary-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-secondary-foreground ios-glass-btn"
             aria-label={tr("mi.menu")}
           >
             <MoreHorizontal className="h-5 w-5" />
@@ -172,7 +177,7 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
                 ? onOpen("createChannel", { server })
                 : onOpen("createServer")
             }
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-sm"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-sm ios-glass-btn ios-tint"
             aria-label={tr("mi.newChat")}
           >
             <Plus className="h-5 w-5 stroke-[2.5]" />
@@ -183,7 +188,7 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
           {tr("mi.chats")}
         </h1>
 
-        <label className="mb-3 flex h-11 items-center gap-2 rounded-full bg-secondary px-3.5">
+        <label className="mb-3 flex h-11 items-center gap-2 rounded-full bg-secondary px-3.5 ios-glass ios-hide-search">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input
             value={query}
@@ -238,7 +243,7 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
             key={row.key}
             type="button"
             onClick={() => navigate(row.href)}
-            className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left active:bg-accent/60"
+            className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left active:bg-accent/60 ios-row"
           >
             <div className="relative shrink-0">
               {row.kind === "dm" ? (

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { MoreHorizontal, Plus, Radio, Search, Unplug } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useModal } from "@/hooks/use-modal-store";
 import { getServerSelfMember, useMockStore } from "@/lib/mock-store";
@@ -23,6 +23,11 @@ export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabPro
   const { onOpen } = useModal();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  useEffect(() => {
+    const on = (e: Event) => setQuery((e as CustomEvent<string>).detail);
+    window.addEventListener("ios-search", on);
+    return () => window.removeEventListener("ios-search", on);
+  }, []);
 
   const handleOpen = (serverId: string) => {
     onSelectServer(serverId);
@@ -64,7 +69,7 @@ export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabPro
           <button
             type="button"
             onClick={() => onOpen("settings")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-secondary-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-secondary-foreground ios-glass-btn"
             aria-label={tr("mi.menu")}
           >
             <MoreHorizontal className="h-5 w-5" />
@@ -72,7 +77,7 @@ export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabPro
           <button
             type="button"
             onClick={() => onOpen("createServer")}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-sm"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-500 text-white shadow-sm ios-glass-btn ios-tint"
             aria-label={tr("mi.addServer")}
           >
             <Plus className="h-5 w-5 stroke-[2.5]" />
@@ -83,7 +88,7 @@ export const MobileServersTab = ({ onSelectServer, setTab }: MobileServersTabPro
           {tr("mi.servers")}
         </h1>
 
-        <label className="mb-2 flex h-11 items-center gap-2 rounded-full bg-secondary px-3.5">
+        <label className="mb-2 flex h-11 items-center gap-2 rounded-full bg-secondary px-3.5 ios-glass ios-hide-search">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input
             value={query}

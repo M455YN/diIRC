@@ -12,6 +12,7 @@ import ButtonBase from "@mui/material/ButtonBase";
 import { alpha } from "@mui/material/styles";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckIcon from "@mui/icons-material/Check";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -105,6 +106,58 @@ const OLED: M3Tokens = {
   outlineVariant: "#36343B",
 };
 
+/** iOS system colors (grouped backgrounds, system blue) so the shared primitives read as native iOS. */
+const IOS_DARK: M3Tokens = {
+  primary: "#0A84FF",
+  onPrimary: "#FFFFFF",
+  primaryContainer: "#0A3A6E",
+  onPrimaryContainer: "#FFFFFF",
+  secondaryContainer: "rgba(120,120,128,0.36)",
+  onSecondaryContainer: "#FFFFFF",
+  surface: "#000000",
+  surfaceContainerLow: "#1C1C1E",
+  surfaceContainer: "#1C1C1E",
+  surfaceContainerHigh: "#2C2C2E",
+  surfaceContainerHighest: "#3A3A3C",
+  onSurface: "#FFFFFF",
+  onSurfaceVariant: "rgba(235,235,245,0.6)",
+  outline: "rgba(235,235,245,0.3)",
+  outlineVariant: "rgba(84,84,88,0.65)",
+  error: "#FF453A",
+  onError: "#FFFFFF",
+  errorContainer: "#5A1B17",
+  onErrorContainer: "#FF9F99",
+  successContainer: "#14411F",
+  onSuccessContainer: "#30D158",
+};
+
+const IOS_LIGHT: M3Tokens = {
+  ...IOS_DARK,
+  primary: "#007AFF",
+  primaryContainer: "#D6E8FF",
+  onPrimaryContainer: "#003A75",
+  secondaryContainer: "rgba(120,120,128,0.16)",
+  onSecondaryContainer: "#000000",
+  surface: "#F2F2F7",
+  surfaceContainerLow: "#FFFFFF",
+  surfaceContainer: "#FFFFFF",
+  surfaceContainerHigh: "#FFFFFF",
+  surfaceContainerHighest: "#E5E5EA",
+  onSurface: "#000000",
+  onSurfaceVariant: "rgba(60,60,67,0.6)",
+  outline: "rgba(60,60,67,0.3)",
+  outlineVariant: "rgba(60,60,67,0.2)",
+  error: "#FF3B30",
+  errorContainer: "#FFE3E1",
+  onErrorContainer: "#8A1710",
+  successContainer: "#D4F5DD",
+  onSuccessContainer: "#1B7F3A",
+};
+
+/** True in the iOS (Safari / home-screen) web build, where the iOS look replaces Material. */
+export const isIosLook = () =>
+  typeof document !== "undefined" && document.documentElement.dataset.mobileOs === "ios";
+
 export type M3Mode = "light" | "dark" | "oled";
 
 function readMode(): M3Mode {
@@ -134,7 +187,8 @@ const M3Context = createContext<M3Tokens>(LIGHT);
 
 export const M3Provider = ({ children }: { children: ReactNode }) => {
   const mode = useM3Mode();
-  return <M3Context.Provider value={SCHEMES[mode]}>{children}</M3Context.Provider>;
+  const scheme = isIosLook() ? (mode === "light" ? IOS_LIGHT : IOS_DARK) : SCHEMES[mode];
+  return <M3Context.Provider value={scheme}>{children}</M3Context.Provider>;
 };
 
 export const useM3 = () => useContext(M3Context);
@@ -158,6 +212,49 @@ export const M3Switch = ({
 }) => {
   const t = useM3();
   const [pressed, setPressed] = useState(false);
+  if (isIosLook()) {
+    return (
+      <Box
+        component="button"
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          onChange(!checked);
+        }}
+        sx={{
+          position: "relative",
+          flexShrink: 0,
+          width: 64,
+          height: 30,
+          p: 0,
+          border: "none",
+          borderRadius: "15px",
+          bgcolor: checked ? "#34C759" : t.surfaceContainerHighest,
+          opacity: disabled ? 0.4 : 1,
+          cursor: "pointer",
+          transition: "background-color 250ms",
+          WebkitTapHighlightColor: "transparent",
+          "&::after": {
+            content: '""',
+            position: "absolute",
+            top: 2,
+            left: 2,
+            width: 40,
+            height: 26,
+            borderRadius: "13px",
+            bgcolor: "#FFFFFF",
+            boxShadow: "0 3px 8px rgba(0,0,0,0.15), 0 1px 1px rgba(0,0,0,0.16)",
+            transform: checked ? "translateX(22px)" : "none",
+            transition: "transform 300ms cubic-bezier(0.34, 1.4, 0.64, 1)",
+          },
+        }}
+      />
+    );
+  }
   const thumb = pressed ? 28 : checked ? 24 : 16;
   const inset = (28 - thumb) / 2;
   const left = checked ? 48 - thumb - inset : inset;
@@ -262,19 +359,21 @@ export const M3Button = ({
   };
   const s = styles[variant];
   const px = variant === "text" ? (icon ? 1.5 : 1.5) : icon ? 2 : 3;
+  const ios = isIosLook();
 
   return (
     <ButtonBase
       type={type}
       onClick={onClick}
       disabled={disabled}
+      className={ios && (variant === "tonal" || variant === "outlined") && !danger ? "ios-glass" : undefined}
       sx={{
-        height: 40,
+        height: ios ? 50 : 40,
         minWidth: 48,
         width: fullWidth ? "100%" : "auto",
         px,
         gap: 1,
-        borderRadius: "20px",
+        borderRadius: ios ? "999px" : "20px",
         bgcolor: disabled
           ? variant === "filled" || variant === "tonal"
             ? alpha(t.onSurface, 0.12)
@@ -283,9 +382,9 @@ export const M3Button = ({
         color: disabled ? alpha(t.onSurface, 0.38) : s.fg,
         border: s.border ? `1px solid ${disabled ? alpha(t.onSurface, 0.12) : s.border}` : "none",
         fontFamily: "Roboto, system-ui, sans-serif",
-        fontSize: "0.875rem",
-        fontWeight: 500,
-        letterSpacing: "0.1px",
+        fontSize: ios ? "1.0625rem" : "0.875rem",
+        fontWeight: ios ? 600 : 500,
+        letterSpacing: ios ? 0 : "0.1px",
         lineHeight: "20px",
         overflow: "hidden",
         position: "relative",
@@ -456,6 +555,7 @@ export const M3Dialog = ({
 }) => {
   const t = useM3();
   if (!open) return null;
+  const ios = isIosLook();
 
   return (
     <Box
@@ -465,7 +565,7 @@ export const M3Dialog = ({
         position: "fixed",
         inset: 0,
         zIndex: 20,
-        bgcolor: "rgba(0,0,0,0.32)",
+        bgcolor: ios ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.32)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -482,12 +582,13 @@ export const M3Dialog = ({
         sx={{
           width: "100%",
           minWidth: 280,
-          maxWidth: 560,
+          maxWidth: ios ? 320 : 560,
           maxHeight: "80dvh",
           display: "flex",
           flexDirection: "column",
-          borderRadius: "28px",
-          bgcolor: t.surfaceContainerHigh,
+          borderRadius: ios ? "34px" : "28px",
+          bgcolor: ios ? undefined : t.surfaceContainerHigh,
+          ...(ios && { background: "var(--g-fill)", backdropFilter: "blur(18px) saturate(180%)", WebkitBackdropFilter: "blur(18px) saturate(180%)", border: "0.5px solid var(--g-rim)", boxShadow: "var(--g-shadow)" }),
           color: t.onSurface,
           fontFamily: "Roboto, system-ui, sans-serif",
           animation: `m3-dialog-in 250ms ${EASE}`,
@@ -498,7 +599,16 @@ export const M3Dialog = ({
         }}
       >
         <Box sx={{ px: 3, pt: 3, pb: 2 }}>
-          <Box sx={{ fontSize: "1.5rem", lineHeight: "32px", fontWeight: 400 }}>{title}</Box>
+          <Box
+            sx={{
+              fontSize: ios ? "1.0625rem" : "1.5rem",
+              lineHeight: ios ? "22px" : "32px",
+              fontWeight: ios ? 600 : 400,
+              textAlign: ios ? "center" : "left",
+            }}
+          >
+            {title}
+          </Box>
           {supportingText && (
             <Box sx={{ mt: 2, fontSize: "0.875rem", lineHeight: "20px", color: t.onSurfaceVariant }}>
               {supportingText}
@@ -517,7 +627,7 @@ export const M3Dialog = ({
             {children}
           </Box>
         )}
-        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, px: 3, pt: 2.5, pb: 3 }}>
+        <Box sx={{ display: "flex", justifyContent: ios ? "center" : "flex-end", flexWrap: "wrap", gap: 1, px: 3, pt: 2.5, pb: 3 }}>
           {actions}
         </Box>
       </Box>
@@ -860,7 +970,7 @@ export const M3Card = ({
   return (
     <Box
       sx={{
-        borderRadius: "16px",
+        borderRadius: isIosLook() ? "26px" : "16px",
         overflow: "hidden",
         bgcolor:
           variant === "filled"
@@ -952,6 +1062,22 @@ const FullScreenBody = ({
   const { t: tr } = useTranslation();
   const t = useM3();
   const [scrolled, setScrolled] = useState(false);
+  const ios = isIosLook();
+
+  const titleEl = (
+    <DialogTitle asChild>
+      <Box
+        component="h2"
+        sx={
+          ios
+            ? { m: 0, px: 0.5, pt: 1, pb: 2, fontSize: "2.125rem", fontWeight: 700, lineHeight: "41px", letterSpacing: "0.4px" }
+            : { m: 0, flex: 1, minWidth: 0, fontSize: "1.375rem", fontWeight: 400, lineHeight: "28px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
+        }
+      >
+        {title}
+      </Box>
+    </DialogTitle>
+  );
 
   return (
     <Box
@@ -972,37 +1098,32 @@ const FullScreenBody = ({
           display: "flex",
           alignItems: "center",
           gap: 0.5,
-          height: 64,
+          height: ios ? 60 : 64,
           px: 0.5,
           flexShrink: 0,
-          bgcolor: scrolled ? t.surfaceContainer : t.surface,
+          bgcolor: ios ? t.surface : scrolled ? t.surfaceContainer : t.surface,
           transition: `background-color 200ms ${EASE}`,
         }}
       >
-        <M3IconButton
-          icon={leading === "close" ? <CloseIcon /> : <ArrowBackIcon />}
-          label={leading === "close" ? tr("m3.close") : tr("m3.back")}
-          onClick={back}
-          color={t.onSurface}
-        />
-        <DialogTitle asChild>
-          <Box
-            component="h2"
-            sx={{
-              m: 0,
-              flex: 1,
-              minWidth: 0,
-              fontSize: "1.375rem",
-              fontWeight: 400,
-              lineHeight: "28px",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
+        {ios ? (
+          <ButtonBase
+            className="ios-glass"
+            onClick={back}
+            aria-label={leading === "close" ? tr("m3.close") : tr("m3.back")}
+            style={{ width: 44, height: 44, marginLeft: 8 }}
+            sx={{ borderRadius: "50%", color: t.onSurface }}
           >
-            {title}
-          </Box>
-        </DialogTitle>
+            {leading === "close" ? <CloseIcon /> : <ArrowBackIcon />}
+          </ButtonBase>
+        ) : (
+          <M3IconButton
+            icon={leading === "close" ? <CloseIcon /> : <ArrowBackIcon />}
+            label={leading === "close" ? tr("m3.close") : tr("m3.back")}
+            onClick={back}
+            color={t.onSurface}
+          />
+        )}
+        {ios ? <Box sx={{ flex: 1 }} /> : titleEl}
         {headerActions}
         {action && (
           <Box sx={{ pr: 1 }}>
@@ -1016,6 +1137,7 @@ const FullScreenBody = ({
         onScroll={(e) => setScrolled((e.currentTarget as HTMLDivElement).scrollTop > 4)}
         sx={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", px: 2, pb: 4 }}
       >
+        {ios && titleEl}
         {children}
       </Box>
     </Box>
@@ -1069,7 +1191,15 @@ export const M3SelectItem = ({
 }) => (
   <M3ListItem
     headline={title}
-    supporting={options.find((o) => o.value === value)?.label ?? value}
+    supporting={isIosLook() ? undefined : (options.find((o) => o.value === value)?.label ?? value)}
+    trailing={
+      isIosLook() ? (
+        <Box component="span" sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "text.secondary", fontSize: "1.0625rem" }}>
+          {options.find((o) => o.value === value)?.label ?? value}
+          <ChevronRightIcon sx={{ fontSize: 20, opacity: 0.6 }} />
+        </Box>
+      ) : undefined
+    }
     divider={divider}
     onClick={() => openPicker({ title, options, value, onConfirm: onChange })}
   />
@@ -1106,7 +1236,7 @@ export const M3SwitchItem = ({
 export const M3ListGroup = ({ children }: { children: ReactNode }) => {
   const t = useM3();
   return (
-    <Box sx={{ bgcolor: t.surfaceContainer, borderRadius: "24px", overflow: "hidden", mb: 2 }}>
+    <Box sx={{ bgcolor: t.surfaceContainer, borderRadius: isIosLook() ? "26px" : "24px", overflow: "hidden", mb: 2 }}>
       {children}
     </Box>
   );
@@ -1134,15 +1264,26 @@ export const M3ListItem = ({
   const t = useM3();
   const content = (
     <>
-      {leading && (
-        <Box sx={{ display: "flex", color: t.onSurfaceVariant, flexShrink: 0 }}>{leading}</Box>
-      )}
+      {leading &&
+        (isIosLook() ? (
+          <Box
+            sx={{
+              width: 30, height: 30, borderRadius: "8px", bgcolor: "#8E8E93", color: "#fff", flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              "& .MuiSvgIcon-root": { fontSize: 19 },
+            }}
+          >
+            {leading}
+          </Box>
+        ) : (
+          <Box sx={{ display: "flex", color: t.onSurfaceVariant, flexShrink: 0 }}>{leading}</Box>
+        ))}
       <Box sx={{ flex: 1, minWidth: 0, textAlign: "left" }}>
         <Box
           sx={{
-            fontSize: "1rem",
+            fontSize: isIosLook() ? "1.0625rem" : "1rem",
             lineHeight: "24px",
-            letterSpacing: "0.5px",
+            letterSpacing: isIosLook() ? "-0.43px" : "0.5px",
             color: t.onSurface,
           }}
         >
@@ -1151,9 +1292,9 @@ export const M3ListItem = ({
         {supporting && (
           <Box
             sx={{
-              fontSize: "0.875rem",
+              fontSize: isIosLook() ? "0.9375rem" : "0.875rem",
               lineHeight: "20px",
-              letterSpacing: "0.25px",
+              letterSpacing: isIosLook() ? "-0.23px" : "0.25px",
               color: t.onSurfaceVariant,
             }}
           >
@@ -1161,7 +1302,11 @@ export const M3ListItem = ({
           </Box>
         )}
       </Box>
-      {trailing && <Box sx={{ flexShrink: 0, display: "flex" }}>{trailing}</Box>}
+      {(trailing || (isIosLook() && onClick)) && (
+        <Box sx={{ flexShrink: 0, display: "flex" }}>
+          {trailing ?? <ChevronRightIcon sx={{ fontSize: 22, opacity: 0.4 }} />}
+        </Box>
+      )}
     </>
   );
 
@@ -1174,7 +1319,16 @@ export const M3ListItem = ({
     px: 2.5,
     py: 1,
     fontFamily: "Roboto, system-ui, sans-serif",
-    borderBottom: divider ? `1px solid ${alpha(t.outlineVariant, 0.6)}` : "none",
+    borderBottom: divider && !isIosLook() ? `1px solid ${alpha(t.outlineVariant, 0.6)}` : "none",
+    ...(isIosLook() && {
+      position: "relative",
+      minHeight: supporting ? 68 : 52,
+      px: 2,
+      gap: 1.5,
+      "&::after": divider
+        ? { content: '""', position: "absolute", left: leading ? 62 : 16, right: 0, bottom: 0, height: "0.5px", bgcolor: t.outlineVariant }
+        : undefined,
+    }),
   } as const;
 
   if (!onClick) return <Box sx={sx}>{content}</Box>;
@@ -1190,13 +1344,13 @@ export const M3Subheader = ({ children }: { children: ReactNode }) => {
   return (
     <Box
       sx={{
-        px: 2.5,
+        px: isIosLook() ? 2 : 2.5,
         pt: 2,
         pb: 1,
-        fontSize: "0.875rem",
-        fontWeight: 500,
-        letterSpacing: "0.1px",
-        color: t.primary,
+        fontSize: isIosLook() ? "0.8125rem" : "0.875rem",
+        fontWeight: isIosLook() ? 400 : 500,
+        letterSpacing: isIosLook() ? 0 : "0.1px",
+        color: isIosLook() ? t.onSurfaceVariant : t.primary,
         fontFamily: "Roboto, system-ui, sans-serif",
       }}
     >

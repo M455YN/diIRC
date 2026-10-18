@@ -1727,7 +1727,7 @@ export const ChatInput = ({
                 <div
                   className={cn(
                     isMobile
-                      ? "relative border-t border-border/40 bg-secondary/55 px-2 pb-2 pt-2 backdrop-blur-2xl backdrop-saturate-150 dark:bg-secondary/40"
+                      ? "ios-input-bar relative border-t border-border/40 bg-secondary/55 px-2 pb-2 pt-2 backdrop-blur-2xl backdrop-saturate-150 dark:bg-secondary/40"
                       : "relative p-4 pb-6"
                   )}
                 >
@@ -1979,7 +1979,7 @@ export const ChatInput = ({
                     className={cn(
                       "relative flex flex-col overflow-hidden",
                       isMobile
-                        ? "min-w-0 flex-1 rounded-full border border-border/50 bg-background shadow-sm"
+                        ? "ios-glass min-w-0 flex-1 rounded-full border border-border/50 bg-background shadow-sm"
                         : "rounded-lg bg-zinc-200/90 dark:bg-zinc-700/75"
                     )}
                   >

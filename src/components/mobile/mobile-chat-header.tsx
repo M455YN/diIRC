@@ -30,7 +30,7 @@ export const MobileChatHeader = ({
   return (
     <div
       className={cn(
-        "mobile-safe-top z-20 shrink-0",
+        "mobile-safe-top z-20 shrink-0 ios-glass-bar",
         "border-b border-border/40",
         "bg-secondary/55 dark:bg-secondary/40",
         "backdrop-blur-2xl backdrop-saturate-150"
@@ -40,7 +40,7 @@ export const MobileChatHeader = ({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-10 w-9 shrink-0 items-center justify-center text-blue-500 active:opacity-60"
+          className="flex h-10 w-9 shrink-0 items-center justify-center text-blue-500 active:opacity-60 ios-glass-btn"
           aria-label={tr("mobile.back")}
         >
           <ChevronLeft className="h-7 w-7 stroke-[2]" />
@@ -69,11 +69,12 @@ export const MobileChatHeader = ({
           </div>
         </div>
 
+        <div className="ios-group ios-glass">
         {onSearch && (
           <button
             type="button"
             onClick={onSearch}
-            className="flex h-10 w-10 shrink-0 items-center justify-center text-blue-500 active:opacity-60"
+            className="flex h-10 w-10 shrink-0 items-center justify-center text-blue-500 active:opacity-60 ios-glass-btn"
             aria-label={tr("mi.search")}
           >
             <Search className="h-[18px] w-[18px]" />
@@ -85,7 +86,7 @@ export const MobileChatHeader = ({
             type="button"
             onClick={onMembers}
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center active:opacity-60",
+              "flex h-10 w-10 shrink-0 items-center justify-center active:opacity-60 ios-glass-btn",
               showMembers ? "text-blue-600" : "text-blue-500"
             )}
             aria-label={type === "channel" ? tr("srv.members") : tr("nav.more")}
@@ -97,6 +98,7 @@ export const MobileChatHeader = ({
             )}
           </button>
         )}
+        </div>
       </div>
     </div>
   );

@@ -65,7 +65,7 @@ const MoreBody = () => {
         ))}
       </Box>
 
-      <Box sx={{ flex: 1, overflowY: "auto", px: 2, pb: 4 }}>
+      <Box sx={{ flex: 1, overflowY: "auto", px: 2, pb: 14 }}>
         <M3ListGroup>
           <M3ListItem
             leading={<SettingsOutlinedIcon />}

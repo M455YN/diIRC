@@ -11,6 +11,7 @@ import {
 import { MobileChatsTab } from "@/components/mobile/mobile-chats-tab";
 import { MobileMoreTab } from "@/components/mobile/mobile-more-tab";
 import { MobileServersTab } from "@/components/mobile/mobile-servers-tab";
+import { useMobileOs } from "@/hooks/use-mobile-platform";
 import { useMockStore } from "@/lib/mock-store";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ export const MobileShellLayout = () => {
   const navigate = useNavigate();
   const servers = useMockStore((state) => state.servers);
   const keyboardOpen = useKeyboardOpen();
+  const ios = useMobileOs() === "ios";
 
   const [tab, setTab] = useState<MobileTab>("chats");
   const inChat = isChatRoute(location.pathname);
@@ -108,7 +110,7 @@ export const MobileShellLayout = () => {
       <div
         className={cn(
           "h-full min-h-0 overflow-hidden",
-          barVisible && "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
+          barVisible && !ios && "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
         )}
       >
         <div className={cn("h-full", tab !== "servers" && "hidden")}>

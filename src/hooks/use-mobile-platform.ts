@@ -30,10 +30,31 @@ function detectMobileShell(): boolean {
   return narrow && coarse;
 }
 
+const GLASS_KEY = "luna.glass";
+
+export function readGlassScale(): number {
+  try {
+    const n = Number(localStorage.getItem(GLASS_KEY));
+    return n >= 0.2 && n <= 1.4 ? n : 1;
+  } catch {
+    return 1;
+  }
+}
+
+export function applyGlassScale(n: number) {
+  document.documentElement.style.setProperty("--g-scale", String(n));
+  try {
+    localStorage.setItem(GLASS_KEY, String(n));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 function applyDomFlags(isMobile: boolean, os: MobileOs | null) {
   document.documentElement.classList.toggle("mobile-shell", isMobile);
   if (isMobile) {
     document.documentElement.dataset.mobileOs = os ?? "android";
+    if (os === "ios") document.documentElement.style.setProperty("--g-scale", String(readGlassScale()));
   } else {
     delete document.documentElement.dataset.mobileOs;
   }
