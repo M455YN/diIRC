@@ -61,3 +61,5 @@ src-tauri/plugins/mobile-chrome/node_modules/
 # Local mobile build artifacts
 *.apk
 build-apk.log
+/dist-web
+web-bridge/node_modules
