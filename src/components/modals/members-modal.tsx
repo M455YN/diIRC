@@ -74,7 +74,7 @@ export const MembersModal = () => {
               <div key={member.id} className="flex items-center gap-x-2 mb-6">
                 <UserHoverCard member={member} server={server} side="right">
                   <div className="flex items-center gap-x-2 cursor-pointer">
-                    <UserAvatar src={member.profile.imageUrl} name={displayName} />
+                    <UserAvatar src={member.profile.imageUrl} name={displayName} serverId={server?.id} nick={member.profile.name} />
                     <div className="flex flex-col gap-y-0.5">
                       <div className="text-xs font-semibold flex items-center gap-x-1 hover:underline">
                         {displayName}

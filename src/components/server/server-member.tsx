@@ -35,6 +35,8 @@ export const ServerMember = ({
       <UserAvatar 
         src={member.profile.imageUrl}
         name={displayName}
+        serverId={server.id}
+        nick={member.profile.name}
         className="h-8 w-8 md:h-8 md:w-8"
       />
       <p

@@ -70,6 +70,8 @@ const MemberItem = ({
             <UserAvatar
               src={row.member.profile.imageUrl}
               name={row.displayName}
+              serverId={row.member.serverId}
+              nick={row.member.profile.name}
               className="h-10 w-10 md:h-10 md:w-10"
             />
             {row.isAway && (

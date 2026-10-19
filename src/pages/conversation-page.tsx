@@ -107,6 +107,8 @@ export const ConversationPage = () => {
           name={displayName}
           type="conversation"
           imageUrl={targetMember.profile.imageUrl}
+          serverId={server.id}
+          nick={targetNick}
           online={!isAway}
           statusLabel={isAway ? i18n.t("mi.away") : i18n.t("mi.online")}
           onBack={() => navigate(`/servers/${server.id}`)}

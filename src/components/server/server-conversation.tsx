@@ -99,6 +99,8 @@ export const ServerConversation = ({
           <UserAvatar
             src={member.profile.imageUrl}
             name={displayName}
+            serverId={server.id}
+            nick={member.profile.name}
             className={cn(
               "h-7 w-7 md:h-7 md:w-7 transition",
               isUnread && "ring-2 ring-rose-500 ring-offset-1 ring-offset-background"

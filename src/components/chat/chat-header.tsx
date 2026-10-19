@@ -98,6 +98,8 @@ export const ChatHeader = ({
         <UserAvatar 
           src={imageUrl}
           name={name}
+          serverId={serverId}
+          nick={targetMember?.profile.name}
           className="h-8 w-8 md:h-8 md:w-8 shrink-0"
         />
         <p className="font-semibold text-md text-black dark:text-white shrink-0 hover:underline">

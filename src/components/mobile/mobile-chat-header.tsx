@@ -7,6 +7,9 @@ interface MobileChatHeaderProps {
   name: string;
   type: "channel" | "conversation";
   imageUrl?: string;
+  /** With `nick`, shows the Luna avatar of the conversation partner. */
+  serverId?: string;
+  nick?: string;
   statusLabel?: string;
   online?: boolean;
   onBack: () => void;
@@ -19,6 +22,8 @@ export const MobileChatHeader = ({
   name,
   type,
   imageUrl,
+  serverId,
+  nick,
   statusLabel,
   online,
   onBack,
@@ -52,7 +57,7 @@ export const MobileChatHeader = ({
               <Hash className="h-4 w-4" />
             </div>
           ) : (
-            <UserAvatar src={imageUrl} name={name} className="h-9 w-9 shrink-0" />
+            <UserAvatar src={imageUrl} name={name} serverId={serverId} nick={nick} className="h-9 w-9 shrink-0" />
           )}
           <div className="min-w-0">
             <p className="truncate text-[16px] font-medium leading-tight text-foreground">

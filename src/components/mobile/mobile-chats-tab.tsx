@@ -19,6 +19,8 @@ type ChatRow = {
   timeLabel: string;
   unread: number;
   imageUrl?: string | null;
+  avatarNick?: string;
+  avatarServerId?: string;
   online?: boolean;
 };
 
@@ -114,6 +116,8 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
         timeLabel: formatTime(last?.createdAt),
         unread,
         imageUrl: member.profile.imageUrl,
+        avatarNick: member.profile.name,
+        avatarServerId: server.id,
         online: !isAway,
       });
     }
@@ -245,6 +249,8 @@ export const MobileChatsTab = ({ serverId }: MobileChatsTabProps) => {
                 <UserAvatar
                   src={row.imageUrl || undefined}
                   name={row.title}
+                  serverId={row.avatarServerId}
+                  nick={row.avatarNick}
                   className="h-12 w-12"
                 />
               ) : (
