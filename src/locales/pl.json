@@ -804,6 +804,29 @@
     "removeVoice": "Odbierz voice (-v)",
     "giveVoice": "Nadaj voice (+v)"
   },
+  "luna": {
+    "title": "Funkcje Luna",
+    "desc": "Wszystko, co klienty Luna robią między sobą. Nic z tego nie pojawia się na kanale ani nie dociera do innych klientów IRC.",
+    "tabs": {
+      "settings": "Ustawienia",
+      "peers": "Wykryte Luny",
+      "log": "Log"
+    },
+    "handshakeDesc": "Daje znać innym Lunom, że używasz Luny (ukryty tag klienta, nie wiadomość na czacie) i zapamiętuje, kto odpowie. Avatary i reakcje trafiają tylko do Lun, które się przywitały. Pokazuje „Luna <wersja>” na karcie użytkownika. Wyłącz, żeby pozostać niewidocznym; funkcje tylko dla Luny przestaną wtedy działać.",
+    "avatarsDesc": "Pokazuje małe avatary użytkowników Luny i udostępnia twój. Obrazy mają 32x32 (animowane GIF-y zostają animowane), idą w krótkich prywatnych wiadomościach i są zapisane tylko u każdego klienta. Włącz je też dla serwera poniżej.",
+    "servers": "Avatary na serwerach",
+    "needsHandshake": "Włącz powyżej handshake, inaczej nikt nie dowie się, kto jest Luną.",
+    "noServers": "Brak serwerów.",
+    "serverAvatarsDesc": "Pokazuj avatary Lun na tym serwerze i udostępniaj swój.",
+    "peersDesc": "Użytkownicy, którzy w tej sesji wysłali powitanie Luny. Tylko do nich wysyłane są wiadomości Luny.",
+    "noPeers": "Nie widziano jeszcze innej Luny. Pojawią się, gdy ktoś z Luną wejdzie albo napisze na kanale, w którym jesteś.",
+    "feature": {
+      "react": "reakcje",
+      "avatar": "avatary"
+    },
+    "logEmpty": "Na razie nic. Tu pojawią się powitania, transfery avatarów i reakcje.",
+    "logNote": "Wysłane (>>) i odebrane (<<) w tej sesji. Długie linie są ucięte na ekranie, Kopiuj zachowuje je w całości."
+  },
   "rawLog": {
     "menu": "Surowy ruch IRC",
     "title": "Surowy ruch IRC",
@@ -871,6 +894,7 @@
   },
   "nav": {
     "addServer": "Dodaj serwer",
+    "luna": "Funkcje Luna",
     "roleIcons": "Ikony ról",
     "settings": "Ustawienia",
     "servers": "Serwery",
@@ -962,6 +986,8 @@
     "fallbackNick": "Zapasowy nick"
   },
   "mi": {
+    "luna": "Funkcje Luna",
+    "lunaDesc": "Handshake, avatary i log tego, co Luny wysyłają między sobą",
     "installed": "Zainstalowana v{{version}}",
     "usersIn": "Użytkownicy w #{{channel}}",
     "notificationsHeading": "Powiadomienia",

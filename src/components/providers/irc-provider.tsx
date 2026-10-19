@@ -11,6 +11,7 @@ import { useReactionStore } from "@/hooks/use-reaction-store";
 import { reactionChatKey } from "@/lib/reactions";
 import { handleAvatarEvent, noteSpeaker } from "@/lib/avatars";
 import { announceHello, handleHelloEvent } from "@/lib/luna-peers";
+import { logLuna } from "@/hooks/use-luna-log-store";
 import { openIrcUrl } from "@/lib/irc-url";
 import { typingChatKey, useTypingStore } from "@/hooks/use-typing-store";
 import { useMessageCapsStore } from "@/hooks/use-message-caps";
@@ -972,6 +973,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
       "irc_reaction",
       (event) => {
         const { serverId, target, sender, author, hash, emoji, add } = event.payload;
+        logLuna(serverId, "rx", `CTCP ${sender} LUNAREACT ${add ? "+" : "-"}${emoji} ${author} ${hash} ${target}`);
         useReactionStore
           .getState()
           .apply(reactionChatKey(serverId, target), `${author.toLowerCase()}|${hash}`, emoji, sender, add);

@@ -3,6 +3,7 @@ import { getCurrentAppVersion } from "@/lib/changelog-service";
 import { getServerActiveNick, useMockStore } from "@/lib/mock-store";
 import { avatarKey, checkAvatar, isAvatarsEnabled } from "@/lib/avatars";
 import { sendLunaCtcp } from "@/lib/luna-ctcp";
+import { logLuna } from "@/hooks/use-luna-log-store";
 import { useLunaPeerStore, type LunaPeer } from "@/hooks/use-luna-peer-store";
 
 /*
@@ -58,9 +59,11 @@ export async function announceHello(serverId: string, channel: string) {
   const { version, features } = helloParts(serverId);
   try {
     // false = the server cannot relay the tag; then nothing is sent (see the note at the top).
-    await invoke<boolean>("send_luna_hello", { serverId, target: channel, value: `${version}:${features}` });
+    const sent = await invoke<boolean>("send_luna_hello", { serverId, target: channel, value: `${version}:${features}` });
+    logLuna(serverId, "tx", sent ? `TAG ${channel} +lunairc/hello=${version}:${features}` : `TAG ${channel} hello not sent: the server does not relay client tags`);
   } catch (error) {
     console.warn("Luna hello failed:", error);
+    logLuna(serverId, "tx", `TAG ${channel} hello failed: ${String(error)}`);
   }
 }
 
@@ -90,7 +93,8 @@ interface HelloEvent {
   body: string;
 }
 
-export function handleHelloEvent({ serverId, sender, body }: HelloEvent) {
+export function handleHelloEvent({ serverId, sender, target, body }: HelloEvent) {
+  logLuna(serverId, "rx", `${isChannelName(target) ? `TAG ${target}` : "CTCP"} ${sender} LUNA HELLO ${body}${isPeersEnabled() ? "" : " (ignored: handshake off)"}`);
   if (!isPeersEnabled()) return;
   const peer = parseHello(`HELLO ${body}`);
   if (!peer) return;

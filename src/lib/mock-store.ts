@@ -524,6 +524,8 @@ interface MockState {
   /** Master switch of the experimental features (Luna-to-Luna avatars); off by default. */
   experimentalAvatars: boolean;
   setExperimentalAvatars: (enabled: boolean) => void;
+  /** Turns the Luna avatars of one server on or off (the global switch must be on as well). */
+  setServerAvatarsEnabled: (serverId: string, enabled: boolean) => void;
   /** Experimental: "Forward to channel" in the message menu; off by default. */
   experimentalForward: boolean;
   setExperimentalForward: (enabled: boolean) => void;
@@ -862,6 +864,10 @@ export const useMockStore = create<MockState>()(
       ignoredUsers: [],
       experimentalAvatars: false,
       setExperimentalAvatars: (enabled) => set({ experimentalAvatars: enabled }),
+      setServerAvatarsEnabled: (serverId, enabled) =>
+        set((state) => ({
+          servers: state.servers.map((s) => (s.id === serverId ? { ...s, avatarsEnabled: enabled } : s)),
+        })),
       experimentalForward: false,
       setExperimentalForward: (enabled) => set({ experimentalForward: enabled }),
       lunaHandshake: true,

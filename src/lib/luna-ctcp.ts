@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { logLuna } from "@/hooks/use-luna-log-store";
 
 const SEND_SPACING_MS = 400;
 
@@ -22,8 +23,10 @@ async function drain() {
       const { serverId, target, body, notice } = job;
       try {
         await invoke("send_ctcp", { serverId, target, body, notice });
+        logLuna(serverId, "tx", `CTCP ${target} ${body}`);
       } catch (error) {
         console.warn("Luna CTCP failed:", error);
+        logLuna(serverId, "tx", `CTCP ${target} ${body} (failed: ${String(error)})`);
       }
       await sleep(SEND_SPACING_MS);
     }

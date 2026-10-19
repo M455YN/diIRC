@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useState, useRef } from "react";
-import { Settings, ShieldCheck } from "lucide-react";
+import { Moon, Settings, ShieldCheck } from "lucide-react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -241,6 +241,16 @@ export const NavigationSidebar = () => {
             >
               <div className="flex mx-3 h-[48px] w-[48px] rounded-[24px] group-hover:rounded-[16px] transition-all overflow-hidden items-center justify-center bg-background dark:bg-neutral-700 group-hover:bg-emerald-500">
                 <ShieldCheck className="text-zinc-500 dark:text-zinc-400 group-hover:text-white transition" size={24} />
+              </div>
+            </button>
+          </ActionTooltip>
+          <ActionTooltip side="right" align="center" label={t("nav.luna")}>
+            <button
+              onClick={() => onOpen("luna")}
+              className="group flex items-center justify-center"
+            >
+              <div className="flex mx-3 h-[48px] w-[48px] rounded-[24px] group-hover:rounded-[16px] transition-all overflow-hidden items-center justify-center bg-background dark:bg-neutral-700 group-hover:bg-violet-500">
+                <Moon className="text-zinc-500 dark:text-zinc-400 group-hover:text-white transition" size={24} />
               </div>
             </button>
           </ActionTooltip>

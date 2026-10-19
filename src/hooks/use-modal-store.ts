@@ -30,6 +30,7 @@ export type ModalType =
   | "channelList"
   | "forwardMessage"
   | "rawLog"
+  | "luna"
   | "externalLink"
   | "linkPreview";
 

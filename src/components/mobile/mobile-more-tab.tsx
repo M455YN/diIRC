@@ -7,6 +7,7 @@ import HistoryIcon from "@mui/icons-material/History";
 import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
 import ErrorOutlinedIcon from "@mui/icons-material/ErrorOutlined";
 import NoteOutlinedIcon from "@mui/icons-material/NoteOutlined";
+import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import { useConnectionStatus } from "@/hooks/use-connection-status";
 import { useModal } from "@/hooks/use-modal-store";
 import { useChangelog } from "@/lib/changelog-service";
@@ -72,6 +73,13 @@ const MoreBody = () => {
             headline={tr("mi.settings")}
             supporting={tr("mi.settingsDesc")}
             onClick={() => onOpen("settings")}
+            divider
+          />
+          <M3ListItem
+            leading={<DarkModeOutlinedIcon />}
+            headline={tr("mi.luna")}
+            supporting={tr("mi.lunaDesc")}
+            onClick={() => onOpen("luna")}
             divider
           />
           <M3ListItem

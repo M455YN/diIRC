@@ -804,6 +804,29 @@
     "removeVoice": "Remove voice (-v)",
     "giveVoice": "Give voice (+v)"
   },
+  "luna": {
+    "title": "Luna features",
+    "desc": "Everything Luna clients do between themselves. None of it ever appears in a channel or reaches other IRC clients.",
+    "tabs": {
+      "settings": "Settings",
+      "peers": "Detected Lunas",
+      "log": "Log"
+    },
+    "handshakeDesc": "Tells other Lunas that you run Luna (a hidden client tag, not a chat line) and notes who answers. Avatars and reactions only go to Lunas that said hello. Shows \"Luna <version>\" on a user profile card. Turn off to stay invisible; Luna-only features then stop working.",
+    "avatarsDesc": "Shows small avatars of Luna users and shares yours. Images are 32x32 (animated GIFs stay animated), travel in short private messages and are stored only on each client. Also enable it per server below.",
+    "servers": "Avatars per server",
+    "needsHandshake": "Turn on the handshake above, otherwise nobody can find out who is a Luna.",
+    "noServers": "No servers yet.",
+    "serverAvatarsDesc": "Show avatars of Lunas on this server and share yours.",
+    "peersDesc": "Users who sent a Luna hello this session. Only these are ever sent Luna messages.",
+    "noPeers": "No other Luna seen yet. They appear when someone with Luna joins or speaks in a channel you are in.",
+    "feature": {
+      "react": "reactions",
+      "avatar": "avatars"
+    },
+    "logEmpty": "Nothing yet. Handshakes, avatar transfers and reactions appear here.",
+    "logNote": "Sent (>>) and received (<<) this session. Long lines are cut on screen, Copy keeps them whole."
+  },
   "rawLog": {
     "menu": "Raw IRC traffic",
     "title": "Raw IRC traffic",
@@ -871,6 +894,7 @@
   },
   "nav": {
     "addServer": "Add a server",
+    "luna": "Luna features",
     "roleIcons": "Role icons",
     "settings": "Settings",
     "servers": "Servers",
@@ -962,6 +986,8 @@
     "fallbackNick": "Fallback nickname"
   },
   "mi": {
+    "luna": "Luna features",
+    "lunaDesc": "Handshake, avatars and the log of what Lunas say to each other",
     "installed": "Installed v{{version}}",
     "usersIn": "Users in #{{channel}}",
     "notificationsHeading": "Notifications",

@@ -2,6 +2,7 @@ import { getServerActiveNick, useMockStore } from "@/lib/mock-store";
 import { useAvatarStore } from "@/hooks/use-avatar-store";
 import { useLunaPeerStore } from "@/hooks/use-luna-peer-store";
 import { sendLunaCtcp } from "@/lib/luna-ctcp";
+import { logLuna } from "@/hooks/use-luna-log-store";
 import { encodeAnimatedGif, resizeLanczos3, type GifFrame, type Rgba } from "@/lib/avatar-image";
 
 /*
@@ -225,6 +226,7 @@ interface AvatarEvent {
 }
 
 export function handleAvatarEvent({ serverId, sender, target, notice, body }: AvatarEvent) {
+  logLuna(serverId, "rx", `CTCP ${sender} LUNAAVATAR ${body}${isAvatarsEnabled(serverId) ? "" : " (ignored: avatars off)"}`);
   if (!isAvatarsEnabled(serverId)) return;
   const [command, ...args] = body.trim().split(" ");
   const key = avatarKey(serverId, sender);
