@@ -1,7 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { stripSteganography } from "@/lib/markdown/multiline-steganography";
 import { useReactionStore } from "@/hooks/use-reaction-store";
-import { hasLunaPeerFor, isPeersEnabled } from "@/lib/luna-peers";
+import { lunaPeersFor } from "@/lib/luna-peers";
+import { sendLunaCtcp } from "@/lib/luna-ctcp";
 
 export const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🎉"];
 
@@ -22,7 +22,11 @@ export function reactionMessageKey(author: string, content: string): string {
   return `${author.toLowerCase()}|${hash.toString(16)}`;
 }
 
-/** Adds or removes our reaction locally and tells the other Luna clients in the chat. */
+/**
+ * Adds or removes our reaction locally and tells the other Luna clients in the chat, each one privately:
+ * nothing is sent to the channel, so other clients and older Lunas never see it. A reaction nobody could
+ * display stays local.
+ */
 export async function sendReaction(opts: {
   serverId: string;
   target: string;
@@ -35,16 +39,9 @@ export async function sendReaction(opts: {
   const { serverId, target, ownNick, author, content, emoji, add } = opts;
   const messageKey = reactionMessageKey(author, content);
   useReactionStore.getState().apply(reactionChatKey(serverId, target), messageKey, emoji, ownNick, add);
-  // With the handshake on, a reaction nobody in the chat could display stays local instead of reaching other clients.
-  if (isPeersEnabled() && !hasLunaPeerFor(serverId, target)) return;
   const hash = messageKey.slice(messageKey.lastIndexOf("|") + 1);
-  try {
-    await invoke("send_ctcp", {
-      serverId,
-      target,
-      body: `LUNAREACT ${add ? "+" : "-"}${emoji} ${author} ${hash}`,
-    });
-  } catch (error) {
-    console.warn("Failed to send the reaction:", error);
-  }
+  // In a channel the reaction names it (the receiver gets it as a private message from us).
+  const channel = /^[#&]/.test(target) ? ` ${target}` : "";
+  const body = `LUNAREACT ${add ? "+" : "-"}${emoji} ${author} ${hash}${channel}`;
+  for (const nick of lunaPeersFor(serverId, target)) sendLunaCtcp(serverId, nick, body, false, true);
 }

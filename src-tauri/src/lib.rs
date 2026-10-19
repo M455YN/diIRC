@@ -418,6 +418,10 @@ struct IrcCapsEvent {
 const EDIT_TAG_DENIED: &str = "x-isupport/clienttagdeny=draft/edit";
 /// Same for `+typing`, which the server then would not relay.
 const TYPING_TAG_DENIED: &str = "x-isupport/clienttagdeny=typing";
+/// Same for the Luna handshake tag (`+lunairc/hello`).
+const HELLO_TAG_DENIED: &str = "x-isupport/clienttagdeny=lunairc/hello";
+/// Client tag that carries the Luna handshake to a channel without putting a line in anybody's chat.
+const HELLO_TAG: &str = "+lunairc/hello";
 
 /// Whether `CLIENTTAGDENY` (comma list, `*` = all, `-tag` = exempt) blocks the given client tag.
 fn client_tag_denied(clienttagdeny: &str, tag: &str) -> bool {
@@ -804,8 +808,9 @@ async fn clear_raw_log(state: State<'_, IrcState>, server_id: String) -> Result<
     Ok(())
 }
 
-/// Luna-to-Luna emoji reaction carried in a CTCP: `\x01LUNAREACT <+|-><emoji> <author> <hash>\x01`.
-/// Other clients ignore unknown CTCPs, so nothing shows up in their chat.
+/// Luna-to-Luna emoji reaction carried in a CTCP: `\x01LUNAREACT <+|-><emoji> <author> <hash> [#channel]\x01`.
+/// It is only ever sent privately to individual Luna users, never to a channel, so nothing shows up in
+/// anybody else's chat. The channel is named inside when the reaction belongs to a channel message.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct IrcReactionEvent {
@@ -881,8 +886,8 @@ async fn send_typing(
     result
 }
 
-/// Parses the part after `LUNAREACT ` into (add, emoji, author, hash).
-fn parse_reaction(body: &str) -> Option<(bool, String, String, String)> {
+/// Parses the part after `LUNAREACT ` into (add, emoji, author, hash, channel).
+fn parse_reaction(body: &str) -> Option<(bool, String, String, String, Option<String>)> {
     let mut parts = body.split_whitespace();
     let action = parts.next()?;
     let (add, emoji) = match action.chars().next()? {
@@ -892,10 +897,14 @@ fn parse_reaction(body: &str) -> Option<(bool, String, String, String)> {
     };
     let author = parts.next()?;
     let hash = parts.next()?;
+    let channel = parts.next().map(str::to_string);
     if emoji.is_empty() || parts.next().is_some() {
         return None;
     }
-    Some((add, emoji.to_string(), author.to_string(), hash.to_string()))
+    if channel.as_deref().is_some_and(|c| !is_channel_arg(c)) {
+        return None;
+    }
+    Some((add, emoji.to_string(), author.to_string(), hash.to_string(), channel))
 }
 
 /// Sends a CTCP (`\x01body\x01`) as PRIVMSG, or as NOTICE for replies, without logging it.
@@ -909,6 +918,10 @@ async fn send_ctcp(
 ) -> Result<(), String> {
     if target.contains(char::is_whitespace) || body.contains(['\r', '\n', '\u{1}']) {
         return Err("Invalid CTCP".to_string());
+    }
+    // Luna CTCPs go to one user at a time. In a channel everybody (other clients, older Lunas) would see them.
+    if is_channel_arg(&target) || target.starts_with(['+', '!']) {
+        return Err("Luna CTCPs are never sent to a channel".to_string());
     }
     let senders = state.senders.lock().await;
     let sender = senders
@@ -925,6 +938,46 @@ async fn send_ctcp(
     drop(senders);
     push_raw(&state.raw_log, &server_id, "tx", &format!("CTCP {} {}", target_for_log, body)).await;
     result
+}
+
+/// Announces Luna to a channel as a client tag on a TAGMSG (`@+lunairc/hello=<version>:<features> TAGMSG #chan`).
+/// A TAGMSG is not a chat line: clients without message-tags never get it and the others do not show it.
+/// Returns false when the server cannot relay it, so the caller can greet individual users instead.
+#[tauri::command]
+async fn send_luna_hello(
+    state: State<'_, IrcState>,
+    server_id: String,
+    target: String,
+    value: String,
+) -> Result<bool, String> {
+    if !is_channel_arg(&target)
+        || target.contains(char::is_whitespace)
+        || value.is_empty()
+        || !value.chars().all(|c| c.is_ascii_alphanumeric() || ".+-,:".contains(c))
+    {
+        return Err("Invalid Luna hello".to_string());
+    }
+    let supported = state.server_caps.lock().await.get(&server_id).is_some_and(|caps| {
+        caps.contains("message-tags") && !caps.contains(HELLO_TAG_DENIED)
+    });
+    if !supported {
+        return Ok(false);
+    }
+    let senders = state.senders.lock().await;
+    let sender = senders
+        .get(&server_id)
+        .ok_or_else(|| format!("Not connected to server {server_id}"))?;
+    let tagged = Message::with_tags(
+        Some(vec![Tag(HELLO_TAG.to_string(), Some(value.clone()))]),
+        None,
+        "TAGMSG",
+        vec![&target],
+    )
+    .map_err(|e| format!("Failed to build Luna hello: {e}"))?;
+    let result = sender.send(tagged).map_err(|e| e.to_string());
+    drop(senders);
+    push_raw(&state.raw_log, &server_id, "tx", &format!("@{}={} TAGMSG {}", HELLO_TAG, value, target)).await;
+    result.map(|_| true)
 }
 
 /// Sets the QUIT message used when disconnecting (kept short: IRC servers truncate long ones).
@@ -1456,6 +1509,11 @@ async fn apply_isupport(
         entry.insert(TYPING_TAG_DENIED.to_string());
     } else {
         entry.remove(TYPING_TAG_DENIED);
+    }
+    if client_tag_denied(&deny, "lunairc/hello") {
+        entry.insert(HELLO_TAG_DENIED.to_string());
+    } else {
+        entry.remove(HELLO_TAG_DENIED);
     }
     let (edit, redact) = message_caps_for(Some(&*entry));
     drop(map);
@@ -2459,16 +2517,17 @@ async fn connect_irc(
                                     }
                                     continue;
                                 }
-                                if matches!(message.command, Command::PRIVMSG(..)) {
+                                {
                                     if let Some(body) = raw_content.strip_prefix("\u{1}LUNAREACT ") {
-                                        if let Some((add, emoji, author, hash)) =
+                                        if let Some((add, emoji, author, hash, named_channel)) =
                                             parse_reaction(body.trim_end_matches('\u{1}'))
                                         {
                                             let _ = app_clone.emit(
                                                 "irc_reaction",
                                                 IrcReactionEvent {
                                                     server_id: stream_server_id.clone(),
-                                                    target: log_target_for(channel, &sender_name, is_self_sender),
+                                                    target: named_channel
+                                                        .unwrap_or_else(|| log_target_for(channel, &sender_name, is_self_sender)),
                                                     sender: sender_name.clone(),
                                                     author,
                                                     hash,
@@ -3047,6 +3106,20 @@ async fn connect_irc(
                                             target: log_target_for(target, nick, false),
                                             sender: nick.clone(),
                                             state: typing,
+                                        },
+                                    );
+                                }
+                                if let (false, false, Some(hello)) =
+                                    (is_self, ignored, irc_tag_value(&message.tags, &[HELLO_TAG]))
+                                {
+                                    let _ = app_clone.emit(
+                                        "irc_luna_hello",
+                                        IrcLunaCtcpEvent {
+                                            server_id: stream_server_id.clone(),
+                                            sender: nick.clone(),
+                                            target: target.clone(),
+                                            notice: false,
+                                            body: hello.replacen(':', " ", 1),
                                         },
                                     );
                                 }
@@ -5246,6 +5319,7 @@ pub fn run() {
             get_raw_log,
             clear_raw_log,
             send_ctcp,
+            send_luna_hello,
             send_typing,
             link_preview_open,
             link_preview_bounds,
@@ -5543,12 +5617,21 @@ mod reaction_tests {
     fn parses_add_and_remove() {
         assert_eq!(
             parse_reaction("+👍 Bob 1a2b3c4d"),
-            Some((true, "👍".to_string(), "Bob".to_string(), "1a2b3c4d".to_string()))
+            Some((true, "👍".to_string(), "Bob".to_string(), "1a2b3c4d".to_string(), None))
         );
         assert_eq!(
             parse_reaction("-❤️ Bob ff"),
-            Some((false, "❤️".to_string(), "Bob".to_string(), "ff".to_string()))
+            Some((false, "❤️".to_string(), "Bob".to_string(), "ff".to_string(), None))
         );
+    }
+
+    #[test]
+    fn parses_the_channel_a_reaction_belongs_to() {
+        assert_eq!(
+            parse_reaction("+👍 Bob 1a2b3c4d #general"),
+            Some((true, "👍".to_string(), "Bob".to_string(), "1a2b3c4d".to_string(), Some("#general".to_string())))
+        );
+        assert_eq!(parse_reaction("+👍 Bob 1a2b3c4d general"), None);
     }
 
     #[test]

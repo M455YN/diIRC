@@ -229,6 +229,10 @@ async function handle(c: Conn, l: IrcLine) {
       if (state && l.nick && !isMe(l.nick)) {
         emit("irc_typing", { serverId: c.id, target: logTarget(l.params[0], l.nick, false), sender: l.nick, state });
       }
+      const hello = l.tags["+lunairc/hello"];
+      if (hello && l.nick && !isMe(l.nick)) {
+        emit("irc_luna_hello", { serverId: c.id, sender: l.nick, target: l.params[0], notice: false, body: hello.replace(":", " ") });
+      }
       return;
     }
     case "JOIN": {
@@ -384,11 +388,11 @@ async function message(c: Conn, l: IrcLine, time?: string) {
     if (!self) emit("irc_luna_hello", { serverId: c.id, sender, target, notice, body: hello.trim() });
     return;
   }
-  const react = notice ? null : body("\x01LUNAREACT ");
+  const react = body("\x01LUNAREACT ");
   if (react != null) {
-    const [act, author, hash, extra] = react.trim().split(/\s+/);
-    if (act && "+-".includes(act[0]) && act.length > 1 && author && hash && !extra) {
-      emit("irc_reaction", { serverId: c.id, target: logTarget(target, sender, self), sender, author, hash, emoji: act.slice(1), add: act[0] === "+" });
+    const [act, author, hash, named, extra] = react.trim().split(/\s+/);
+    if (act && "+-".includes(act[0]) && act.length > 1 && author && hash && !extra && (!named || isChan(named))) {
+      emit("irc_reaction", { serverId: c.id, target: named ?? logTarget(target, sender, self), sender, author, hash, emoji: act.slice(1), add: act[0] === "+" });
     }
     return;
   }

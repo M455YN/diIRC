@@ -12,6 +12,7 @@ import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
 import { AvatarUpload } from "@/components/server/avatar-upload";
 import { announceOwnAvatar } from "@/lib/avatars";
+import { reannounceHello } from "@/lib/luna-peers";
 import { parseCustomCommandsJson } from "@/components/server/custom-commands-fields";
 import { serverToSharedForm, sharedFormToOptions } from "@/components/server/server-form-mapping";
 import {
@@ -686,7 +687,10 @@ export const MobileServerFormModal = ({ mode }: { mode: "create" | "edit" }) => 
         notificationSettings: form.notifications as any,
       });
       // Switching the feature on is the moment to tell the channels about an avatar set earlier.
-      if (form.avatarsEnabled && !server.avatarsEnabled) announceOwnAvatar(server.id);
+      if (form.avatarsEnabled && !server.avatarsEnabled) {
+        reannounceHello(server.id);
+        announceOwnAvatar(server.id);
+      }
       setServerMotdPolicy(server.id, form.motdPolicy);
       setServerMediaCollapsePolicy(server.id, form.mediaCollapse);
       onClose();

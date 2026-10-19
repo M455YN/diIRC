@@ -27,6 +27,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { AvatarUpload } from "@/components/server/avatar-upload";
 import { announceOwnAvatar } from "@/lib/avatars";
+import { reannounceHello } from "@/lib/luna-peers";
 import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff, Reply, Server, Zap, MessageSquare, Command, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useModal } from "@/hooks/use-modal-store";
@@ -332,7 +333,10 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
         },
       });
       // Switching the feature on is the moment to tell the channels about an avatar set earlier.
-      if (values.avatarsEnabled && !server?.avatarsEnabled) announceOwnAvatar(serverId);
+      if (values.avatarsEnabled && !server?.avatarsEnabled) {
+        reannounceHello(serverId);
+        announceOwnAvatar(serverId);
+      }
 
       setServerMotdPolicy(serverId, motdPolicyOverride);
       setServerMediaCollapsePolicy(serverId, mediaCollapseOverride);

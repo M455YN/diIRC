@@ -18,7 +18,15 @@ const commands: Record<string, (a: any) => Promise<unknown> | unknown> = {
   send_mode: (a) => irc.raw(a.serverId, "MODE", [a.target, ...(a.mode ? [a.mode] : []), ...(a.params ?? [])]),
   send_invite: (a) => irc.raw(a.serverId, "INVITE", [a.nickname, a.channel]),
   send_away: (a) => irc.raw(a.serverId, "AWAY", a.reason ? [a.reason] : []),
-  send_ctcp: (a) => irc.raw(a.serverId, a.notice ? "NOTICE" : "PRIVMSG", [a.target, irc.ctcpText(a.body)]),
+  send_ctcp: (a) => {
+    if (/^[#&+!]/.test(a.target)) throw "Luna CTCPs are never sent to a channel";
+    irc.raw(a.serverId, a.notice ? "NOTICE" : "PRIVMSG", [a.target, irc.ctcpText(a.body)]);
+  },
+  send_luna_hello: (a) => {
+    if (!irc.hasCap(a.serverId, "message-tags")) return false;
+    irc.raw(a.serverId, "TAGMSG", [a.target], { "+lunairc/hello": a.value });
+    return true;
+  },
   send_typing: (a) => {
     if (irc.hasCap(a.serverId, "message-tags")) irc.raw(a.serverId, "TAGMSG", [a.target], { "+typing": a.typingState });
   },
