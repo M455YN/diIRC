@@ -231,6 +231,10 @@ class CommandRegistry {
     this.commands.set(command.name.toLowerCase(), command);
   }
 
+  public unregister(name: string) {
+    this.commands.delete(name.toLowerCase());
+  }
+
   public get(name: string): SlashCommand | undefined {
     return this.commands.get(name.toLowerCase());
   }

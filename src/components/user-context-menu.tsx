@@ -15,7 +15,8 @@ import { useMockStore } from "@/lib/mock-store";
 import { inviteUserToChannel } from "@/lib/irc-actions";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, ShieldOff, Mic, MicOff, UserPlus, Hash, Clock, UserCheck } from "lucide-react";
+import { MessageSquare, ShieldOff, Mic, MicOff, UserPlus, Hash, Clock, UserCheck, Info } from "lucide-react";
+import { useModal } from "@/hooks/use-modal-store";
 import { ChessQueen } from "@/components/user-role-icon";
 
 interface UserContextMenuProps {
@@ -131,6 +132,10 @@ export const UserContextMenu = React.forwardRef<
     navigate(`/servers/${activeServer.id}/conversations/${targetMember.id}`);
   };
 
+  const onWhois = () => {
+    if (activeServer) useModal.getState().onOpen("whois", { serverId: activeServer.id, nick: nickname });
+  };
+
   const handleInviteToChannel = async (e: React.MouseEvent, targetChannelName: string) => {
     e.stopPropagation();
     if (!activeServer || !nickname) return;
@@ -221,6 +226,11 @@ export const UserContextMenu = React.forwardRef<
             <ContextMenuItem onClick={onOpenDM} className="gap-x-2">
               <MessageSquare className="w-4 h-4 text-zinc-500" />
               <span>{t("ctx.privateMessage")}</span>
+            </ContextMenuItem>
+
+            <ContextMenuItem onClick={onWhois} className="gap-x-2">
+              <Info className="w-4 h-4 text-zinc-500" />
+              <span>{t("ctx.whois")}</span>
             </ContextMenuItem>
 
             <ContextMenuSub>

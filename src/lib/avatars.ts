@@ -1,7 +1,7 @@
 import { getServerActiveNick, useMockStore } from "@/lib/mock-store";
 import { useAvatarStore } from "@/hooks/use-avatar-store";
 import { useLunaPeerStore } from "@/hooks/use-luna-peer-store";
-import { sendLunaCtcp } from "@/lib/luna-ctcp";
+import { sendLunaCtcp, SEND_SPACING_MS } from "@/lib/luna-ctcp";
 import { logLuna } from "@/hooks/use-luna-log-store";
 import { encodeAnimatedGif, resizeLanczos3, type GifFrame, type Rgba } from "@/lib/avatar-image";
 
@@ -30,6 +30,10 @@ const MAX_SOURCE_FRAMES = 60;
 const RECHECK_MS = 15 * 60 * 1000;
 const NON_LUNA_RECHECK_MS = 24 * 60 * 60 * 1000;
 const REQUEST_COOLDOWN_MS = 60 * 1000;
+/** A "?" is answered at most this often per nick: anyone can ask, and the answer is a message we send. */
+const HASH_REPLY_COOLDOWN_MS = 10 * 1000;
+/** Avatar transfers go out one after another; a request that would wait longer than this is dropped (it asks again later). */
+const MAX_SERVE_BACKLOG_MS = 60 * 1000;
 
 const HASH_RE = /^[0-9a-f]{8}$/;
 const DATA_URL_RE = /^data:image\/(?:webp|jpeg|png|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
@@ -144,7 +148,8 @@ export async function fileToAvatarDataUrl(file: File): Promise<string> {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Canvas is not available");
   context.putImageData(new ImageData(resizeLanczos3(pixels, SIZE), SIZE, SIZE), 0, 0);
-  for (const [type, quality] of [["image/webp", 0.8], ["image/webp", 0.5], ["image/jpeg", 0.6], ["image/jpeg", 0.35]] as const) {
+  // 0.95 first: at 32x32 it costs ~4 chunks instead of 2 and keeps edges sharp; lossless WebP would be ~11 chunks.
+  for (const [type, quality] of [["image/webp", 0.95], ["image/webp", 0.8], ["image/webp", 0.5], ["image/jpeg", 0.6], ["image/jpeg", 0.35]] as const) {
     const dataUrl = canvas.toDataURL(type, quality);
     if (dataUrl.startsWith(`data:${type}`) && DATA_URL_RE.test(dataUrl) && dataUrl.length <= MAX_DATA_URL) return dataUrl;
   }
@@ -191,6 +196,8 @@ export async function setOwnAvatar(serverId: string, file: File | null) {
 const lunaPeers = new Set<string>(); // nicks that answered or announced this session
 const lastChecked = new Map<string, number>();
 const lastRequested = new Map<string, number>();
+const lastHashReply = new Map<string, number>();
+let nextServeAt = 0; // when the transfer queue is free again
 const lastServed = new Map<string, number>(); // keyed `nick|hash`: a new avatar is served at once, a repeated request is not
 const incoming = new Map<string, { total: number; parts: string[]; startedAt: number }>();
 
@@ -249,16 +256,26 @@ export function handleAvatarEvent({ serverId, sender, target, notice, body }: Av
   if (isChannel(target)) return; // requests and data are only valid when addressed to us
 
   if (command === "?" && !notice) {
+    if (Date.now() - (lastHashReply.get(key) ?? 0) < HASH_REPLY_COOLDOWN_MS) return;
+    lastHashReply.set(key, Date.now());
     send(serverId, sender, `HASH ${store.own[serverId]?.hash ?? "-"}`, true);
   } else if (command === "GET" && !notice) {
     const own = store.own[serverId];
     const servedKey = `${key}|${args[0]}`;
     if (!own || args[0] !== own.hash || Date.now() - (lastServed.get(servedKey) ?? 0) < REQUEST_COOLDOWN_MS) return;
-    lastServed.set(servedKey, Date.now());
     const total = Math.ceil(own.dataUrl.length / CHUNK_CHARS);
-    for (let i = 0; i < total; i++) {
-      send(serverId, sender, `DATA ${own.hash} ${i + 1}/${total} ${own.dataUrl.slice(i * CHUNK_CHARS, (i + 1) * CHUNK_CHARS)}`, true, true);
-    }
+    // One transfer at a time: with many peers asking at once, each starts when the previous one has been sent.
+    const startAt = Math.max(Date.now(), nextServeAt);
+    if (startAt - Date.now() > MAX_SERVE_BACKLOG_MS) return;
+    lastServed.set(servedKey, Date.now());
+    nextServeAt = startAt + total * SEND_SPACING_MS;
+    const dataUrl = own.dataUrl;
+    const hash = own.hash;
+    setTimeout(() => {
+      for (let i = 0; i < total; i++) {
+        send(serverId, sender, `DATA ${hash} ${i + 1}/${total} ${dataUrl.slice(i * CHUNK_CHARS, (i + 1) * CHUNK_CHARS)}`, true, true);
+      }
+    }, startAt - Date.now());
   } else if (command === "DATA" && notice) {
     collectChunk(key, args);
   }

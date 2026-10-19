@@ -63,3 +63,7 @@ src-tauri/plugins/mobile-chrome/node_modules/
 build-apk.log
 /dist-web
 web-bridge/node_modules
+
+# Private extensions live in extensions/ but are not published with the app; only the examples are tracked
+/extensions/*
+!/extensions/examples/

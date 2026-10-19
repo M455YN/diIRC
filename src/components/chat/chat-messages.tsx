@@ -742,13 +742,23 @@ export const ChatMessages = ({
     const handleReturn = () => {
       // Already reading the newest messages: nothing to jump back to.
       if (document.visibilityState === "hidden" || shouldStickToBottomRef.current) return;
+      // The flag can be stale: messages that arrive while the window is unfocused clear it. If the view is
+      // physically at the bottom (the user scrolled down), stay there instead of jumping back up to the first unread.
+      const element = chatRef.current;
+      if (element && !hasNewer && element.scrollHeight - element.scrollTop - element.clientHeight < BOTTOM_EXIT_THRESHOLD_PX) {
+        shouldStickToBottomRef.current = true;
+        setAtBottom(true);
+        setTailPinned(true);
+        if (items.length > 0) markTailSeen(items[items.length - 1].id);
+        return;
+      }
       const { unreadCount: unread, firstUnreadMessageId: firstUnread } =
         useMockStore.getState().historyWindow;
       if (unread > 0 && firstUnread) handleJumpToUnread();
     };
     window.addEventListener("focus", handleReturn);
     return () => window.removeEventListener("focus", handleReturn);
-  }, [scrollToUnreadOnFocus, handleJumpToUnread]);
+  }, [scrollToUnreadOnFocus, handleJumpToUnread, hasNewer, items, markTailSeen, setTailPinned]);
 
   const handleMarkAsRead = useCallback(() => {
     const lastMsgId = items.length > 0 ? items[items.length - 1].id : null;

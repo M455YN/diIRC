@@ -13,6 +13,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, SeekFrom};
 use tokio::sync::Mutex;
 
 mod ad_filter;
+mod extensions;
 mod ignore;
 mod raw_log;
 use ignore::ignore_matches;
@@ -824,6 +825,15 @@ struct IrcReactionEvent {
     add: bool,
 }
 
+/// Everything the server said about one nick in answer to a WHOIS, as (key, value) pairs the frontend labels.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct IrcWhoisEvent {
+    server_id: String,
+    nick: String,
+    entries: Vec<(String, String)>,
+}
+
 /// Luna-to-Luna CTCP (`\x01LUNAAVATAR <body>\x01`, `\x01LUNA HELLO <body>\x01`), forwarded as-is for the
 /// frontend to interpret: it decides whether the experimental feature is on for this server.
 #[derive(Serialize, Clone)]
@@ -978,6 +988,19 @@ async fn send_luna_hello(
     drop(senders);
     push_raw(&state.raw_log, &server_id, "tx", &format!("@{}={} TAGMSG {}", HELLO_TAG, value, target)).await;
     result.map(|_| true)
+}
+
+/// Asks the server about one nick; the answer arrives as an `irc_whois` event.
+#[tauri::command]
+async fn send_whois(state: State<'_, IrcState>, server_id: String, nick: String) -> Result<(), String> {
+    if nick.is_empty() || nick.contains([' ', ',', '\r', '\n']) {
+        return Err("Invalid nick".to_string());
+    }
+    let senders = state.senders.lock().await;
+    let sender = senders
+        .get(&server_id)
+        .ok_or_else(|| format!("Not connected to server {server_id}"))?;
+    sender.send(Command::Raw("WHOIS".to_string(), vec![nick])).map_err(|e| e.to_string())
 }
 
 /// Sets the QUIT message used when disconnecting (kept short: IRC servers truncate long ones).
@@ -2182,7 +2205,8 @@ async fn connect_irc(
         channels: vec![],
         use_tls: Some(params.use_tls),
         ping_time: Some(15),
-        ping_timeout: Some(10),
+        // A slow link must not look like a dead one: dropping it starts the reconnect loop.
+        ping_timeout: Some(30),
         options,
         ..Config::default()
     };
@@ -2284,6 +2308,10 @@ async fn connect_irc(
         // 353 lines are accumulated per channel and published as one full roster on 366,
         // otherwise every chunk of a large channel would overwrite the previous one.
         let mut names_buffer: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        // WHOIS numerics are collected per nick and published as one event on 318 (end of WHOIS).
+        let mut whois_buffer: std::collections::HashMap<String, Vec<(String, String)>> = std::collections::HashMap::new();
+        // When we last answered a CTCP VERSION from each nick: anyone can ask, so the answers are rate limited.
+        let mut version_replied: std::collections::HashMap<String, std::time::Instant> = std::collections::HashMap::new();
         let mut pending_cap_req: Vec<String> = Vec::new();
         let mut registered = false;
 
@@ -2407,12 +2435,18 @@ async fn connect_irc(
                             let mut content = raw_content.clone();
                             // CTCP VERSION from another user: answer it and keep the request out of the chat.
                             if matches!(message.command, Command::PRIVMSG(..)) && raw_content.trim_matches('\u{1}') == "VERSION" {
-                                if let Some(Prefix::Nickname(nick, _, _)) = message.prefix.as_ref() {
-                                    if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
-                                        let _ = sender.send(Command::NOTICE(
-                                            nick.clone(),
-                                            format!("\u{1}VERSION Luna IRC {}\u{1}", env!("CARGO_PKG_VERSION")),
-                                        ));
+                                if let Some(Prefix::Nickname(nick, _, _)) = message.prefix.as_ref().filter(|_| LUNA_HANDSHAKE.load(std::sync::atomic::Ordering::Relaxed)) {
+                                    // At most one answer per nick every 10 s: a flood of requests must not become a flood of answers.
+                                    let now = std::time::Instant::now();
+                                    version_replied.retain(|_, at| now.duration_since(*at) < std::time::Duration::from_secs(10));
+                                    let recently = version_replied.insert(nick.to_ascii_lowercase(), now).is_some();
+                                    if !recently && version_replied.len() <= 200 {
+                                        if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
+                                            let _ = sender.send(Command::NOTICE(
+                                                nick.clone(),
+                                                format!("\u{1}VERSION Luna IRC {}\u{1}", env!("CARGO_PKG_VERSION")),
+                                            ));
+                                        }
                                     }
                                 }
                                 continue;
@@ -2487,6 +2521,26 @@ async fn connect_irc(
                                     }
                                 }
 
+                                // Answer to our VERSION probe (luna-peers.ts): a Luna says so, any other client's answer is dropped.
+                                if let (Command::NOTICE(..), Some(version)) = (&message.command, raw_content.strip_prefix("\u{1}VERSION ")) {
+                                    if let Some(luna) = version.trim_end_matches('\u{1}').strip_prefix("Luna IRC ") {
+                                        if !is_self_sender {
+                                            let _ = app_clone.emit(
+                                                "irc_luna_hello",
+                                                IrcLunaCtcpEvent {
+                                                    server_id: stream_server_id.clone(),
+                                                    sender: sender_name.clone(),
+                                                    target: channel.clone(),
+                                                    notice: true,
+                                                    // Only the version: anything after it is the sender's own text, not a feature.
+                                                    // "ver" tells the frontend this peer was found by the probe, so its features are still unknown.
+                                                    body: format!("{} react ver", luna.split_whitespace().next().unwrap_or_default()),
+                                                },
+                                            );
+                                        }
+                                    }
+                                    continue;
+                                }
                                 if let Some(body) = raw_content.strip_prefix("\u{1}LUNAAVATAR ") {
                                     if !is_self_sender {
                                         let _ = app_clone.emit(
@@ -2938,8 +2992,12 @@ async fn connect_irc(
                             };
                             let _ = app_clone.emit("irc_ops_event", ops_payload);
 
-                            if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
-                                let _ = sender.send(Command::WHO(Some(channel), None));
+                            // WHO answers with a line per user, so a big channel is asked at most every 10 s.
+                            let who_key = format!("who|{stream_server_id}|{}", channel.to_ascii_lowercase());
+                            if cooldown_ok(who_key, std::time::Duration::from_secs(10)) {
+                                if let Some(sender) = senders_clone.lock().await.get(&stream_server_id) {
+                                    let _ = sender.send(Command::WHO(Some(channel), None));
+                                }
                             }
                         }
                         Command::Response(Response::RPL_WELCOME, ref args) => {
@@ -3980,6 +4038,51 @@ async fn connect_irc(
                             let sys_text = format!("-[Error {}]- {}", cmd, text);
                             emit_and_log_system_message(&app_clone, &log_state_clone, &stream_server_id, &channel, &sys_text).await;
                         }
+                        Command::Response(..) | Command::Raw(..) => {
+                            let (code, args) = match &message.command {
+                                Command::Response(resp, args) => (*resp as u16, args),
+                                Command::Raw(cmd, args) => (cmd.parse::<u16>().unwrap_or(0), args),
+                                _ => continue,
+                            };
+                            let Some(nick) = args.get(1) else { continue };
+                            let last = args.last().cloned().unwrap_or_default();
+                            let arg = |i: usize| args.get(i).cloned().unwrap_or_default();
+                            let entries = whois_buffer.entry(nick.to_ascii_lowercase()).or_default();
+                            match code {
+                                311 => {
+                                    entries.push(("user".into(), format!("{}@{}", arg(2), arg(3))));
+                                    entries.push(("realname".into(), last));
+                                }
+                                312 => entries.push(("server".into(), format!("{} ({})", arg(2), last))),
+                                313 => entries.push(("operator".into(), last)),
+                                301 => entries.push(("away".into(), last)),
+                                317 => {
+                                    entries.push(("idle".into(), arg(2)));
+                                    if args.len() > 4 {
+                                        entries.push(("signon".into(), arg(3)));
+                                    }
+                                }
+                                319 => entries.push(("channels".into(), last)),
+                                330 => entries.push(("account".into(), arg(2))),
+                                335 => entries.push(("bot".into(), last)),
+                                378 => entries.push(("host".into(), last)),
+                                379 => entries.push(("modes".into(), last)),
+                                671 => entries.push(("secure".into(), last)),
+                                318 => {
+                                    let entries = whois_buffer.remove(&nick.to_ascii_lowercase()).unwrap_or_default();
+                                    let _ = app_clone.emit(
+                                        "irc_whois",
+                                        IrcWhoisEvent { server_id: stream_server_id.clone(), nick: nick.clone(), entries },
+                                    );
+                                }
+                                _ => {
+                                    // Not a WHOIS numeric: do not keep an empty entry for it.
+                                    if entries.is_empty() {
+                                        whois_buffer.remove(&nick.to_ascii_lowercase());
+                                    }
+                                }
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -4579,6 +4682,24 @@ async fn disconnect_irc(
     Ok(())
 }
 
+/// True when `key` has not fired within `window`, and marks it as fired now. Used to keep the same request
+/// (NAMES, WHO of one channel) from being sent over and over by clicks, joins and retries.
+fn cooldown_ok(key: String, window: std::time::Duration) -> bool {
+    static COOLDOWNS: std::sync::OnceLock<std::sync::Mutex<HashMap<String, std::time::Instant>>> = std::sync::OnceLock::new();
+    let mut map = COOLDOWNS.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
+    let now = std::time::Instant::now();
+    if map.len() > 256 {
+        map.retain(|_, at| now.duration_since(*at) < std::time::Duration::from_secs(60));
+    }
+    match map.get(&key) {
+        Some(at) if now.duration_since(*at) < window => false,
+        _ => {
+            map.insert(key, now);
+            true
+        }
+    }
+}
+
 #[tauri::command]
 async fn refresh_channel_names(
     state: State<'_, IrcState>,
@@ -4593,6 +4714,10 @@ async fn refresh_channel_names(
         } else {
             format!("#{}", channel)
         };
+        // Clicking a channel back and forth, a join and the safety nets all ask for the same roster: once per 3 s is enough.
+        if !cooldown_ok(format!("names|{server_id}|{}", formatted_channel.to_ascii_lowercase()), std::time::Duration::from_secs(3)) {
+            return Ok(());
+        }
         let _ = sender.send(Command::Raw("NAMES".to_string(), vec![formatted_channel]));
         Ok(())
     } else {
@@ -4948,6 +5073,44 @@ fn toggle_devtools(window: tauri::WebviewWindow) {
     }
 }
 
+/// Set on a second Luna started with F8 in a debug build; its value is that instance's test nick.
+const TEST_INSTANCE_ENV: &str = "LUNA_TEST_INSTANCE";
+
+/// The "announce Luna" setting. Off means Luna stays silent to everyone, also to a CTCP VERSION request.
+static LUNA_HANDSHAKE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+#[tauri::command]
+fn set_luna_handshake(enabled: bool) {
+    LUNA_HANDSHAKE.store(enabled, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Nick of this process when it is a test instance, `None` for a normal Luna.
+#[tauri::command]
+fn test_instance_nick() -> Option<String> {
+    std::env::var(TEST_INSTANCE_ENV).ok()
+}
+
+/// Debug builds only: starts a second Luna process with its own WebView data folder (so its
+/// settings and servers are separate) and a fresh test nick. The frontend connects it to the test server.
+#[tauri::command]
+fn spawn_test_instance() -> Result<String, String> {
+    if !cfg!(debug_assertions) {
+        return Err("Test instances exist only in debug builds".to_string());
+    }
+    let n = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() % 10_000)
+        .unwrap_or(0);
+    let nick = format!("LunaTest{n}");
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    std::process::Command::new(exe)
+        .env(TEST_INSTANCE_ENV, &nick)
+        .env("WEBVIEW2_USER_DATA_FOLDER", std::env::temp_dir().join(format!("luna-{nick}")))
+        .spawn()
+        .map_err(|e| format!("Failed to start a test instance: {e}"))?;
+    Ok(nick)
+}
+
 /// Applies a Windows 11 backdrop material (Mica / Acrylic / Tabbed) to the main window, or
 /// removes it with "none". Returns Err when the material is unsupported (e.g. Windows 10,
 /// non-Windows platforms) so the frontend can fall back to plain CSS surfaces.
@@ -5281,15 +5444,19 @@ pub fn run() {
     let builder = tauri::Builder::default();
     // The single-instance plugin must come first; it forwards irc:// links of a second launch to the deep-link plugin.
     #[cfg(desktop)]
-    let builder = builder
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+    let builder = if std::env::var_os(TEST_INSTANCE_ENV).is_some() {
+        // A test instance must run next to the real Luna, so it skips the single-instance lock.
+        builder
+    } else {
+        builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
             }
         }))
-        .plugin(tauri_plugin_deep_link::init());
+    }
+    .plugin(tauri_plugin_deep_link::init());
     builder
         .manage(IrcState {
             senders: Arc::new(Mutex::new(HashMap::new())),
@@ -5320,6 +5487,7 @@ pub fn run() {
             clear_raw_log,
             send_ctcp,
             send_luna_hello,
+            send_whois,
             send_typing,
             link_preview_open,
             link_preview_bounds,
@@ -5346,6 +5514,16 @@ pub fn run() {
             refresh_channel_names,
             fetch_image_proxy,
             toggle_devtools,
+            set_luna_handshake,
+            extensions::ext_origin,
+            extensions::ext_inspect,
+            extensions::ext_install,
+            extensions::ext_list,
+            extensions::ext_remove,
+            extensions::ext_http,
+            extensions::ext_probe_cert,
+            test_instance_nick,
+            spawn_test_instance,
             set_window_material,
             send_os_notification,
             clear_os_notification,

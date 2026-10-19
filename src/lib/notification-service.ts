@@ -158,6 +158,8 @@ export function checkIsMention(content: string, myNicks: string[]): boolean {
 
 export interface TriggerNotificationParams {
   title: string;
+  /** Name of the chat (channel or person) the messages come from; titles a grouped notification. Defaults to the title. */
+  chatName?: string;
   body: string;
   sender?: string;
   tag?: string;
@@ -209,6 +211,7 @@ const lastPopupPlayedByTag = new Map<string, number>();
 interface UnreadGroup {
   tag: string;
   baseTitle: string;
+  chatName: string;
   count: number;
   lastSender?: string;
   lastBody: string;
@@ -227,6 +230,7 @@ export function clearNotificationGroup(tag: string) {
 
 export async function triggerIncomingNotification({
   title,
+  chatName,
   body,
   sender,
   tag = "default",
@@ -258,6 +262,7 @@ export async function triggerIncomingNotification({
       group = {
         tag,
         baseTitle: title,
+        chatName: chatName ?? title,
         count: 1,
         lastSender: sender,
         lastBody: body,
@@ -274,8 +279,8 @@ export async function triggerIncomingNotification({
       let finalBody = group.lastBody;
 
       if (group.count > 1) {
-        const channelOrName = group.baseTitle.split(" - ")[0] || group.baseTitle;
-        finalTitle = `${channelOrName} (${i18n.t("notif.newMessages", { count: group.count })})`;
+        // The title of the first message names its sender, but the group holds messages from several people: title it with the chat.
+        finalTitle = `${group.chatName} (${i18n.t("notif.newMessages", { count: group.count })})`;
         finalBody = group.lastSender ? `${group.lastSender}: ${group.lastBody}` : group.lastBody;
       }
 

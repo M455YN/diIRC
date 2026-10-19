@@ -1,4 +1,5 @@
 import { Channel, ChannelType, Server } from "@/types";
+import type { ExtensionDialogData } from "@/lib/extensions/types";
 import { create } from "zustand";
 
 export type ModalType = 
@@ -30,6 +31,8 @@ export type ModalType =
   | "channelList"
   | "forwardMessage"
   | "rawLog"
+  | "whois"
+  | "extensionDialog"
   | "luna"
   | "externalLink"
   | "linkPreview";
@@ -39,6 +42,10 @@ interface ModalData {
   channel?: Channel;
   serverId?: string;
   channelName?: string;
+  /** Nick the whois modal asks about. */
+  nick?: string;
+  /** A dialog an extension asked for (extensionDialog modal). */
+  extDialog?: ExtensionDialogData;
   conversationId?: string;
   /** Text of the message being forwarded (forwardMessage modal). */
   forward?: string;

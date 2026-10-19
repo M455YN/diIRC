@@ -10,7 +10,8 @@ import { stripCompatReply, useReplyStore } from "@/hooks/use-reply-store";
 import { useReactionStore } from "@/hooks/use-reaction-store";
 import { reactionChatKey } from "@/lib/reactions";
 import { handleAvatarEvent, noteSpeaker } from "@/lib/avatars";
-import { announceHello, handleHelloEvent } from "@/lib/luna-peers";
+import { clearLunaQueue } from "@/lib/luna-ctcp";
+import { announceHello, handleHelloEvent, probeVersions } from "@/lib/luna-peers";
 import { logLuna } from "@/hooks/use-luna-log-store";
 import { openIrcUrl } from "@/lib/irc-url";
 import { typingChatKey, useTypingStore } from "@/hooks/use-typing-store";
@@ -58,6 +59,9 @@ interface IrcUserHostEventPayload {
   realname?: string;
 }
 
+/** How long a connection must hold before the reconnect backoff starts over. */
+const STABLE_CONNECTION_MS = 60 * 1000;
+
 export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
   const addMessage = useMockStore((state) => state.addMessage);
   const currentProfile = useMockStore((state) => state.currentProfile);
@@ -68,11 +72,20 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
   const setIrcConnected = useMockStore((state) => state.setIrcConnected);
   const setIrcConnecting = useMockStore((state) => state.setIrcConnecting);
   const activeChatKey = useMockStore((state) => state.activeChatKey);
+  const lunaHandshake = useMockStore((state) => state.lunaHandshake);
   const navigate = useNavigate();
+
+  // The backend answers CTCP VERSION itself, so it must know when Luna is meant to stay silent.
+  useEffect(() => {
+    invoke("set_luna_handshake", { enabled: lunaHandshake }).catch(() => {});
+  }, [lunaHandshake]);
+
   const connectedConfigsRef = useRef<Map<string, string>>(new Map());
   const connectingRef = useRef<Set<string>>(new Set());
   const attemptsRef = useRef<Map<string, number>>(new Map());
   const nextReconnectTimeRef = useRef<Map<string, number>>(new Map());
+  // When each server last connected: the retry backoff only starts over after a connection has held for a while.
+  const connectedAtRef = useRef<Map<string, number>>(new Map());
   // Resolved once every backend event listener is registered. Connecting earlier could lose the first
   // events (JOIN / NAMES / WHO of the autojoined channels), which left the member list showing only us.
   const listenersReadyRef = useRef<{ promise: Promise<void>; resolve: () => void } | null>(null);
@@ -291,12 +304,19 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
         if (server.autoReconnect === false) return;
         if (manuallyDisconnectedServers[server.id]) return;
 
-        // Skip if already connected or currently connecting
-        if (ircConnectedServers[server.id] || connectingRef.current.has(server.id)) {
-          attemptsRef.current.delete(server.id);
-          nextReconnectTimeRef.current.delete(server.id);
+        // Skip if already connected or currently connecting. A connection that holds for STABLE_CONNECTION_MS
+        // forgives the earlier failures; one that drops again at once must keep backing off, or a server that
+        // accepts and then kicks us would see a new connection every 15 s.
+        if (ircConnectedServers[server.id]) {
+          const since = connectedAtRef.current.get(server.id) ?? now;
+          connectedAtRef.current.set(server.id, since);
+          if (now - since >= STABLE_CONNECTION_MS) {
+            attemptsRef.current.delete(server.id);
+            nextReconnectTimeRef.current.delete(server.id);
+          }
           return;
         }
+        if (connectingRef.current.has(server.id)) return;
 
         // Check if server is blocked by rate-limiting
         const activeErr = ircConnectionErrors[server.id];
@@ -728,6 +748,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             if (effectiveSettings.shouldNotify()) {
               triggerIncomingNotification({
                 title: `${sender} (Private Message)`,
+                chatName: sender,
                 body: content,
                 sender,
                 tag: `dm:${targetServer.id}:${otherMember.id}`,
@@ -896,6 +917,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
         if (effectiveSettings.shouldNotify(hasMention)) {
           triggerIncomingNotification({
             title: `${sender} (${targetChannel?.name || channel})`,
+            chatName: targetChannel?.name || channel,
             body: content,
             sender,
             tag: `chan:${targetServer.id}:${targetChannel?.id || channel}`,
@@ -999,6 +1021,8 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             announceHello(server_id, channel);
           }
 
+          if (event_type === "JOIN" || event_type === "NAMES") probeVersions(server_id, users);
+
           if (event_type === "JOIN" || event_type === "NAMES") {
             const store = useMockStore.getState();
             const pending = store.pendingJoin;
@@ -1063,9 +1087,9 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
           (event) => {
             const { server_id, connected, error } = event.payload;
             setIrcConnected(server_id, connected, error || null);
+            if (!connected) clearLunaQueue(server_id);
             if (connected) {
-              attemptsRef.current.delete(server_id);
-              nextReconnectTimeRef.current.delete(server_id);
+              connectedAtRef.current.set(server_id, Date.now());
               // Safety net: ask again for the rosters that are still empty (or only us) once the
               // autojoin has settled, so a lost or reset NAMES does not leave the list bare.
               setTimeout(() => {

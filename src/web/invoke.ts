@@ -31,6 +31,8 @@ const commands: Record<string, (a: any) => Promise<unknown> | unknown> = {
     if (irc.hasCap(a.serverId, "message-tags")) irc.raw(a.serverId, "TAGMSG", [a.target], { "+typing": a.typingState });
   },
   set_ignore_list: (a) => irc.setIgnoreList(a.patterns),
+  set_luna_handshake: (a) => irc.setLunaHandshake(a.enabled),
+  ext_list: async () => [], // extensions need the desktop app
   set_quit_message: (a) => irc.setQuitMessage(a.message),
   get_message_caps: async () => ({ edit: false, redact: false }),
   edit_message: async () => { throw "Editing messages is not supported in the web client"; },

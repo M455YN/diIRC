@@ -17,6 +17,8 @@ import { InvitePage } from "@/pages/invite-page";
 
 import { InvitePreviewPage } from "@/pages/invite-preview-page";
 
+import { useMockStore } from "@/lib/mock-store";
+import { refreshExtensions } from "@/lib/extensions/host";
 import { useAutoUpdateCheck } from "@/hooks/use-auto-update-check";
 import { useIsMobileShell } from "@/hooks/use-mobile-platform";
 import { useAppearanceStyleSync } from "@/hooks/use-appearance-style";
@@ -48,8 +50,34 @@ function AppearanceSync() {
   return null;
 }
 
+// A test instance (F8 in a debug build) has its own empty store: give it one server on the test network.
+function useTestInstanceServer() {
+  useEffect(() => {
+    invoke<string | null>("test_instance_nick")
+      .then((nick) => {
+        if (!nick || useMockStore.getState().servers.length > 0) return;
+        useMockStore.getState().addServer({
+          name: "Test",
+          host: "irc.m455yn.io",
+          port: 6667,
+          useTls: true,
+          nicknames: [nick],
+          username: nick,
+          realname: nick,
+          onConnectCommands: ["/join #test"],
+        });
+      })
+      .catch(() => {});
+  }, []);
+}
+
 export function App() {
   useAutoUpdateCheck();
+  useTestInstanceServer();
+  // Starts the extensions the user has turned on (a web build has none).
+  useEffect(() => {
+    void refreshExtensions();
+  }, []);
 
   useEffect(() => {
     // Prevent default native webview right-click context menu globally except in text input fields
@@ -67,6 +95,13 @@ export function App() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // The backend refuses this outside debug builds.
+      if (e.key === "F8") {
+        e.preventDefault();
+        invoke("spawn_test_instance").catch((err) => {
+          console.error("Failed to start a test instance:", err);
+        });
+      }
       if (e.key === "F12") {
         e.preventDefault();
         invoke("toggle_devtools").catch((err) => {

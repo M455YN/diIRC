@@ -25,6 +25,14 @@ import {
 } from "@/lib/update-service";
 import { Update } from "@tauri-apps/plugin-updater";
 
+/** The release notes as plain text for the small box below: images (markdown or <img>) are left out, not shown as code. */
+const notesText = (body: string) =>
+  body
+    .replace(/!\[[^\]]*\]\([^)]*\)|<img\b[^>]*>/gi, "")
+    .replace(/^[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
 export const UpdateModal = () => {
   const { t } = useTranslation();
   const { isOpen, onClose, type, data } = useModal();
@@ -112,7 +120,7 @@ export const UpdateModal = () => {
                 {t("update.whatsNew")}
               </label>
               <div className="max-h-36 overflow-y-auto p-3 rounded-lg bg-zinc-50 dark:bg-[#1e1f22] border border-zinc-200 dark:border-zinc-800 text-xs font-mono text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-relaxed">
-                {updateInfo.body.replace(/^\s*!\[[^\]]*\]\([^)]*\)\s*$/gm, "")}
+                {notesText(updateInfo.body)}
               </div>
             </div>
           )}

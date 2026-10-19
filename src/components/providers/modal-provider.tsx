@@ -50,6 +50,8 @@ const LinkPreviewModal = lazyModal("linkPreview", () => import("@/components/mod
 const ForwardMessageModal = lazyModal("forwardMessage", () => import("@/components/modals/forward-message-modal"), "ForwardMessageModal");
 const LunaModal = lazyModal("luna", () => import("@/components/modals/luna-modal"), "LunaModal");
 const RawLogModal = lazyModal("rawLog", () => import("@/components/modals/raw-log-modal"), "RawLogModal");
+const ExtensionDialogModal = lazyModal("extensionDialog", () => import("@/components/modals/extension-dialog-modal"), "ExtensionDialogModal");
+const WhoisModal = lazyModal("whois", () => import("@/components/modals/whois-modal"), "WhoisModal");
 const ExternalLinkModal = lazyModal("externalLink", () => import("@/components/modals/external-link-modal"), "ExternalLinkModal");
 const ChannelListModal = lazyModal("channelList", () => import("@/components/modals/channel-list-modal"), "ChannelListModal");
 
@@ -94,6 +96,8 @@ export const ModalProvider = () => {
       <ChannelListModal />
       <ForwardMessageModal />
       <RawLogModal />
+      <WhoisModal />
+      <ExtensionDialogModal />
       <LunaModal />
       <ExternalLinkModal />
     </>

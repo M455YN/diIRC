@@ -40,6 +40,8 @@ reqwest = { version = "0.12", features = ["rustls-tls"], default-features = fals
 # aws-lc-rs end up enabled transitively, which rustls cannot disambiguate on its own.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 base64 = "0.22"
+# Fingerprint of the certificate a user chose to trust for an extension (see src/extensions.rs).
+sha2 = "0.10"
 tauri-plugin-clipboard-manager = "2.3.2"
 tauri-plugin-fs = "2.5.1"
 tauri-plugin-opener = "2"

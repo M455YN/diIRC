@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, Forward, Moon, Trash2, Users } from "lucide-react";
+import { Copy, Forward, Orbit, Trash2, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { UserAvatar } from "@/components/user-avatar";
 import { AvatarUpload } from "@/components/server/avatar-upload";
 import { useModal } from "@/hooks/use-modal-store";
+import { useIsMobileShell } from "@/hooks/use-mobile-platform";
+import { ExtensionsSettings } from "@/components/modals/extensions-settings";
 import { useLunaLogStore, type LunaLogEntry } from "@/hooks/use-luna-log-store";
 import { useLunaPeerStore } from "@/hooks/use-luna-peer-store";
 import { useMockStore } from "@/lib/mock-store";
@@ -15,9 +17,9 @@ import { reannounceHello } from "@/lib/luna-peers";
 import { copyToClipboard } from "@/lib/system-utils";
 import { cn } from "@/lib/utils";
 
-type LunaTab = "settings" | "peers" | "log";
+type LunaTab = "settings" | "peers" | "extensions" | "log";
 
-const TABS: LunaTab[] = ["settings", "peers", "log"];
+const TABS: LunaTab[] = ["settings", "peers", "extensions", "log"];
 /** Long lines (avatar data) are cut on screen; copying keeps them whole. */
 const SHOWN_CHARS = 220;
 
@@ -61,6 +63,9 @@ export const LunaModal = () => {
   const { isOpen, onClose, type } = useModal();
   const isModalOpen = isOpen && type === "luna";
   const [tab, setTab] = useState<LunaTab>("settings");
+  // Extensions are desktop-only for now.
+  const isMobile = useIsMobileShell();
+  const tabs = isMobile ? TABS.filter((id) => id !== "extensions") : TABS;
 
   const servers = useMockStore((state) => state.servers);
   const lunaHandshake = useMockStore((state) => state.lunaHandshake);
@@ -104,14 +109,14 @@ export const LunaModal = () => {
       <DialogContent className="sm:max-w-3xl bg-white dark:bg-[#313338] text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-x-2">
-            <Moon className="h-5 w-5 text-indigo-500" />
+            <Orbit className="h-5 w-5 text-indigo-500" />
             {t("luna.title")}
           </DialogTitle>
           <DialogDescription className="text-zinc-500 dark:text-zinc-400">{t("luna.desc")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex gap-x-1 border-b border-zinc-200 dark:border-zinc-800">
-          {TABS.map((id) => (
+          {tabs.map((id) => (
             <button
               key={id}
               type="button"
@@ -135,11 +140,15 @@ export const LunaModal = () => {
           {tab === "settings" && (
             <div className="space-y-4">
               <SwitchRow
-                icon={<Moon className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
+                icon={<Orbit className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
                 title={t("settings.chat.lunaHandshake")}
                 description={t("luna.handshakeDesc")}
                 checked={lunaHandshake}
-                onChange={setLunaHandshake}
+                onChange={(enabled: boolean) => {
+                  setLunaHandshake(enabled);
+                  // Switched on: tell the Luna users we already share channels with.
+                  if (enabled) servers.forEach((s) => reannounceHello(s.id));
+                }}
               />
               <SwitchRow
                 icon={<Users className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
@@ -218,6 +227,8 @@ export const LunaModal = () => {
               )}
             </div>
           )}
+
+          {tab === "extensions" && <ExtensionsSettings />}
 
           {tab === "log" && (
             <div className="flex h-full flex-col gap-y-2">

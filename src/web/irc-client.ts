@@ -72,6 +72,11 @@ try {
   /* storage unavailable */
 }
 
+let lunaHandshake = true;
+export function setLunaHandshake(enabled: boolean) {
+  lunaHandshake = enabled;
+}
+
 export function setIgnoreList(patterns: string[]) {
   ignoreMasks = patterns.map((m) => {
     const full = m.includes("!") || m.includes("@") ? m : `${m}!*@*`;
@@ -375,7 +380,16 @@ async function message(c: Conn, l: IrcLine, time?: string) {
   const self = lc(sender) === lc(c.nick);
   if (!self && l.user && ignoreMasks.some((r) => r.test(`${l.nick}!${l.user}@${l.host}`))) return;
   if (l.host) emit("irc_user_host_event", { server_id: c.id, nick: l.nick, host: l.user ? `${l.user}@${l.host}` : l.host, realname: null });
-  if (!notice && raw === ctcp("VERSION")) return send(c, "NOTICE", [l.nick, ctcp("VERSION Luna IRC (web)")]);
+  if (!notice && raw === ctcp("VERSION")) return !lunaHandshake ? undefined : send(c, "NOTICE", [l.nick, ctcp("VERSION Luna IRC (web)")]);
+
+  // Answer to our VERSION probe (luna-peers.ts): a Luna says so, any other client's answer is dropped.
+  if (notice && raw.startsWith("\x01VERSION ")) {
+    const luna = raw.slice(9).replace(/\x01$/, "").trim();
+    if (!self && luna.startsWith("Luna IRC ")) {
+      emit("irc_luna_hello", { serverId: c.id, sender, target, notice, body: `${luna.slice(9).trim().split(/\s+/)[0]} react ver` });
+    }
+    return;
+  }
 
   const body = (prefix: string) => (raw.startsWith(prefix) ? raw.slice(prefix.length).replace(/\x01$/, "") : null);
   const avatar = body("\x01LUNAAVATAR ");
