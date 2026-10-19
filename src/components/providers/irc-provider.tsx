@@ -72,6 +72,14 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
   const connectingRef = useRef<Set<string>>(new Set());
   const attemptsRef = useRef<Map<string, number>>(new Map());
   const nextReconnectTimeRef = useRef<Map<string, number>>(new Map());
+  // Resolved once every backend event listener is registered. Connecting earlier could lose the first
+  // events (JOIN / NAMES / WHO of the autojoined channels), which left the member list showing only us.
+  const listenersReadyRef = useRef<{ promise: Promise<void>; resolve: () => void } | null>(null);
+  if (!listenersReadyRef.current) {
+    let resolve!: () => void;
+    const promise = new Promise<void>((done) => { resolve = done; });
+    listenersReadyRef.current = { promise, resolve };
+  }
 
   // Clear notifications & unreads for active chat when switched or focused
   useEffect(() => {
@@ -174,6 +182,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
     connectingRef.current.add(server.id);
     setIrcConnecting(server.id, true);
 
+    await listenersReadyRef.current!.promise;
     const params = buildConnectParams(server, currentProfile.name);
 
     try {
@@ -925,15 +934,20 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let isCancelled = false;
     const unlisteners: (() => void)[] = [];
+    const registrations: Promise<void>[] = [];
     // Registers a backend event handler; unregisters it on cleanup (or at once if cleanup already ran).
-    const listenSafe = async <T,>(name: string, handler: (event: { payload: T }) => void) => {
-      try {
-        const unlisten = await listen<T>(name, handler);
-        if (isCancelled) unlisten();
-        else unlisteners.push(unlisten);
-      } catch (error) {
-        console.error(`Failed to listen to ${name}:`, error);
-      }
+    const listenSafe = <T,>(name: string, handler: (event: { payload: T }) => void) => {
+      const registration = (async () => {
+        try {
+          const unlisten = await listen<T>(name, handler);
+          if (isCancelled) unlisten();
+          else unlisteners.push(unlisten);
+        } catch (error) {
+          console.error(`Failed to listen to ${name}:`, error);
+        }
+      })();
+      registrations.push(registration);
+      return registration;
     };
     listenSafe<IrcMessagePayload>("irc_message", (event) => {
       processIncomingPayload(event.payload);
@@ -1050,6 +1064,17 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             if (connected) {
               attemptsRef.current.delete(server_id);
               nextReconnectTimeRef.current.delete(server_id);
+              // Safety net: ask again for the rosters that are still empty (or only us) once the
+              // autojoin has settled, so a lost or reset NAMES does not leave the list bare.
+              setTimeout(() => {
+                const state = useMockStore.getState();
+                const server = state.servers.find((s) => s.id === server_id);
+                if (!server || !state.ircConnectedServers[server_id]) return;
+                for (const channel of server.channels) {
+                  if ((state.channelMembers[channel.id]?.length ?? 0) > 1) continue;
+                  invoke("refresh_channel_names", { serverId: server_id, channel: channel.name }).catch(() => {});
+                }
+              }, 3000);
             } else {
               connectedConfigsRef.current.delete(server_id);
             }
@@ -1262,7 +1287,7 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
-    setupMessageModificationListeners();
+    registrations.push(setupMessageModificationListeners());
 
     listenSafe<{
           serverId: string;
@@ -1301,6 +1326,11 @@ export const IrcProvider = ({ children }: { children: React.ReactNode }) => {
             preview: previewContent,
           });
         });
+
+    // The 3 s cap only matters if a registration hangs: connecting without some listener beats never connecting.
+    void Promise.race([Promise.all(registrations), new Promise((done) => setTimeout(done, 3000))]).then(() =>
+      listenersReadyRef.current?.resolve()
+    );
 
     return () => {
       isCancelled = true;
