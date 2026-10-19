@@ -56,8 +56,6 @@ import {
   Reply,
   Users,
   Palette,
-  FlaskConical,
-  Forward,
 } from "lucide-react";
 import { StatusDisplayMode, formatMessageDate, NickCompletionFormat, formatNickCompletion } from "@/lib/mock-store";
 import { MotdDisplayPolicy, UserDisplayNameMode, ReplyMode } from "@/types";
@@ -88,7 +86,7 @@ const APPEARANCE_STYLES: { id: AppearanceStyle; title: string; description: stri
   { id: "fluent", title: "settings.appearance.style.fluent", description: "settings.appearance.style.fluentDesc" },
 ];
 
-type SettingsTab = "notifications" | "appearance" | "chat" | "previews" | "uploads" | "auth" | "updates" | "experimental" | "about";
+type SettingsTab = "notifications" | "appearance" | "chat" | "previews" | "uploads" | "auth" | "updates" | "about";
 
 // Same categories as the mobile settings screen, plus desktop-only "Updates".
 const ABOUT_AUTHORS = [
@@ -106,7 +104,6 @@ const SETTINGS_TABS: { id: SettingsTab; title: string; icon: typeof Bell }[] = [
   { id: "uploads", title: "settings.tabs.uploads", icon: UploadCloud },
   { id: "auth", title: "settings.tabs.auth", icon: Key },
   { id: "updates", title: "settings.tabs.updates", icon: DownloadCloud },
-  { id: "experimental", title: "settings.tabs.experimental", icon: FlaskConical },
   { id: "about", title: "settings.tabs.about", icon: Info },
 ];
 
@@ -133,7 +130,6 @@ const SETTINGS_SEARCH_INDEX: { key: string; tab: SettingsTab }[] = [
   { key: "settings.items.confirmLeave", tab: "chat" },
   { key: "settings.items.linkPreview", tab: "chat" },
   { key: "settings.items.blockedImagePreview", tab: "chat" },
-  { key: "settings.items.lunaHandshake", tab: "chat" },
   { key: "settings.items.showEvents", tab: "chat" },
   { key: "settings.items.groupEvents", tab: "chat" },
   { key: "settings.items.highlightWords", tab: "chat" },
@@ -141,8 +137,6 @@ const SETTINGS_SEARCH_INDEX: { key: string; tab: SettingsTab }[] = [
   { key: "settings.items.warnExternalLinks", tab: "chat" },
   { key: "settings.items.ignoreList", tab: "chat" },
   { key: "settings.items.sendTyping", tab: "chat" },
-  { key: "settings.items.experimentalAvatars", tab: "experimental" },
-  { key: "settings.items.experimentalForward", tab: "experimental" },
   { key: "settings.items.slashAutocomplete", tab: "chat" },
   { key: "settings.items.markdown", tab: "chat" },
   { key: "settings.items.formattingPreview", tab: "chat" },
@@ -220,10 +214,6 @@ export const SettingsModal = () => {
   const setOpenLinksInPreview = useMockStore((state) => state.setOpenLinksInPreview);
   const openBlockedImagesInPreview = useMockStore((state) => state.openBlockedImagesInPreview ?? true);
   const setOpenBlockedImagesInPreview = useMockStore((state) => state.setOpenBlockedImagesInPreview);
-  const experimentalAvatars = useMockStore((state) => state.experimentalAvatars);
-  const setExperimentalAvatars = useMockStore((state) => state.setExperimentalAvatars);
-  const experimentalForward = useMockStore((state) => state.experimentalForward);
-  const setExperimentalForward = useMockStore((state) => state.setExperimentalForward);
   const sendTypingNotifications = useMockStore((state) => state.sendTypingNotifications);
   const setSendTypingNotifications = useMockStore((state) => state.setSendTypingNotifications);
   const showEvents = useMockStore((state) => state.showEvents);
@@ -248,8 +238,6 @@ export const SettingsModal = () => {
   const setIgnoredUsers = useMockStore((state) => state.setIgnoredUsers);
   const [ignoreDraft, setIgnoreDraft] = useState<string | null>(null);
   const setGroupEvents = useMockStore((state) => state.setGroupEvents);
-  const lunaHandshake = useMockStore((state) => state.lunaHandshake);
-  const setLunaHandshake = useMockStore((state) => state.setLunaHandshake);
 
   const enableCommandSuggestions = useMockStore((state) => state.enableCommandSuggestions ?? true);
   const interactiveCommands = useMockStore((state) => state.interactiveCommands ?? true);
@@ -903,13 +891,6 @@ export const SettingsModal = () => {
                 onChange={setOpenBlockedImagesInPreview}
               />
               <SettingSwitch
-                icon={<Users className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
-                title={t("settings.chat.lunaHandshake")}
-                description={t("settings.chat.lunaHandshakeDesc")}
-                checked={lunaHandshake}
-                onChange={setLunaHandshake}
-              />
-              <SettingSwitch
                 icon={<MessageSquare className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
                 title={t("settings.chat.sendTyping")}
                 description={t("settings.chat.sendTypingDesc")}
@@ -1401,28 +1382,6 @@ export const SettingsModal = () => {
                   </Button>
                 </form>
               </div>
-            </div>
-          )}
-
-          {!searching && tab === "experimental" && (
-            <div className="space-y-5">
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                {t("settings.experimental.intro")}
-              </p>
-              <SettingSwitch
-                icon={<Users className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
-                title={t("settings.experimental.avatars")}
-                description={t("settings.experimental.avatarsDesc")}
-                checked={experimentalAvatars}
-                onChange={setExperimentalAvatars}
-              />
-              <SettingSwitch
-                icon={<Forward className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />}
-                title={t("settings.experimental.forward")}
-                description={t("settings.experimental.forwardDesc")}
-                checked={experimentalForward}
-                onChange={setExperimentalForward}
-              />
             </div>
           )}
 

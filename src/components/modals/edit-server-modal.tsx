@@ -25,10 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { AvatarUpload } from "@/components/server/avatar-upload";
-import { announceOwnAvatar } from "@/lib/avatars";
-import { reannounceHello } from "@/lib/luna-peers";
-import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff, Reply, Server, Zap, MessageSquare, Command, FlaskConical } from "lucide-react";
+import { Plus, Trash, Bell, Volume2, Monitor, Clock, ScrollText, Sparkles, EyeOff, Reply, Server, Zap, MessageSquare, Command } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useModal } from "@/hooks/use-modal-store";
 import { useMockStore } from "@/lib/mock-store";
@@ -68,7 +65,6 @@ const buildFormSchema = (t: (key: string) => string) => z.object({
   autoReconnect: z.boolean().default(true),
   parseLegacyZncTimestamps: z.boolean().default(false),
   onConnectCommands: z.string().default(""),
-  avatarsEnabled: z.boolean().default(false),
   replyMode: z.enum(["inherit", "auto", "modern", "legacy", "hybrid"]).default("inherit"),
   customCommands: z.array(
     z.object({
@@ -91,7 +87,7 @@ const buildFormSchema = (t: (key: string) => string) => z.object({
 
 type ServerFormValues = z.infer<ReturnType<typeof buildFormSchema>>;
 
-type ServerTab = "connection" | "behavior" | "chat" | "notifications" | "commands" | "experimental";
+type ServerTab = "connection" | "behavior" | "chat" | "notifications" | "commands";
 
 const SERVER_TABS: { id: ServerTab; title: string; icon: typeof Bell }[] = [
   { id: "connection", title: "server.tabs.connection", icon: Server },
@@ -99,7 +95,6 @@ const SERVER_TABS: { id: ServerTab; title: string; icon: typeof Bell }[] = [
   { id: "chat", title: "server.tabs.chat", icon: MessageSquare },
   { id: "notifications", title: "server.tabs.notifications", icon: Bell },
   { id: "commands", title: "server.tabs.commands", icon: Command },
-  { id: "experimental", title: "server.tabs.experimental", icon: FlaskConical },
 ];
 
 // What the search box finds: a label (i18n key) and the tab that holds it.
@@ -123,7 +118,6 @@ const SERVER_SEARCH_INDEX: { key: string; tab: ServerTab }[] = [
   { key: "server.field.replyFormat", tab: "chat" },
   { key: "server.tabs.notifications", tab: "notifications" },
   { key: "server.tabs.commands", tab: "commands" },
-  { key: "server.field.avatars", tab: "experimental" },
 ];
 
 // Which tab hosts each form field, so a validation error can bring the user to it.
@@ -132,7 +126,6 @@ const FIELD_TAB: Record<string, ServerTab> = {
   username: "connection", realname: "connection", nicknames: "connection", useTls: "connection",
   autoConnect: "behavior", autoReconnect: "behavior", parseLegacyZncTimestamps: "behavior",
   onConnectCommands: "behavior",
-  avatarsEnabled: "experimental",
   replyMode: "chat",
   customCommands: "commands",
 };
@@ -183,15 +176,13 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
   const [customDmSoundUrlOverride, setCustomDmSoundUrlOverride] = useState<string | undefined>(undefined);
 
   const defaultReplyMode = useMockStore((state) => state.defaultReplyMode) || "hybrid";
-  const experimentalAvatars = useMockStore((state) => state.experimentalAvatars);
-  // The experimental tab (and its search hits) only exist once the global switch is on.
-  const visibleTabs = SERVER_TABS.filter((entry) => entry.id !== "experimental" || experimentalAvatars);
+  const visibleTabs = SERVER_TABS;
   const [query, setQuery] = useState("");
   const trimmedQuery = query.trim().toLowerCase();
   const searching = trimmedQuery.length > 0;
   const searchResults = searching
     ? SERVER_SEARCH_INDEX.filter(
-        (item) => (item.tab !== "experimental" || experimentalAvatars) && t(item.key).toLowerCase().includes(trimmedQuery)
+        (item) => t(item.key).toLowerCase().includes(trimmedQuery)
       )
     : [];
 
@@ -227,7 +218,6 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
       port: 6667,
       nicknames: [{ value: "ReactUser" }],
       useTls: false,
-      avatarsEnabled: false,
       ...serverToSharedForm(),
     }
   });
@@ -274,7 +264,6 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
         port: server?.port || 6667,
         nicknames: defaultNicks,
         useTls: server?.useTls ?? false,
-        avatarsEnabled: server?.avatarsEnabled ?? false,
         ...serverToSharedForm(server),
       });
     }
@@ -309,7 +298,6 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
         port: values.port,
         nicknames: nickArray,
         useTls: values.useTls,
-        avatarsEnabled: values.avatarsEnabled,
         ...sharedFormToOptions({
           ...values,
           username: values.username || "",
@@ -332,11 +320,6 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
           customDmSoundUrl: customDmSoundUrlOverride,
         },
       });
-      // Switching the feature on is the moment to tell the channels about an avatar set earlier.
-      if (values.avatarsEnabled && !server?.avatarsEnabled) {
-        reannounceHello(serverId);
-        announceOwnAvatar(serverId);
-      }
 
       setServerMotdPolicy(serverId, motdPolicyOverride);
       setServerMediaCollapsePolicy(serverId, mediaCollapseOverride);
@@ -938,32 +921,6 @@ export const DesktopServerFormModal = ({ mode }: { mode: "create" | "edit" }) =>
               </div>
               <div role="tabpanel" className={tab === "commands" ? "space-y-4" : "hidden"}>
               <CustomCommandsFields control={form.control} disabled={isLoading} />
-              </div>
-              <div role="tabpanel" className={tab === "experimental" ? "space-y-4" : "hidden"}>
-              {experimentalAvatars && (
-                <FormField
-                  control={form.control}
-                  name="avatarsEnabled"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col rounded-xl border border-zinc-300/80 dark:border-zinc-700/60 bg-zinc-50 dark:bg-[#2b2d31] p-3.5 space-y-3 shadow-sm">
-                      <div className="flex flex-row items-center justify-between">
-                        <div className="space-y-0.5 pr-4">
-                          <FormLabel className="text-sm font-semibold text-zinc-900 dark:text-zinc-200 cursor-pointer">
-                            {t("server.field.avatars")}
-                          </FormLabel>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                            {t("server.field.avatarsDesc")}
-                          </p>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </div>
-                      {field.value && !isCreate && server?.id && <AvatarUpload serverId={server.id} />}
-                    </FormItem>
-                  )}
-                />
-              )}
               </div>
               </div>
               </div>
