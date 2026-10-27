@@ -662,7 +662,11 @@
     "categoriesAria": "Kategorie ustawień serwera",
     "avatar": {
       "choose": "Wybierz obrazek",
-      "remove": "Usuń"
+      "remove": "Usuń",
+      "crop": "Przytnij avatar",
+      "zoom": "Powiększenie",
+      "cancel": "Anuluj",
+      "apply": "Zastosuj"
     },
     "field": {
       "logo": "Logo",

@@ -9,7 +9,7 @@ import { encodeAnimatedGif, resizeLanczos3, type GifFrame, type Rgba } from "@/l
  * Experimental Luna-to-Luna avatars over CTCP (`LUNAAVATAR`). Nothing is uploaded to a server or a
  * host: a 32x32 image travels as base64 chunks and is kept in each client's local storage.
  *
- * The image is a 32x32 WebP/JPEG/PNG, or a GIF when the source is animated.
+ * The image is a 64x64 WebP/JPEG/PNG, or a 32x32 GIF when the source is animated.
  *
  *   NOTICE  nick   HASH <h|->       announcement of a new (or removed) avatar, to Luna users with avatars
  *   PRIVMSG nick   ?                "what is your current avatar?" (checked at most every 15 min)
@@ -18,7 +18,9 @@ import { encodeAnimatedGif, resizeLanczos3, type GifFrame, type Rgba } from "@/l
  *   NOTICE  nick   DATA <h> <i>/<n> <chunk>
  */
 
-const SIZE = 32;
+/** Animations stay small to fit the chunk budget; stills get more pixels so they stay sharp when shown larger. */
+const ANIMATED_SIZE = 32;
+const STILL_SIZE = 64;
 const CHUNK_CHARS = 300;
 const MAX_CHUNKS = 24;
 const MAX_DATA_URL = CHUNK_CHARS * MAX_CHUNKS;
@@ -64,17 +66,26 @@ function send(serverId: string, target: string, body: string, notice = false, ur
 
 // ---- own avatar ----
 
-/** Draws the centred square of `source` and returns its pixels (at most `SOURCE_LIMIT` wide). */
-function readSquare(source: CanvasImageSource, width: number, height: number): Rgba {
-  const side = Math.min(width, height);
-  const target = Math.min(side, SOURCE_LIMIT);
+/** A square window into the source image, in source pixels. */
+export interface AvatarCrop {
+  x: number;
+  y: number;
+  side: number;
+}
+
+/** Draws the crop (default: the centred square) of `source` and returns its pixels (at most `SOURCE_LIMIT` wide). */
+function readSquare(source: CanvasImageSource, width: number, height: number, crop?: AvatarCrop): Rgba {
+  const side = crop?.side ?? Math.min(width, height);
+  const sx = crop?.x ?? (width - side) / 2;
+  const sy = crop?.y ?? (height - side) / 2;
+  const target = Math.max(1, Math.min(Math.round(side), SOURCE_LIMIT));
   const canvas = document.createElement("canvas");
   canvas.width = target;
   canvas.height = target;
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) throw new Error("Canvas is not available");
   context.imageSmoothingQuality = "high";
-  context.drawImage(source, (width - side) / 2, (height - side) / 2, side, side, 0, 0, target, target);
+  context.drawImage(source, sx, sy, side, side, 0, 0, target, target);
   const image = context.getImageData(0, 0, target, target);
   return { data: image.data, width: target, height: target };
 }
@@ -95,7 +106,7 @@ interface FrameDecoderConstructor {
 }
 
 /** The frames of an animated image (GIF, animated WebP/PNG), scaled to avatar size; null for a still image. */
-async function decodeAnimation(file: File): Promise<GifFrame[] | null> {
+async function decodeAnimation(file: File, crop?: AvatarCrop): Promise<GifFrame[] | null> {
   const Decoder = (globalThis as unknown as { ImageDecoder?: FrameDecoderConstructor }).ImageDecoder;
   if (!Decoder || !file.type || !(await Decoder.isTypeSupported(file.type))) return null;
   const decoder = new Decoder({ data: await file.arrayBuffer(), type: file.type });
@@ -108,9 +119,9 @@ async function decodeAnimation(file: File): Promise<GifFrame[] | null> {
     for (let index = 0; index < count; index += step) {
       const { image } = await decoder.decode({ frameIndex: index });
       const duration = image.duration ?? 100_000; // microseconds
-      const pixels = readSquare(image, image.displayWidth, image.displayHeight);
+      const pixels = readSquare(image, image.displayWidth, image.displayHeight, crop);
       image.close();
-      frames.push({ rgba: resizeLanczos3(pixels, SIZE), delayCs: Math.max(2, Math.round((duration * step) / 10_000)) });
+      frames.push({ rgba: resizeLanczos3(pixels, ANIMATED_SIZE), delayCs: Math.max(2, Math.round((duration * step) / 10_000)) });
     }
     return frames;
   } finally {
@@ -128,10 +139,10 @@ function bytesToBase64(bytes: Uint8Array): string {
  * Crops to a square and encodes a small image: Lanczos3-scaled, as a GIF when the source is animated
  * (and the animation can be made small enough), else as WebP/JPEG. Throws if it cannot be made small enough.
  */
-export async function fileToAvatarDataUrl(file: File): Promise<string> {
-  const frames = await decodeAnimation(file).catch(() => null);
+export async function fileToAvatarDataUrl(file: File, crop?: AvatarCrop): Promise<string> {
+  const frames = await decodeAnimation(file, crop).catch(() => null);
   if (frames) {
-    const gif = encodeAnimatedGif(SIZE, frames, MAX_GIF_BYTES);
+    const gif = encodeAnimatedGif(ANIMATED_SIZE, frames, MAX_GIF_BYTES);
     if (gif) {
       const dataUrl = `data:image/gif;base64,${bytesToBase64(gif)}`;
       if (DATA_URL_RE.test(dataUrl) && dataUrl.length <= MAX_DATA_URL) return dataUrl;
@@ -140,15 +151,15 @@ export async function fileToAvatarDataUrl(file: File): Promise<string> {
   }
 
   const bitmap = await createImageBitmap(file);
-  const pixels = readSquare(bitmap, bitmap.width, bitmap.height);
+  const pixels = readSquare(bitmap, bitmap.width, bitmap.height, crop);
   bitmap.close();
   const canvas = document.createElement("canvas");
-  canvas.width = SIZE;
-  canvas.height = SIZE;
+  canvas.width = STILL_SIZE;
+  canvas.height = STILL_SIZE;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Canvas is not available");
-  context.putImageData(new ImageData(resizeLanczos3(pixels, SIZE), SIZE, SIZE), 0, 0);
-  // 0.95 first: at 32x32 it costs ~4 chunks instead of 2 and keeps edges sharp; lossless WebP would be ~11 chunks.
+  context.putImageData(new ImageData(resizeLanczos3(pixels, STILL_SIZE), STILL_SIZE, STILL_SIZE), 0, 0);
+  // Highest quality that fits the chunk budget; lossless WebP would not.
   for (const [type, quality] of [["image/webp", 0.95], ["image/webp", 0.8], ["image/webp", 0.5], ["image/jpeg", 0.6], ["image/jpeg", 0.35]] as const) {
     const dataUrl = canvas.toDataURL(type, quality);
     if (dataUrl.startsWith(`data:${type}`) && DATA_URL_RE.test(dataUrl) && dataUrl.length <= MAX_DATA_URL) return dataUrl;
@@ -181,9 +192,9 @@ export function announceOwnAvatar(serverId: string) {
   for (const nick of recipients.values()) send(serverId, nick, `HASH ${hash}`, true, true);
 }
 
-export async function setOwnAvatar(serverId: string, file: File | null) {
+export async function setOwnAvatar(serverId: string, file: File | null, crop?: AvatarCrop) {
   if (file) {
-    const dataUrl = await fileToAvatarDataUrl(file);
+    const dataUrl = await fileToAvatarDataUrl(file, crop);
     useAvatarStore.getState().setOwn(serverId, { hash: hashDataUrl(dataUrl), dataUrl });
   } else {
     useAvatarStore.getState().setOwn(serverId, null);

@@ -846,7 +846,7 @@ const ChatItemInner = ({
     </ContextMenuTrigger>
     {!deleted && (
       <ContextMenuContent className="w-56 select-none">
-        {!isSystem && (
+        {!isSystem && !conversationId && (
           <div className="flex justify-between px-1 pb-1">
             {QUICK_REACTIONS.map((emoji) => (
               <ContextMenuItem
