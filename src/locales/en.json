@@ -35,7 +35,8 @@
       "advanced": "Advanced",
       "language": "Language",
       "updates": "Updates",
-      "about": "About"
+      "about": "About",
+      "transfer": "Import and export"
     },
     "language": {
       "label": "Language",
@@ -350,6 +351,24 @@
       "version": "Version {{version}}",
       "authors": "Authors",
       "repo": "Source code on GitHub"
+    },
+    "transfer": {
+      "description": "Save your settings and servers to a file, or restore them from one. Existing servers are never overwritten; duplicates are skipped.",
+      "settings": "Settings",
+      "servers": "Servers and channels",
+      "passwords": "Include passwords",
+      "passwordsOff": "Server passwords, channel keys, header values and login lines (such as NickServ IDENTIFY) are left out.",
+      "passwordsWarning": "The file will contain passwords in plain text. Keep it private.",
+      "export": "Export",
+      "import": "Import",
+      "exported": "Export saved.",
+      "imported": "Import finished: {{added}} servers added, {{skipped}} skipped, {{extensions}} extensions installed.",
+      "extensions": "Extensions",
+      "noExtensions": "No extensions installed.",
+      "extensionsNote": "Extension code is exported as is. On import you approve each extension's permissions again.",
+      "reset": "Restore factory settings",
+      "resetDescription": "Removes everything stored by the app: settings, servers, channels, extensions, notes and bookmarks. Chat logs on disk are not deleted.",
+      "resetConfirm": "Restore factory settings? This permanently removes all settings, servers, channels, extensions, notes and bookmarks. Export first if you want a backup. The app will reload."
     }
   },
   "mobile": {

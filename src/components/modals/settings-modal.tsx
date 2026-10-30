@@ -70,6 +70,7 @@ import {
 } from "@/lib/update-service";
 import { Update } from "@tauri-apps/plugin-updater";
 import tauriConfig from "../../../src-tauri/tauri.conf.json";
+import { SettingsTransferSection } from "@/components/settings/transfer-section";
 import { MobileSettingsModal } from "@/components/mobile/mobile-settings";
 import { useTheme } from "next-themes";
 import { useAppearanceStyleStore, useIsWindows11, type AppearanceStyle, type MessageLayout, type WindowMaterial } from "@/hooks/use-appearance-style";
@@ -1662,6 +1663,9 @@ export const SettingsModal = () => {
                   </div>
                 </div>
                 </div>
+              </SettingsSection>
+              <SettingsSection title={t("settings.sections.transfer")}>
+                <SettingsTransferSection />
               </SettingsSection>
               <SettingsSection title={t("settings.sections.about")}>
                 <div className="space-y-5">

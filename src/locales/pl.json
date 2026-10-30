@@ -35,7 +35,8 @@
       "advanced": "Zaawansowane",
       "language": "Język",
       "updates": "Aktualizacje",
-      "about": "O programie"
+      "about": "O programie",
+      "transfer": "Import i eksport"
     },
     "language": {
       "label": "Język",
@@ -350,6 +351,24 @@
       "version": "Wersja {{version}}",
       "authors": "Autorzy",
       "repo": "Kod źródłowy na GitHubie"
+    },
+    "transfer": {
+      "description": "Zapisz ustawienia i serwery do pliku lub przywróć je z pliku. Istniejące serwery nie są nadpisywane, duplikaty są pomijane.",
+      "settings": "Ustawienia",
+      "servers": "Serwery i kanały",
+      "passwords": "Dołącz hasła",
+      "passwordsOff": "Hasła serwerów, klucze kanałów, wartości nagłówków i linie logowania (np. NickServ IDENTIFY) zostaną pominięte.",
+      "passwordsWarning": "Plik będzie zawierał hasła jawnym tekstem. Nie udostępniaj go.",
+      "export": "Eksportuj",
+      "import": "Importuj",
+      "exported": "Eksport zapisany.",
+      "imported": "Import zakończony: dodano serwerów: {{added}}, pominięto: {{skipped}}, zainstalowano rozszerzeń: {{extensions}}.",
+      "extensions": "Rozszerzenia",
+      "noExtensions": "Brak zainstalowanych rozszerzeń.",
+      "extensionsNote": "Kod rozszerzeń jest eksportowany bez zmian. Przy imporcie ponownie zatwierdzasz uprawnienia każdego rozszerzenia.",
+      "reset": "Przywróć ustawienia fabryczne",
+      "resetDescription": "Usuwa wszystko, co zapisała aplikacja: ustawienia, serwery, kanały, rozszerzenia, notatki i zakładki. Logi czatów na dysku nie są usuwane.",
+      "resetConfirm": "Przywrócić ustawienia fabryczne? To trwale usunie wszystkie ustawienia, serwery, kanały, rozszerzenia, notatki i zakładki. Jeśli chcesz kopię zapasową, najpierw wyeksportuj dane. Aplikacja zostanie przeładowana."
     }
   },
   "mobile": {

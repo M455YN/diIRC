@@ -256,9 +256,8 @@ export function setExtensionEnabled(manifest: ExtensionManifest, enabled: boolea
   else stopExtension(manifest.id);
 }
 
-/** Asks the user to approve the file's permissions, then installs it. Resolves to the manifest, or null if declined. */
-export async function installExtensionFile(path: string): Promise<ExtensionManifest | null> {
-  const manifest = await invoke<ExtensionManifest>("ext_inspect", { path });
+/** Shows the permissions of an extension and asks whether to install it. */
+async function confirmInstall(manifest: ExtensionManifest): Promise<boolean> {
   const network = manifest.permissions.network;
   const answer = await showExtensionDialog(manifest.name, {
     title: i18n.t("extensions.installTitle", { name: manifest.name }),
@@ -274,10 +273,27 @@ export async function installExtensionFile(path: string): Promise<ExtensionManif
       { id: "install", label: i18n.t("extensions.install"), primary: true },
     ],
   });
-  if (answer.button !== "install") return null;
+  return answer.button === "install";
+}
+
+/** Asks the user to approve the file's permissions, then installs it. Resolves to the manifest, or null if declined. */
+export async function installExtensionFile(path: string): Promise<ExtensionManifest | null> {
+  const manifest = await invoke<ExtensionManifest>("ext_inspect", { path });
+  if (!(await confirmInstall(manifest))) return null;
   stopExtension(manifest.id);
   await invoke("ext_install", { path });
-  useExtensionStore.getState().approve(manifest.id, network);
+  useExtensionStore.getState().approve(manifest.id, manifest.permissions.network);
+  await refreshExtensions();
+  return manifest;
+}
+
+/** Same as `installExtensionFile`, for source text from an export file. Network permissions are asked again. */
+export async function installExtensionSource(source: string): Promise<ExtensionManifest | null> {
+  const manifest = await invoke<ExtensionManifest>("ext_inspect_source", { source });
+  if (!(await confirmInstall(manifest))) return null;
+  stopExtension(manifest.id);
+  await invoke("ext_install_source", { source });
+  useExtensionStore.getState().approve(manifest.id, manifest.permissions.network);
   await refreshExtensions();
   return manifest;
 }

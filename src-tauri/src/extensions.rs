@@ -140,6 +140,19 @@ async fn read_source(path: &str) -> Result<(String, Manifest), String> {
     Ok((source, manifest))
 }
 
+fn check_source(source: &str) -> Result<Manifest, String> {
+    if source.len() as u64 > MAX_SOURCE_BYTES {
+        return Err(format!("Extensions must be a single file of at most {} KB", MAX_SOURCE_BYTES / 1024));
+    }
+    parse_manifest(source)
+}
+
+async fn write_extension(app: &AppHandle, source: String, manifest: &Manifest) -> Result<(), String> {
+    let dir = extensions_dir(app)?.join(&manifest.id);
+    tokio::fs::create_dir_all(&dir).await.map_err(|e| e.to_string())?;
+    tokio::fs::write(dir.join("main.js"), source).await.map_err(|e| e.to_string())
+}
+
 /// Reads and validates an extension file without installing it, so the user can approve its permissions first.
 #[tauri::command]
 pub async fn ext_inspect(path: String) -> Result<Manifest, String> {
@@ -150,9 +163,30 @@ pub async fn ext_inspect(path: String) -> Result<Manifest, String> {
 #[tauri::command]
 pub async fn ext_install(app: AppHandle, path: String) -> Result<Manifest, String> {
     let (source, manifest) = read_source(&path).await?;
-    let dir = extensions_dir(&app)?.join(&manifest.id);
-    tokio::fs::create_dir_all(&dir).await.map_err(|e| e.to_string())?;
-    tokio::fs::write(dir.join("main.js"), source).await.map_err(|e| e.to_string())?;
+    write_extension(&app, source, &manifest).await?;
+    Ok(manifest)
+}
+
+/// The source of an installed extension, for exporting it.
+#[tauri::command]
+pub async fn ext_read_source(app: AppHandle, id: String) -> Result<String, String> {
+    if !valid_id(&id) {
+        return Err("Invalid extension id".to_string());
+    }
+    tokio::fs::read_to_string(extensions_dir(&app)?.join(&id).join("main.js")).await.map_err(|e| e.to_string())
+}
+
+/// Like `ext_inspect`, for source text that came from an export file.
+#[tauri::command]
+pub async fn ext_inspect_source(source: String) -> Result<Manifest, String> {
+    check_source(&source)
+}
+
+/// Like `ext_install`, for source text that came from an export file.
+#[tauri::command]
+pub async fn ext_install_source(app: AppHandle, source: String) -> Result<Manifest, String> {
+    let manifest = check_source(&source)?;
+    write_extension(&app, source, &manifest).await?;
     Ok(manifest)
 }
 
